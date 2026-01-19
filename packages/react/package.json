@@ -1,6 +1,6 @@
 {
   "name": "@octavus/react",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "React bindings for Octavus agents",
   "license": "MIT",
   "author": "Octavus AI <dev@octavus.ai>",
