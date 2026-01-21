@@ -17,26 +17,26 @@ npm install --save-dev @octavus/cli
 
 ## Configuration
 
-The CLI requires an API key with agent management permissions.
+The CLI requires an API key with the **Agents** permission.
 
 ### Environment Variables
 
-| Variable              | Description                                             |
-| --------------------- | ------------------------------------------------------- |
-| `OCTAVUS_CLI_API_KEY` | API key with agent management permissions (recommended) |
-| `OCTAVUS_API_KEY`     | Fallback if `OCTAVUS_CLI_API_KEY` not set               |
-| `OCTAVUS_API_URL`     | Optional, defaults to `https://octavus.ai`              |
+| Variable              | Description                                        |
+| --------------------- | -------------------------------------------------- |
+| `OCTAVUS_CLI_API_KEY` | API key with "Agents" permission (recommended)     |
+| `OCTAVUS_API_KEY`     | Fallback if `OCTAVUS_CLI_API_KEY` not set          |
+| `OCTAVUS_API_URL`     | Optional, defaults to `https://octavus.ai`         |
 
 ### Two-Key Strategy (Recommended)
 
-For production deployments, use separate API keys:
+For production deployments, use separate API keys with minimal permissions:
 
 ```bash
 # CI/CD or .env.local (not committed)
-OCTAVUS_CLI_API_KEY=oct_sk_...  # Agent management permissions
+OCTAVUS_CLI_API_KEY=oct_sk_...  # "Agents" permission only
 
 # Production .env
-OCTAVUS_API_KEY=oct_sk_...      # Session-only permissions
+OCTAVUS_API_KEY=oct_sk_...      # "Sessions" permission only
 ```
 
 This ensures production servers only have session permissions (smaller blast radius if leaked), while agent management is restricted to development/CI environments.

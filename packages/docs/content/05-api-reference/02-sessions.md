@@ -7,6 +7,8 @@ description: Session management API endpoints.
 
 Sessions represent conversations with agents. They store conversation history, resources, and variables.
 
+All session endpoints require an API key with the **Sessions** permission.
+
 ## Create Session
 
 Create a new agent session.

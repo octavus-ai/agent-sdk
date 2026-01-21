@@ -24,6 +24,24 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 API keys can be created in the Octavus Platform under your project's **API Keys** page.
 
+## API Key Permissions
+
+API keys have two permission scopes:
+
+| Permission   | Description                              | Used By    |
+| ------------ | ---------------------------------------- | ---------- |
+| **Sessions** | Create and manage sessions, trigger agents, upload files | Server SDK |
+| **Agents**   | Create, update, and validate agent definitions | CLI        |
+
+Both permissions allow reading agent definitions (needed by CLI for sync and Server SDK for sessions).
+
+**Recommended setup:** Use separate API keys for different purposes:
+
+- **CLI key** with only "Agents" permission for CI/CD and development
+- **Server key** with only "Sessions" permission for production applications
+
+This limits the blast radius if a key is compromised.
+
 ## Response Format
 
 All responses are JSON. Success responses return the data directly (not wrapped in a `data` field).
