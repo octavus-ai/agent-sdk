@@ -28,10 +28,10 @@ API keys can be created in the Octavus Platform under your project's **API Keys*
 
 API keys have two permission scopes:
 
-| Permission   | Description                              | Used By    |
-| ------------ | ---------------------------------------- | ---------- |
+| Permission   | Description                                              | Used By    |
+| ------------ | -------------------------------------------------------- | ---------- |
 | **Sessions** | Create and manage sessions, trigger agents, upload files | Server SDK |
-| **Agents**   | Create, update, and validate agent definitions | CLI        |
+| **Agents**   | Create, update, and validate agent definitions           | CLI        |
 
 Both permissions allow reading agent definitions (needed by CLI for sync and Server SDK for sessions).
 

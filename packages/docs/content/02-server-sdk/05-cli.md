@@ -21,11 +21,11 @@ The CLI requires an API key with the **Agents** permission.
 
 ### Environment Variables
 
-| Variable              | Description                                        |
-| --------------------- | -------------------------------------------------- |
-| `OCTAVUS_CLI_API_KEY` | API key with "Agents" permission (recommended)     |
-| `OCTAVUS_API_KEY`     | Fallback if `OCTAVUS_CLI_API_KEY` not set          |
-| `OCTAVUS_API_URL`     | Optional, defaults to `https://octavus.ai`         |
+| Variable              | Description                                    |
+| --------------------- | ---------------------------------------------- |
+| `OCTAVUS_CLI_API_KEY` | API key with "Agents" permission (recommended) |
+| `OCTAVUS_API_KEY`     | Fallback if `OCTAVUS_CLI_API_KEY` not set      |
+| `OCTAVUS_API_URL`     | Optional, defaults to `https://octavus.ai`     |
 
 ### Two-Key Strategy (Recommended)
 

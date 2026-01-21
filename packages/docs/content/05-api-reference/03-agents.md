@@ -9,13 +9,13 @@ Manage agent definitions including protocols and prompts.
 
 ## Permissions
 
-| Endpoint              | Method | Permission Required      |
-| --------------------- | ------ | ------------------------ |
-| `/api/agents`         | GET    | Agents OR Sessions       |
-| `/api/agents/:id`     | GET    | Agents OR Sessions       |
-| `/api/agents`         | POST   | Agents                   |
-| `/api/agents/:id`     | PATCH  | Agents                   |
-| `/api/agents/validate`| POST   | Agents                   |
+| Endpoint               | Method | Permission Required |
+| ---------------------- | ------ | ------------------- |
+| `/api/agents`          | GET    | Agents OR Sessions  |
+| `/api/agents/:id`      | GET    | Agents OR Sessions  |
+| `/api/agents`          | POST   | Agents              |
+| `/api/agents/:id`      | PATCH  | Agents              |
+| `/api/agents/validate` | POST   | Agents              |
 
 Read endpoints work with either permission since both the CLI (for sync) and Server SDK (for sessions) need to read agent definitions.
 

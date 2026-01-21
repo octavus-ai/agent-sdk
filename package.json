@@ -20,7 +20,7 @@
     "pnpm": ">=10.0.0"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json}": "prettier --write"
+    "*.{ts,tsx,js,jsx,json,md}": "prettier --write"
   },
   "scripts": {
     "build": "turbo run build",
