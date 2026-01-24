@@ -481,6 +481,56 @@ export class OctavusChat {
             retryable: false,
             cause: err,
           });
+
+      // Finalize any streaming message before setting error state
+      const state = this.streamingState;
+      if (state !== null) {
+        const messages = [...this._messages];
+        const lastMsg = messages[messages.length - 1];
+
+        if (state.parts.length > 0) {
+          // Mark in-progress parts as done/cancelled
+          const finalParts = state.parts.map((part): UIMessagePart => {
+            if (part.type === 'text' || part.type === 'reasoning') {
+              if (part.status === 'streaming') {
+                return { ...part, status: 'done' };
+              }
+            }
+            if (part.type === 'object' && part.status === 'streaming') {
+              return { ...part, status: 'done' };
+            }
+            if (part.type === 'tool-call') {
+              if (part.status === 'pending' || part.status === 'running') {
+                return { ...part, status: 'cancelled' };
+              }
+            }
+            if (part.type === 'operation' && part.status === 'running') {
+              return { ...part, status: 'cancelled' };
+            }
+            return part;
+          });
+
+          const finalMessage: UIMessage = {
+            id: state.messageId,
+            role: 'assistant',
+            parts: finalParts,
+            status: 'done',
+            createdAt: new Date(),
+          };
+
+          if (lastMsg?.id === state.messageId) {
+            messages[messages.length - 1] = finalMessage;
+          } else {
+            messages.push(finalMessage);
+          }
+          this.setMessages(messages);
+        } else if (lastMsg?.id === state.messageId) {
+          // No parts yet - remove the empty streaming message
+          messages.pop();
+          this.setMessages(messages);
+        }
+      }
+
       this.setError(errorObj);
       this.setStatus('error');
       this.streamingState = null;
