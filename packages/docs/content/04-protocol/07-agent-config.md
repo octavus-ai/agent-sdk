@@ -21,7 +21,7 @@ agent:
 
 | Field         | Required | Description                                               |
 | ------------- | -------- | --------------------------------------------------------- |
-| `model`       | Yes      | Model identifier (provider/model-id)                      |
+| `model`       | Yes      | Model identifier or variable reference                    |
 | `system`      | Yes      | System prompt filename (without .md)                      |
 | `input`       | No       | Variables to interpolate in system prompt                 |
 | `tools`       | No       | List of tools the LLM can call                            |
@@ -66,6 +66,39 @@ agent:
 ```
 
 > **Note**: Model IDs are passed directly to the provider SDK. Check the provider's documentation for the latest available models.
+
+### Dynamic Model Selection
+
+The model field can also reference an input variable, allowing consumers to choose the model when creating a session:
+
+```yaml
+input:
+  MODEL:
+    type: string
+    description: The LLM model to use
+
+agent:
+  model: MODEL # Resolved from session input
+  system: system
+```
+
+When creating a session, pass the model:
+
+```typescript
+const sessionId = await client.agentSessions.create('my-agent', {
+  MODEL: 'anthropic/claude-sonnet-4-5',
+});
+```
+
+This enables:
+
+- **Multi-provider support** — Same agent works with different providers
+- **A/B testing** — Test different models without protocol changes
+- **User preferences** — Let users choose their preferred model
+
+The model value is validated at runtime to ensure it's in the correct `provider/model-id` format.
+
+> **Note**: When using dynamic models, provider-specific options (like `anthropic:`) may not apply if the model resolves to a different provider.
 
 ## System Prompt
 

@@ -59,6 +59,18 @@ const sessionId = await client.agentSessions.create('support-chat', {
 });
 ```
 
+Inputs can also be used for [dynamic model selection](/docs/protocol/agent-config#dynamic-model-selection):
+
+```yaml
+input:
+  MODEL:
+    type: string
+    description: The LLM model to use
+
+agent:
+  model: MODEL # Resolved from session input
+```
+
 In prompts, reference with `{{INPUT_NAME}}`:
 
 ```markdown

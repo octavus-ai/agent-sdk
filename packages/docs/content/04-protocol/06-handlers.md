@@ -150,6 +150,16 @@ Start summary thread:
   input: [COMPANY_NAME] # Variables for prompt
 ```
 
+The `model` field can also reference a variable for dynamic model selection:
+
+```yaml
+Start summary thread:
+  block: start-thread
+  thread: summary
+  model: SUMMARY_MODEL # Resolved from input variable
+  system: escalation-summary
+```
+
 ### serialize-thread
 
 Convert conversation to text:
