@@ -24,5 +24,45 @@ export {
   type SocketTransportOptions,
 } from './transports';
 
-// Re-export everything from core so consumers don't need to install @octavus/core separately
-export * from '@octavus/core';
+export type * from '@octavus/core';
+export {
+  // Error classes
+  AppError,
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+  ForbiddenError,
+  OctavusError,
+  // Error type guards
+  isRateLimitError,
+  isAuthenticationError,
+  isProviderError,
+  isToolError,
+  isRetryableError,
+  isValidationError,
+  // Error event helpers
+  createErrorEvent,
+  errorToStreamEvent,
+  createInternalErrorEvent,
+  createApiErrorEvent,
+  // Utilities
+  generateId,
+  isAbortError,
+  // Thread helpers
+  MAIN_THREAD,
+  resolveThread,
+  isMainThread,
+  threadForPart,
+  isOtherThread,
+  // Type guards
+  isFileReference,
+  isFileReferenceArray,
+  // Safe parse helpers
+  safeParseStreamEvent,
+  safeParseUIMessage,
+  safeParseUIMessages,
+  // Skills
+  OCTAVUS_SKILL_TOOLS,
+  isOctavusSkillTool,
+  getSkillSlugFromToolCall,
+} from '@octavus/core';

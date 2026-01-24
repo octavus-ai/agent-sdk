@@ -14,15 +14,12 @@ export {
   type FileUploadRequest,
   type FileUploadInfo,
   type UploadUrlsResponse,
-  fileUploadRequestSchema,
-  fileUploadInfoSchema,
-  uploadUrlsResponseSchema,
 } from '@/files.js';
 export { AgentSession, toSSEStream, type SessionConfig, type TriggerOptions } from '@/session.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
 
-// Agent types and schemas (read-only - use @octavus/cli for agent management)
+// Agent types (read-only - use @octavus/cli for agent management)
 export type {
   AgentFormat,
   AgentSettings,
@@ -31,12 +28,45 @@ export type {
   AgentDefinition,
 } from '@/agent-types.js';
 
+export type * from '@octavus/core';
 export {
-  agentFormatSchema,
-  agentSchema,
-  agentsResponseSchema,
-  agentDefinitionSchema,
-} from '@/agent-types.js';
-
-// Re-export everything from core so consumers don't need to install @octavus/core separately
-export * from '@octavus/core';
+  // Error classes
+  AppError,
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+  ForbiddenError,
+  OctavusError,
+  // Error type guards
+  isRateLimitError,
+  isAuthenticationError,
+  isProviderError,
+  isToolError,
+  isRetryableError,
+  isValidationError,
+  // Error event helpers
+  createErrorEvent,
+  errorToStreamEvent,
+  createInternalErrorEvent,
+  createApiErrorEvent,
+  // Utilities
+  generateId,
+  isAbortError,
+  // Thread helpers
+  MAIN_THREAD,
+  resolveThread,
+  isMainThread,
+  threadForPart,
+  isOtherThread,
+  // Type guards
+  isFileReference,
+  isFileReferenceArray,
+  // Safe parse helpers
+  safeParseStreamEvent,
+  safeParseUIMessage,
+  safeParseUIMessages,
+  // Skills
+  OCTAVUS_SKILL_TOOLS,
+  isOctavusSkillTool,
+  getSkillSlugFromToolCall,
+} from '@octavus/core';

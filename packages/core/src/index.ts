@@ -33,6 +33,14 @@ export { MAIN_THREAD, resolveThread, isMainThread, threadForPart, isOtherThread 
 
 export { isFileReference, isFileReferenceArray } from './stream/schemas';
 
+export {
+  chatMessageSchema,
+  toolResultSchema,
+  fileReferenceSchema,
+  uiMessageSchema,
+  uiMessagePartSchema,
+} from './stream/schemas';
+
 export type {
   // Common
   DisplayMode,
@@ -107,18 +115,7 @@ export type {
   UIMessage,
 } from './stream/types';
 
-export {
-  // Internal schemas
-  chatMessageSchema,
-  toolResultSchema,
-  fileReferenceSchema,
-  safeParseStreamEvent,
-  // UI schemas
-  uiMessageSchema,
-  uiMessagePartSchema,
-  safeParseUIMessage,
-  safeParseUIMessages,
-} from './stream/schemas';
+export { safeParseStreamEvent, safeParseUIMessage, safeParseUIMessages } from './stream/schemas';
 
 export {
   OCTAVUS_SKILL_TOOLS,

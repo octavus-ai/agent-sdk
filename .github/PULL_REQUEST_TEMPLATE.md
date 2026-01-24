@@ -20,14 +20,6 @@ Brief description of the changes.
 - [ ] `@octavus/cli`
 - [ ] `@octavus/docs`
 
-## Checklist
-
-- [ ] I have tested my changes locally
-- [ ] I have updated the documentation (if applicable)
-- [ ] I have added/updated tests (if applicable)
-- [ ] My code follows the project's style guidelines
-- [ ] I have run `pnpm lint` and `pnpm type-check`
-
 ## Breaking Changes
 
 If this is a breaking change, describe what breaks and how users should migrate.
