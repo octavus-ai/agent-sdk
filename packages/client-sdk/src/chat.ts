@@ -53,20 +53,41 @@ export type ClientToolHandler =
   | 'interactive';
 
 /**
- * Pending client tool call awaiting user interaction.
+ * Interactive tool call awaiting user interaction.
+ * The `submit` and `cancel` methods are pre-bound to this tool call's ID.
  */
-export interface PendingClientTool {
+export interface InteractiveTool {
   /** Unique identifier for this tool call */
   toolCallId: string;
   /** Name of the tool being called */
   toolName: string;
   /** Arguments passed to the tool */
   args: Record<string, unknown>;
-  /** 'llm' for LLM-initiated, 'block' for protocol block */
+  /**
+   * Submit a result for this tool call.
+   * Call this when the user has provided input.
+   *
+   * @param result - The result from user interaction
+   */
+  submit: (result: unknown) => void;
+  /**
+   * Cancel this tool call with an optional reason.
+   * Call this when the user dismisses the UI without providing input.
+   *
+   * @param reason - Optional reason for cancellation (default: 'User cancelled')
+   */
+  cancel: (reason?: string) => void;
+}
+
+/**
+ * Internal pending tool state (before binding submit/cancel).
+ */
+interface PendingToolState {
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
   source?: 'llm' | 'block';
-  /** For block-based tools: variable name to store result in */
   outputVariable?: string;
-  /** For block-based tools: block index to resume from after execution */
   blockIndex?: number;
 }
 
@@ -120,7 +141,7 @@ export interface OctavusChatOptions {
    * Register handlers for tools that should execute in the browser.
    *
    * - If a tool has a handler function: executes automatically
-   * - If a tool is marked as 'interactive': waits for user input via submitClientToolResult()
+   * - If a tool is marked as 'interactive': appears in `pendingClientTools` with bound `submit()`/`cancel()`
    *
    * @example Automatic client tool
    * ```typescript
@@ -139,7 +160,8 @@ export interface OctavusChatOptions {
    * clientTools: {
    *   'request-feedback': 'interactive',
    * }
-   * // Then render UI based on pendingClientTools and call submitClientToolResult()
+   * // Then render UI based on pendingClientTools['request-feedback']
+   * // and call tool.submit(result) or tool.cancel()
    * ```
    */
   clientTools?: Record<string, ClientToolHandler>;
@@ -362,10 +384,12 @@ function buildMessageFromState(state: StreamingState, status: 'streaming' | 'don
  *
  * const chat = new OctavusChat({
  *   transport: createHttpTransport({
- *     triggerRequest: (triggerName, input) =>
+ *     request: (req, options) =>
  *       fetch('/api/trigger', {
  *         method: 'POST',
- *         body: JSON.stringify({ sessionId, triggerName, input }),
+ *         headers: { 'Content-Type': 'application/json' },
+ *         body: JSON.stringify({ sessionId, ...req }),
+ *         signal: options?.signal,
  *       }),
  *   }),
  * });
@@ -396,8 +420,12 @@ export class OctavusChat {
   private streamingState: StreamingState | null = null;
 
   // Client tool state
-  private _pendingClientTools = new Map<string, PendingClientTool>();
-  private _pendingClientToolsCache: PendingClientTool[] = [];
+  // Keyed by toolName -> array of pending tools for that name
+  private _pendingToolsByName = new Map<string, PendingToolState[]>();
+  // Keyed by toolCallId -> pending tool state (for internal lookup when submitting)
+  private _pendingToolsByCallId = new Map<string, PendingToolState>();
+  // Cache for React useSyncExternalStore compatibility
+  private _pendingClientToolsCache: Record<string, InteractiveTool[]> = {};
   private _completedToolResults: ToolResult[] = [];
   private _clientToolAbortController: AbortController | null = null;
   // Server tool results from mixed server+client tools (for continuation)
@@ -435,15 +463,24 @@ export class OctavusChat {
   }
 
   /**
-   * Pending client tool calls awaiting user interaction.
-   * These are tools marked as 'interactive' that need user input before continuing.
+   * Pending interactive tool calls keyed by tool name.
+   * Each tool has bound `submit()` and `cancel()` methods.
    *
-   * Use this to render custom UI (modals, dialogs, etc.) and call
-   * `submitClientToolResult()` when the user provides input.
+   * @example
+   * ```tsx
+   * const feedbackTools = pendingClientTools['request-feedback'] ?? [];
    *
-   * Note: Returns a cached array for React useSyncExternalStore compatibility.
+   * {feedbackTools.map(tool => (
+   *   <FeedbackModal
+   *     key={tool.toolCallId}
+   *     {...tool.args}
+   *     onSubmit={(result) => tool.submit(result)}
+   *     onCancel={() => tool.cancel()}
+   *   />
+   * ))}
+   * ```
    */
-  get pendingClientTools(): PendingClientTool[] {
+  get pendingClientTools(): Record<string, InteractiveTool[]> {
     return this._pendingClientToolsCache;
   }
 
@@ -484,7 +521,18 @@ export class OctavusChat {
   }
 
   private updatePendingClientToolsCache(): void {
-    this._pendingClientToolsCache = Array.from(this._pendingClientTools.values());
+    const cache: Record<string, InteractiveTool[]> = {};
+    for (const [toolName, tools] of this._pendingToolsByName.entries()) {
+      cache[toolName] = tools.map((tool) => ({
+        toolCallId: tool.toolCallId,
+        toolName: tool.toolName,
+        args: tool.args,
+        submit: (result: unknown) => this.submitToolResult(tool.toolCallId, result),
+        cancel: (reason?: string) =>
+          this.submitToolResult(tool.toolCallId, undefined, reason ?? 'User cancelled'),
+      }));
+    }
+    this._pendingClientToolsCache = cache;
   }
 
   // =========================================================================
@@ -563,7 +611,8 @@ export class OctavusChat {
     this.streamingState = createEmptyStreamingState();
 
     // Clear any previous client tool state
-    this._pendingClientTools.clear();
+    this._pendingToolsByName.clear();
+    this._pendingToolsByCallId.clear();
     this._completedToolResults = [];
     this._serverToolResults = [];
     this._pendingExecutionId = null;
@@ -674,30 +723,27 @@ export class OctavusChat {
   }
 
   /**
-   * Submit a result for an interactive client tool.
-   * Call this when the user has provided input for a pending interactive tool.
-   *
-   * @param toolCallId - The ID of the tool call to submit a result for
-   * @param result - The result from user interaction
-   * @param error - Optional error message if the tool failed or was cancelled
-   *
-   * @example
-   * ```typescript
-   * // User submitted a rating
-   * submitClientToolResult(toolCallId, { rating: 5, feedback: 'Great!' });
-   *
-   * // User cancelled the modal
-   * submitClientToolResult(toolCallId, null, 'User cancelled');
-   * ```
+   * Internal: Submit a result for a pending tool.
+   * Called by bound submit/cancel methods on InteractiveTool.
    */
-  submitClientToolResult(toolCallId: string, result?: unknown, error?: string): void {
-    const pendingTool = this._pendingClientTools.get(toolCallId);
+  private submitToolResult(toolCallId: string, result?: unknown, error?: string): void {
+    const pendingTool = this._pendingToolsByCallId.get(toolCallId);
     if (!pendingTool) {
       // Tool not found - may have been cancelled or already resolved
       return;
     }
 
-    this._pendingClientTools.delete(toolCallId);
+    // Remove from both maps
+    this._pendingToolsByCallId.delete(toolCallId);
+    const toolsForName = this._pendingToolsByName.get(pendingTool.toolName);
+    if (toolsForName) {
+      const filtered = toolsForName.filter((t) => t.toolCallId !== toolCallId);
+      if (filtered.length === 0) {
+        this._pendingToolsByName.delete(pendingTool.toolName);
+      } else {
+        this._pendingToolsByName.set(pendingTool.toolName, filtered);
+      }
+    }
     this.updatePendingClientToolsCache();
 
     const toolResult: ToolResult = {
@@ -716,7 +762,7 @@ export class OctavusChat {
       this.emitToolOutputAvailable(toolCallId, result);
     }
 
-    if (this._pendingClientTools.size === 0) {
+    if (this._pendingToolsByCallId.size === 0) {
       void this.continueWithClientToolResults();
     }
 
@@ -731,7 +777,8 @@ export class OctavusChat {
 
     this._clientToolAbortController?.abort();
     this._clientToolAbortController = null;
-    this._pendingClientTools.clear();
+    this._pendingToolsByName.clear();
+    this._pendingToolsByCallId.clear();
     this._completedToolResults = [];
     this._serverToolResults = [];
     this._pendingExecutionId = null;
@@ -1123,7 +1170,7 @@ export class OctavusChat {
         // Handle client-tool-calls finish reason
         if (event.finishReason === 'client-tool-calls') {
           // Don't finalize message - we're waiting for client tools
-          if (this._pendingClientTools.size > 0) {
+          if (this._pendingToolsByCallId.size > 0) {
             this.setStatus('awaiting-input');
           }
           // If no interactive tools but we have completed results, continueWithClientToolResults
@@ -1300,8 +1347,7 @@ export class OctavusChat {
    * Handle client tool request event.
    *
    * IMPORTANT: Interactive tools must be registered synchronously (before any await)
-   * to avoid a race condition where the finish event is processed before tools are added
-   * to _pendingClientTools.
+   * to avoid a race condition where the finish event is processed before tools are added.
    */
   private async handleClientToolRequest(
     toolCalls: PendingToolCall[],
@@ -1310,21 +1356,25 @@ export class OctavusChat {
     this._clientToolAbortController = new AbortController();
 
     // FIRST PASS: Register all interactive tools synchronously (no await)
-    // This ensures _pendingClientTools is populated before finish event is processed
+    // This ensures pending tools are populated before finish event is processed
     for (const tc of toolCalls) {
       const handler = this.options.clientTools?.[tc.toolName];
       if (handler === 'interactive') {
-        this._pendingClientTools.set(tc.toolCallId, {
+        const toolState: PendingToolState = {
           toolCallId: tc.toolCallId,
           toolName: tc.toolName,
           args: tc.args,
           source: tc.source,
           outputVariable: tc.outputVariable,
           blockIndex: tc.blockIndex,
-        });
+        };
+        // Add to both maps
+        this._pendingToolsByCallId.set(tc.toolCallId, toolState);
+        const existing = this._pendingToolsByName.get(tc.toolName) ?? [];
+        this._pendingToolsByName.set(tc.toolName, [...existing, toolState]);
       }
     }
-    if (this._pendingClientTools.size > 0) {
+    if (this._pendingToolsByCallId.size > 0) {
       this.updatePendingClientToolsCache();
     }
 
@@ -1387,7 +1437,7 @@ export class OctavusChat {
     }
 
     // If no interactive tools, auto-continue with results
-    if (this._pendingClientTools.size === 0 && this._completedToolResults.length > 0) {
+    if (this._pendingToolsByCallId.size === 0 && this._completedToolResults.length > 0) {
       await this.continueWithClientToolResults();
     }
   }

@@ -6,7 +6,7 @@ export {
   type UserMessageInput,
   type ClientToolContext,
   type ClientToolHandler,
-  type PendingClientTool,
+  type InteractiveTool,
 } from './hooks/use-octavus-chat';
 
 export type * from '@octavus/client-sdk';

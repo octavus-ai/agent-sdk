@@ -22,11 +22,12 @@ function Chat({ sessionId }: { sessionId: string }) {
   const transport = useMemo(
     () =>
       createHttpTransport({
-        triggerRequest: (triggerName, input) =>
-          fetch('/api/octavus', {
+        request: (req, options) =>
+          fetch('/api/trigger', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId, triggerName, input }),
+            body: JSON.stringify({ sessionId, ...req }),
+            signal: options?.signal,
           }),
       }),
     [sessionId],
@@ -93,11 +94,11 @@ When using `createSocketTransport`, additional properties are available:
 import { createHttpTransport } from '@octavus/react';
 
 const transport = createHttpTransport({
-  triggerRequest: (triggerName, input, options) =>
-    fetch('/api/octavus', {
+  request: (req, options) =>
+    fetch('/api/trigger', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, triggerName, input }),
+      body: JSON.stringify({ sessionId, ...req }),
       signal: options?.signal,
     }),
 });

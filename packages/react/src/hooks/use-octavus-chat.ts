@@ -16,7 +16,7 @@ import {
   type UploadUrlsResponse,
   type ClientToolContext,
   type ClientToolHandler,
-  type PendingClientTool,
+  type InteractiveTool,
 } from '@octavus/client-sdk';
 
 export type {
@@ -28,7 +28,7 @@ export type {
   UploadUrlsResponse,
   ClientToolContext,
   ClientToolHandler,
-  PendingClientTool,
+  InteractiveTool,
 };
 
 export interface UseOctavusChatReturn {
@@ -57,38 +57,24 @@ export interface UseOctavusChatReturn {
    */
   connectionError: Error | undefined;
   /**
-   * Pending client tool calls awaiting user interaction.
-   * These are tools marked as 'interactive' that need user input.
-   *
-   * Use this to render custom UI (modals, dialogs, etc.) and call
-   * `submitClientToolResult()` when the user provides input.
+   * Pending interactive tool calls keyed by tool name.
+   * Each tool has bound `submit()` and `cancel()` methods.
    *
    * @example
    * ```tsx
-   * {pendingClientTools.map(tool => (
+   * const feedbackTools = pendingClientTools['request-feedback'] ?? [];
+   *
+   * {feedbackTools.map(tool => (
    *   <FeedbackModal
    *     key={tool.toolCallId}
-   *     showFeedback={tool.args.showFeedback}
-   *     onSubmit={(rating, feedback) => {
-   *       submitClientToolResult(tool.toolCallId, { rating, feedback });
-   *     }}
-   *     onCancel={() => {
-   *       submitClientToolResult(tool.toolCallId, null, 'User cancelled');
-   *     }}
+   *     {...tool.args}
+   *     onSubmit={(result) => tool.submit(result)}
+   *     onCancel={() => tool.cancel()}
    *   />
    * ))}
    * ```
    */
-  pendingClientTools: PendingClientTool[];
-  /**
-   * Submit a result for an interactive client tool.
-   * Call this when the user has provided input for a pending interactive tool.
-   *
-   * @param toolCallId - The ID of the tool call to submit a result for
-   * @param result - The result from user interaction (or undefined if error)
-   * @param errorMessage - Optional error message if the tool failed or was cancelled
-   */
-  submitClientToolResult: (toolCallId: string, result?: unknown, errorMessage?: string) => void;
+  pendingClientTools: Record<string, InteractiveTool[]>;
   /**
    * Trigger the agent and optionally add a user message to the chat.
    *
@@ -156,11 +142,12 @@ export interface UseOctavusChatReturn {
  * function Chat({ sessionId }) {
  *   const transport = useMemo(
  *     () => createHttpTransport({
- *       triggerRequest: (triggerName, input) =>
+ *       request: (req, options) =>
  *         fetch('/api/trigger', {
  *           method: 'POST',
  *           headers: { 'Content-Type': 'application/json' },
- *           body: JSON.stringify({ sessionId, triggerName, input }),
+ *           body: JSON.stringify({ sessionId, ...req }),
+ *           signal: options?.signal,
  *         }),
  *     }),
  *     [sessionId],
@@ -281,12 +268,6 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     [chat],
   );
 
-  const submitClientToolResult = useCallback(
-    (toolCallId: string, result?: unknown, errorMessage?: string) =>
-      chat.submitClientToolResult(toolCallId, result, errorMessage),
-    [chat],
-  );
-
   // Stable references for connect/disconnect (socket transport only)
   const connect = useCallback(
     () => socketTransport?.connect() ?? Promise.resolve(),
@@ -301,7 +282,6 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     connectionState,
     connectionError,
     pendingClientTools,
-    submitClientToolResult,
     send,
     stop,
     connect: socketTransport ? connect : undefined,

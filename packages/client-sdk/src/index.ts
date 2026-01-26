@@ -5,7 +5,7 @@ export {
   type UserMessageInput,
   type ClientToolContext,
   type ClientToolHandler,
-  type PendingClientTool,
+  type InteractiveTool,
 } from './chat';
 
 export { uploadFiles, type UploadFilesOptions, type UploadUrlsResponse } from './files';
