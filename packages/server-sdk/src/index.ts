@@ -23,6 +23,9 @@ export {
   type SessionRequest,
   type TriggerRequest,
   type ContinueRequest,
+  type StopMessage,
+  type SocketMessage,
+  type SocketMessageHandlers,
 } from '@/session.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';

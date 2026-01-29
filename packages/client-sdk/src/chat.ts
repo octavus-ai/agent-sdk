@@ -432,6 +432,9 @@ export class OctavusChat {
   private _serverToolResults: ToolResult[] = [];
   // Execution ID for continuation (from client-tool-request event)
   private _pendingExecutionId: string | null = null;
+  // Flag indicating automatic client tools have completed and are ready to continue
+  // We wait for the finish event before actually continuing to avoid race conditions
+  private _readyToContinue = false;
 
   // Listener sets for reactive frameworks
   private listeners = new Set<Listener>();
@@ -616,6 +619,7 @@ export class OctavusChat {
     this._completedToolResults = [];
     this._serverToolResults = [];
     this._pendingExecutionId = null;
+    this._readyToContinue = false;
     this.updatePendingClientToolsCache();
 
     try {
@@ -782,6 +786,7 @@ export class OctavusChat {
     this._completedToolResults = [];
     this._serverToolResults = [];
     this._pendingExecutionId = null;
+    this._readyToContinue = false;
     this.updatePendingClientToolsCache();
 
     this.transport.stop();
@@ -1172,9 +1177,11 @@ export class OctavusChat {
           // Don't finalize message - we're waiting for client tools
           if (this._pendingToolsByCallId.size > 0) {
             this.setStatus('awaiting-input');
+          } else if (this._readyToContinue) {
+            // Automatic tools completed before finish event arrived - continue now
+            this._readyToContinue = false;
+            void this.continueWithClientToolResults();
           }
-          // If no interactive tools but we have completed results, continueWithClientToolResults
-          // was already called from handleClientToolRequest
           return;
         }
 
@@ -1436,9 +1443,11 @@ export class OctavusChat {
       }
     }
 
-    // If no interactive tools, auto-continue with results
+    // If no interactive tools, mark as ready to continue.
+    // We wait for the finish event to arrive first to avoid a race condition where
+    // the finish event gets delivered to the continuation's event resolver.
     if (this._pendingToolsByCallId.size === 0 && this._completedToolResults.length > 0) {
-      await this.continueWithClientToolResults();
+      this._readyToContinue = true;
     }
   }
 }

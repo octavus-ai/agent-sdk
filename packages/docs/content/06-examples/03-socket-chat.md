@@ -79,7 +79,7 @@ This is the core of socket integration. Each connection gets its own session:
 ```typescript
 // server/octavus/socket-handler.ts
 import type { Connection } from 'sockjs';
-import { OctavusClient, type AgentSession } from '@octavus/server-sdk';
+import { OctavusClient, type AgentSession, type SocketMessage } from '@octavus/server-sdk';
 
 const octavus = new OctavusClient({
   baseUrl: process.env.OCTAVUS_API_URL!,
@@ -91,7 +91,8 @@ const AGENT_ID = process.env.OCTAVUS_AGENT_ID!;
 export function createSocketHandler() {
   return (conn: Connection) => {
     let session: AgentSession | null = null;
-    let abortController: AbortController | null = null;
+
+    const send = (data: unknown) => conn.write(JSON.stringify(data));
 
     conn.on('data', (rawData: string) => {
       void handleMessage(rawData);
@@ -100,57 +101,36 @@ export function createSocketHandler() {
     async function handleMessage(rawData: string) {
       const msg = JSON.parse(rawData);
 
-      // Handle stop request
-      if (msg.type === 'stop') {
-        abortController?.abort();
-        return;
-      }
-
-      // Handle trigger and continue messages
-      if (msg.type === 'trigger' || msg.type === 'continue') {
+      // Handle trigger, continue, and stop messages
+      if (msg.type === 'trigger' || msg.type === 'continue' || msg.type === 'stop') {
         // Create session lazily on first trigger
         if (!session && msg.type === 'trigger') {
           const sessionId = await octavus.agentSessions.create(AGENT_ID, {
-            // Initial input variables from your protocol
             COMPANY_NAME: 'Acme Corp',
           });
 
           session = octavus.agentSessions.attach(sessionId, {
             tools: {
-              // Server-side tool handlers
               'get-user-account': async () => {
-                // Fetch from your database
                 return { name: 'Demo User', plan: 'pro' };
               },
               'create-support-ticket': async () => {
                 return { ticketId: 'TKT-123', estimatedResponse: '24h' };
               },
-              // Tools without handlers are forwarded to the client
             },
           });
         }
 
         if (!session) return;
 
-        abortController = new AbortController();
-
-        // execute() handles both triggers and continuations
-        const events = session.execute(msg, { signal: abortController.signal });
-
-        try {
-          for await (const event of events) {
-            if (abortController.signal.aborted) break;
-            conn.write(JSON.stringify(event));
-          }
-        } catch {
-          // Handle errors
-        }
+        // handleSocketMessage manages abort controller internally
+        await session.handleSocketMessage(msg as SocketMessage, {
+          onEvent: send,
+        });
       }
     }
 
-    conn.on('close', () => {
-      abortController?.abort();
-    });
+    conn.on('close', () => {});
   };
 }
 ```
@@ -373,13 +353,13 @@ The socket handler receives messages and forwards them to Octavus:
 // Client sends continuation (after client tool handling):
 { type: 'continue', executionId: '...', toolResults: [...] }
 
-// Server handles both:
-if (msg.type === 'trigger' || msg.type === 'continue') {
-  const events = session.execute(msg);
-  for await (const event of events) {
-    conn.write(JSON.stringify(event));
-  }
-}
+// Client sends stop:
+{ type: 'stop' }
+
+// Server handles all three with handleSocketMessage:
+await session.handleSocketMessage(msg, {
+  onEvent: (event) => conn.write(JSON.stringify(event)),
+});
 ```
 
 ### Tools

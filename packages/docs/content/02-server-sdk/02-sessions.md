@@ -162,6 +162,35 @@ const events = session.execute(request, {
 
 When the client aborts the request, the signal propagates through to the LLM provider, stopping generation immediately. Any partial content is preserved.
 
+## WebSocket Handling
+
+For WebSocket integrations, use `handleSocketMessage()` which manages abort controller lifecycle internally:
+
+```typescript
+import type { SocketMessage } from '@octavus/server-sdk';
+
+// In your socket handler
+conn.on('data', async (rawData: string) => {
+  const msg = JSON.parse(rawData);
+
+  if (msg.type === 'trigger' || msg.type === 'continue' || msg.type === 'stop') {
+    await session.handleSocketMessage(msg as SocketMessage, {
+      onEvent: (event) => conn.write(JSON.stringify(event)),
+      onFinish: () => sendMessagesUpdate(), // Optional callback after streaming
+    });
+  }
+});
+```
+
+The `handleSocketMessage()` method:
+
+- Handles `trigger`, `continue`, and `stop` messages
+- Automatically aborts previous requests when a new one arrives
+- Streams events via the `onEvent` callback
+- Calls `onFinish` after streaming completes (not called if aborted)
+
+See [Socket Chat Example](/docs/examples/socket-chat) for a complete implementation.
+
 ## Session Lifecycle
 
 ```mermaid

@@ -131,7 +131,7 @@ The server creates a session on first trigger message:
 
 ```typescript
 import sockjs from 'sockjs';
-import { OctavusClient, type AgentSession } from '@octavus/server-sdk';
+import { OctavusClient, type AgentSession, type SocketMessage } from '@octavus/server-sdk';
 
 const client = new OctavusClient({
   baseUrl: process.env.OCTAVUS_API_URL!,
@@ -141,7 +141,8 @@ const client = new OctavusClient({
 function createSocketHandler() {
   return (conn: sockjs.Connection) => {
     let session: AgentSession | null = null;
-    let abortController: AbortController | null = null;
+
+    const send = (data: unknown) => conn.write(JSON.stringify(data));
 
     conn.on('data', (rawData: string) => {
       void handleMessage(rawData);
@@ -150,17 +151,10 @@ function createSocketHandler() {
     async function handleMessage(rawData: string) {
       const msg = JSON.parse(rawData);
 
-      if (msg.type === 'stop') {
-        abortController?.abort();
-        return;
-      }
-
-      // Handle both trigger and continue messages
-      if (msg.type === 'trigger' || msg.type === 'continue') {
+      if (msg.type === 'trigger' || msg.type === 'continue' || msg.type === 'stop') {
         // Create session lazily on first trigger
         if (!session && msg.type === 'trigger') {
           const sessionId = await client.agentSessions.create('your-agent-id', {
-            // Initial input variables
             COMPANY_NAME: 'Acme Corp',
           });
           session = client.agentSessions.attach(sessionId, {
@@ -173,24 +167,14 @@ function createSocketHandler() {
 
         if (!session) return;
 
-        abortController = new AbortController();
-
-        // execute() handles both triggers and continuations
-        const events = session.execute(msg, {
-          signal: abortController.signal,
+        // handleSocketMessage manages abort controller internally
+        await session.handleSocketMessage(msg as SocketMessage, {
+          onEvent: send,
         });
-
-        try {
-          for await (const event of events) {
-            conn.write(JSON.stringify(event));
-          }
-        } catch {
-          // Handle errors
-        }
       }
     }
 
-    conn.on('close', () => abortController?.abort());
+    conn.on('close', () => {});
   };
 }
 
@@ -245,9 +229,12 @@ When `sessionId` changes, the hook automatically reinitializes with the new tran
 When using client-provided sessionId, the server must handle an `init` message:
 
 ```typescript
+import type { SocketMessage } from '@octavus/server-sdk';
+
 sockServer.on('connection', (conn) => {
   let session: AgentSession | null = null;
-  let abortController: AbortController | null = null;
+
+  const send = (data: unknown) => conn.write(JSON.stringify(data));
 
   conn.on('data', (rawData: string) => {
     void handleMessage(rawData);
@@ -266,35 +253,23 @@ sockServer.on('connection', (conn) => {
       return;
     }
 
-    if (msg.type === 'stop') {
-      abortController?.abort();
-      return;
-    }
-
     // All other messages require initialized session
     if (!session) {
-      conn.write(
-        JSON.stringify({
-          type: 'error',
-          errorType: 'validation_error',
-          message: 'Session not initialized. Send init message first.',
-          source: 'platform',
-          retryable: false,
-        }),
-      );
+      send({
+        type: 'error',
+        errorType: 'validation_error',
+        message: 'Session not initialized. Send init message first.',
+        source: 'platform',
+        retryable: false,
+      });
       return;
     }
 
-    // Handle both trigger and continue messages
-    if (msg.type === 'trigger' || msg.type === 'continue') {
-      abortController = new AbortController();
-
-      // execute() handles both triggers and continuations
-      const events = session.execute(msg, { signal: abortController.signal });
-
-      for await (const event of events) {
-        conn.write(JSON.stringify(event));
-      }
+    // handleSocketMessage handles trigger, continue, and stop
+    if (msg.type === 'trigger' || msg.type === 'continue' || msg.type === 'stop') {
+      await session.handleSocketMessage(msg as SocketMessage, {
+        onEvent: send,
+      });
     }
   }
 });

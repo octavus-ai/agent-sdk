@@ -280,6 +280,7 @@ export function createSocketTransport(options: SocketTransportOptions): SocketTr
       await ensureConnected();
 
       eventQueue = [];
+      eventResolver = null; // Clear any pending resolver
       isStreaming = true;
 
       // Note: clientToolResults not sent here - socket uses sendClientToolResults() for continuation
@@ -319,6 +320,7 @@ export function createSocketTransport(options: SocketTransportOptions): SocketTr
       await ensureConnected();
 
       eventQueue = [];
+      eventResolver = null; // Clear any pending resolver from previous operation
       isStreaming = true;
 
       socket!.send(

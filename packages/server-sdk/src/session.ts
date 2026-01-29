@@ -33,6 +33,26 @@ export interface ContinueRequest {
 /** All request types supported by the session */
 export type SessionRequest = TriggerRequest | ContinueRequest;
 
+/** Stop message to abort in-flight requests */
+export interface StopMessage {
+  type: 'stop';
+}
+
+/** All socket protocol messages (trigger, continue, stop) */
+export type SocketMessage = TriggerRequest | ContinueRequest | StopMessage;
+
+// =============================================================================
+// Socket Message Handler Types
+// =============================================================================
+
+/** Handlers for socket message streaming */
+export interface SocketMessageHandlers {
+  /** Called for each stream event */
+  onEvent: (event: StreamEvent) => void;
+  /** Called after streaming completes (not called if aborted) */
+  onFinish?: () => void | Promise<void>;
+}
+
 /**
  * Converts an async iterable of stream events to an SSE-formatted ReadableStream.
  * Use this when you need to return an SSE response (e.g., HTTP endpoints).
@@ -88,6 +108,7 @@ export class AgentSession {
   private config: ApiClientConfig;
   private toolHandlers: ToolHandlers;
   private resourceMap: Map<string, Resource>;
+  private socketAbortController: AbortController | null = null;
 
   constructor(sessionConfig: SessionConfig) {
     this.sessionId = sessionConfig.sessionId;
@@ -142,6 +163,57 @@ export class AgentSession {
 
   getSessionId(): string {
     return this.sessionId;
+  }
+
+  /**
+   * Handle a WebSocket protocol message (trigger, continue, or stop).
+   * Manages abort controller lifecycle internally.
+   *
+   * @example
+   * ```typescript
+   * conn.on('data', (raw) => {
+   *   session.handleSocketMessage(JSON.parse(raw), {
+   *     onEvent: (event) => conn.write(JSON.stringify(event)),
+   *     onFinish: () => sendMessagesUpdate(),
+   *   });
+   * });
+   * ```
+   */
+  async handleSocketMessage(
+    message: SocketMessage,
+    handlers: SocketMessageHandlers,
+  ): Promise<void> {
+    if (message.type === 'stop') {
+      this.socketAbortController?.abort();
+      return;
+    }
+
+    // Abort any previous request before starting new one
+    this.socketAbortController?.abort();
+    this.socketAbortController = new AbortController();
+
+    // Capture local reference - controller might change if another request comes in
+    const localController = this.socketAbortController;
+
+    try {
+      const events = this.execute(message, { signal: localController.signal });
+
+      for await (const event of events) {
+        if (localController.signal.aborted) break;
+        handlers.onEvent(event);
+      }
+
+      if (!localController.signal.aborted && handlers.onFinish) {
+        await handlers.onFinish();
+      }
+    } catch (err) {
+      if (!localController.signal.aborted) {
+        const errorEvent = createInternalErrorEvent(
+          err instanceof Error ? err.message : 'Unknown error',
+        );
+        handlers.onEvent(errorEvent);
+      }
+    }
   }
 
   private async *executeStream(
