@@ -435,6 +435,9 @@ export class OctavusChat {
   // Flag indicating automatic client tools have completed and are ready to continue
   // We wait for the finish event before actually continuing to avoid race conditions
   private _readyToContinue = false;
+  // Flag indicating the finish event with client-tool-calls reason has been received
+  // Used to handle the race condition where finish arrives before async tools complete
+  private _finishEventReceived = false;
 
   // Listener sets for reactive frameworks
   private listeners = new Set<Listener>();
@@ -620,6 +623,7 @@ export class OctavusChat {
     this._serverToolResults = [];
     this._pendingExecutionId = null;
     this._readyToContinue = false;
+    this._finishEventReceived = false;
     this.updatePendingClientToolsCache();
 
     try {
@@ -787,6 +791,7 @@ export class OctavusChat {
     this._serverToolResults = [];
     this._pendingExecutionId = null;
     this._readyToContinue = false;
+    this._finishEventReceived = false;
     this.updatePendingClientToolsCache();
 
     this.transport.stop();
@@ -1174,12 +1179,15 @@ export class OctavusChat {
       case 'finish': {
         // Handle client-tool-calls finish reason
         if (event.finishReason === 'client-tool-calls') {
+          // Mark that finish event has been received (for async tools that complete later)
+          this._finishEventReceived = true;
           // Don't finalize message - we're waiting for client tools
           if (this._pendingToolsByCallId.size > 0) {
             this.setStatus('awaiting-input');
           } else if (this._readyToContinue) {
             // Automatic tools completed before finish event arrived - continue now
             this._readyToContinue = false;
+            this._finishEventReceived = false;
             void this.continueWithClientToolResults();
           }
           return;
@@ -1448,6 +1456,14 @@ export class OctavusChat {
     // the finish event gets delivered to the continuation's event resolver.
     if (this._pendingToolsByCallId.size === 0 && this._completedToolResults.length > 0) {
       this._readyToContinue = true;
+
+      // If finish event already arrived while we were executing async tools,
+      // trigger continuation now instead of waiting forever
+      if (this._finishEventReceived) {
+        this._readyToContinue = false;
+        this._finishEventReceived = false;
+        void this.continueWithClientToolResults();
+      }
     }
   }
 }
