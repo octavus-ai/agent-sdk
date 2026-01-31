@@ -2,6 +2,7 @@ import type { ApiClientConfig } from '@/base-api-client.js';
 import { AgentsApi } from '@/agents.js';
 import { AgentSessionsApi } from '@/agent-sessions.js';
 import { FilesApi } from '@/files.js';
+import { WorkersApi } from '@/workers.js';
 
 export interface OctavusClientConfig {
   baseUrl: string;
@@ -13,6 +14,7 @@ export class OctavusClient {
   readonly agents: AgentsApi;
   readonly agentSessions: AgentSessionsApi;
   readonly files: FilesApi;
+  readonly workers: WorkersApi;
   readonly baseUrl: string;
   private readonly apiKey?: string;
 
@@ -28,6 +30,7 @@ export class OctavusClient {
     this.agents = new AgentsApi(apiConfig);
     this.agentSessions = new AgentSessionsApi(apiConfig);
     this.files = new FilesApi(apiConfig);
+    this.workers = new WorkersApi(apiConfig);
   }
 
   getHeaders(): Record<string, string> {

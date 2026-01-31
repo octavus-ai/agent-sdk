@@ -1176,6 +1176,16 @@ export class OctavusChat {
         this.options.onResourceUpdate?.(event.name, event.value);
         break;
 
+      case 'worker-start':
+        // Worker execution started - could be used for UI indicators
+        // These events are handled at a higher level (SDK or consumer)
+        break;
+
+      case 'worker-result':
+        // Worker execution completed - could be used for UI indicators
+        // These events are handled at a higher level (SDK or consumer)
+        break;
+
       case 'finish': {
         // Handle client-tool-calls finish reason
         if (event.finishReason === 'client-tool-calls') {

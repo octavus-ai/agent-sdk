@@ -27,6 +27,13 @@ export {
   type SocketMessage,
   type SocketMessageHandlers,
 } from '@/session.js';
+export {
+  WorkersApi,
+  type WorkerStartRequest,
+  type WorkerContinueRequest,
+  type WorkerRequest,
+  type WorkerExecuteOptions,
+} from '@/workers.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
 

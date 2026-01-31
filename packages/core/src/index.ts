@@ -86,6 +86,9 @@ export type {
   // File Events (skill execution)
   GeneratedFile,
   FileAvailableEvent,
+  // Worker Events
+  WorkerStartEvent,
+  WorkerResultEvent,
   // Union
   StreamEvent,
   // Internal Message Types
