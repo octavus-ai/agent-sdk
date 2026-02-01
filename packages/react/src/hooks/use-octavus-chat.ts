@@ -43,6 +43,14 @@ export interface UseOctavusChatReturn {
    */
   error: OctavusError | null;
   /**
+   * The current session/execution ID from the most recent `send()` call.
+   * Updated when the server responds with a `start` event containing an execution ID.
+   * Useful for tracking activity logs or debugging.
+   *
+   * For workers, this is the execution ID. For interactive sessions, this is the session ID.
+   */
+  sessionId: string | null;
+  /**
    * Socket connection state (socket transport only).
    * For HTTP transport, this is always `undefined`.
    *
@@ -205,10 +213,28 @@ export interface UseOctavusChatReturn {
 export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatReturn {
   const chatRef = useRef<OctavusChat | null>(null);
   const transportRef = useRef<Transport | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Store the session ID setter in a ref so we can use it in a stable callback
+  const sessionIdSetterRef = useRef(setSessionId);
+  sessionIdSetterRef.current = setSessionId;
+
+  // Store user's onStart callback in a ref
+  const userOnStartRef = useRef(options.onStart);
+  userOnStartRef.current = options.onStart;
 
   if (transportRef.current !== options.transport) {
     chatRef.current?.stop();
-    chatRef.current = new OctavusChat(options);
+    // Reset session ID when transport changes
+    setSessionId(null);
+    // Create chat with wrapped onStart callback
+    chatRef.current = new OctavusChat({
+      ...options,
+      onStart: (id) => {
+        sessionIdSetterRef.current(id);
+        userOnStartRef.current?.(id);
+      },
+    });
     transportRef.current = options.transport;
   }
 
@@ -279,6 +305,7 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     messages,
     status,
     error,
+    sessionId,
     connectionState,
     connectionError,
     pendingClientTools,

@@ -313,6 +313,8 @@ export interface PendingToolCall {
   outputVariable?: string;
   /** For block-based tools: block index to resume from after execution */
   blockIndex?: number;
+  /** Thread name where this tool call originated (for workers with threads) */
+  thread?: string;
 }
 
 /**
@@ -353,6 +355,8 @@ export interface ToolResult {
   error?: string;
   outputVariable?: string;
   blockIndex?: number;
+  /** Thread name where this tool call originated (for workers with threads) */
+  thread?: string;
 }
 
 /**
@@ -392,6 +396,36 @@ export interface FileAvailableEvent {
   toolCallId?: string;
 }
 
+// --------------------------------- Worker ------------------------------------
+
+/**
+ * Worker execution has started.
+ * Emitted when a worker begins execution (standalone or delegated from another agent).
+ */
+export interface WorkerStartEvent {
+  type: 'worker-start';
+  /** Unique ID for this worker invocation (correlates with worker-result) */
+  workerId: string;
+  /** The worker's slug (agent identifier) */
+  workerSlug: string;
+  /** Optional session ID if worker execution is tracked in a session */
+  workerSessionId?: string;
+}
+
+/**
+ * Worker execution completed with output value.
+ * Emitted by worker agents before the finish event when output is defined.
+ */
+export interface WorkerResultEvent {
+  type: 'worker-result';
+  /** Unique ID for this worker invocation (correlates with worker-start) */
+  workerId: string;
+  /** The worker's output value (undefined if no output variable defined) */
+  output?: unknown;
+  /** Error message if the worker failed */
+  error?: string;
+}
+
 // =============================================================================
 // Union of All Stream Events
 // =============================================================================
@@ -424,7 +458,10 @@ export type StreamEvent =
   | ResourceUpdateEvent
   | ToolRequestEvent
   | ClientToolRequestEvent
-  | FileAvailableEvent;
+  | FileAvailableEvent
+  // Worker events
+  | WorkerStartEvent
+  | WorkerResultEvent;
 
 // =============================================================================
 // Message Types (Internal - used by platform/runtime)

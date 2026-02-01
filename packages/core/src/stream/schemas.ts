@@ -229,6 +229,7 @@ export const pendingToolCallSchema = z.object({
   source: z.enum(['llm', 'block']).optional(),
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
+  thread: z.string().optional(),
 });
 
 export const toolResultSchema = z.object({
@@ -238,6 +239,7 @@ export const toolResultSchema = z.object({
   error: z.string().optional(),
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
+  thread: z.string().optional(),
 });
 
 export const toolRequestEventSchema = z.object({
@@ -275,6 +277,22 @@ export const fileAvailableEventSchema = z.object({
   toolCallId: z.string().optional(),
 });
 
+// --------------------------------- Worker ------------------------------------
+
+export const workerStartEventSchema = z.object({
+  type: z.literal('worker-start'),
+  workerId: z.string(),
+  workerSlug: z.string(),
+  workerSessionId: z.string().optional(),
+});
+
+export const workerResultEventSchema = z.object({
+  type: z.literal('worker-result'),
+  workerId: z.string(),
+  output: z.unknown().optional(),
+  error: z.string().optional(),
+});
+
 // =============================================================================
 // Union of all stream events
 // =============================================================================
@@ -310,6 +328,9 @@ export const streamEventSchema = z.union([
   toolRequestEventSchema,
   clientToolRequestEventSchema,
   fileAvailableEventSchema,
+  // Worker events
+  workerStartEventSchema,
+  workerResultEventSchema,
 ]);
 
 // =============================================================================
