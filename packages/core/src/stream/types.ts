@@ -345,6 +345,8 @@ export interface PendingToolCall {
   blockIndex?: number;
   /** Thread name where this tool call originated (for workers with threads) */
   thread?: string;
+  /** Worker ID if this tool call originated from a worker execution */
+  workerId?: string;
 }
 
 /**
@@ -389,6 +391,8 @@ export interface ToolResult {
   blockIndex?: number;
   /** Thread name where this tool call originated (for workers with threads) */
   thread?: string;
+  /** Worker ID if this tool result is for a worker execution */
+  workerId?: string;
 }
 
 /**

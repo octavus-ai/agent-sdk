@@ -91,6 +91,8 @@ interface PendingToolState {
   outputVariable?: string;
   blockIndex?: number;
   thread?: string;
+  /** Worker ID if this tool call is from a worker execution */
+  workerId?: string;
 }
 
 /**
@@ -788,6 +790,7 @@ export class OctavusChat {
       outputVariable: pendingTool.outputVariable,
       blockIndex: pendingTool.blockIndex,
       thread: pendingTool.thread,
+      workerId: pendingTool.workerId,
     };
     this._completedToolResults.push(toolResult);
 
@@ -1690,6 +1693,7 @@ export class OctavusChat {
           outputVariable: tc.outputVariable,
           blockIndex: tc.blockIndex,
           thread: tc.thread,
+          workerId: tc.workerId,
         };
         // Add to both maps
         this._pendingToolsByCallId.set(tc.toolCallId, toolState);
@@ -1730,6 +1734,7 @@ export class OctavusChat {
             outputVariable: tc.outputVariable,
             blockIndex: tc.blockIndex,
             thread: tc.thread,
+            workerId: tc.workerId,
           });
 
           this.emitToolOutputAvailable(tc.toolCallId, result);
@@ -1742,6 +1747,7 @@ export class OctavusChat {
             outputVariable: tc.outputVariable,
             blockIndex: tc.blockIndex,
             thread: tc.thread,
+            workerId: tc.workerId,
           });
 
           this.emitToolOutputError(tc.toolCallId, errorMessage);
@@ -1756,6 +1762,7 @@ export class OctavusChat {
           outputVariable: tc.outputVariable,
           blockIndex: tc.blockIndex,
           thread: tc.thread,
+          workerId: tc.workerId,
         });
 
         this.emitToolOutputError(tc.toolCallId, errorMessage);

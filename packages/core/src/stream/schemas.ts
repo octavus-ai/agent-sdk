@@ -246,6 +246,7 @@ export const pendingToolCallSchema = z.object({
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
   thread: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const toolResultSchema = z.object({
@@ -256,6 +257,7 @@ export const toolResultSchema = z.object({
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
   thread: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const toolRequestEventSchema = z.object({

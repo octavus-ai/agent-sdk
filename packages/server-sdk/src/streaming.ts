@@ -195,6 +195,7 @@ export async function* executeStream(
               outputVariable: tc.outputVariable,
               blockIndex: tc.blockIndex,
               thread: tc.thread,
+              workerId: tc.workerId,
             };
           } catch (err) {
             return {
@@ -204,6 +205,7 @@ export async function* executeStream(
               outputVariable: tc.outputVariable,
               blockIndex: tc.blockIndex,
               thread: tc.thread,
+              workerId: tc.workerId,
             };
           }
         }),
