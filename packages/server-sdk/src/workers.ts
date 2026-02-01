@@ -222,6 +222,7 @@ async function* executeWorkerStream(
               result,
               outputVariable: tc.outputVariable,
               blockIndex: tc.blockIndex,
+              thread: tc.thread,
             };
           } catch (err) {
             return {
@@ -230,6 +231,7 @@ async function* executeWorkerStream(
               error: err instanceof Error ? err.message : 'Tool execution failed',
               outputVariable: tc.outputVariable,
               blockIndex: tc.blockIndex,
+              thread: tc.thread,
             };
           }
         }),

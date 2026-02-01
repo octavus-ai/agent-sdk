@@ -229,6 +229,7 @@ export const pendingToolCallSchema = z.object({
   source: z.enum(['llm', 'block']).optional(),
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
+  thread: z.string().optional(),
 });
 
 export const toolResultSchema = z.object({
@@ -238,6 +239,7 @@ export const toolResultSchema = z.object({
   error: z.string().optional(),
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
+  thread: z.string().optional(),
 });
 
 export const toolRequestEventSchema = z.object({

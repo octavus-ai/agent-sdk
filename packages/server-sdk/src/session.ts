@@ -384,6 +384,7 @@ export class AgentSession {
                 result,
                 outputVariable: tc.outputVariable,
                 blockIndex: tc.blockIndex,
+                thread: tc.thread,
               };
             } catch (err) {
               return {
@@ -392,6 +393,7 @@ export class AgentSession {
                 error: err instanceof Error ? err.message : 'Tool execution failed',
                 outputVariable: tc.outputVariable,
                 blockIndex: tc.blockIndex,
+                thread: tc.thread,
               };
             }
           }),

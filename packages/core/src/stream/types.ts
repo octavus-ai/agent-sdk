@@ -313,6 +313,8 @@ export interface PendingToolCall {
   outputVariable?: string;
   /** For block-based tools: block index to resume from after execution */
   blockIndex?: number;
+  /** Thread name where this tool call originated (for workers with threads) */
+  thread?: string;
 }
 
 /**
@@ -353,6 +355,8 @@ export interface ToolResult {
   error?: string;
   outputVariable?: string;
   blockIndex?: number;
+  /** Thread name where this tool call originated (for workers with threads) */
+  thread?: string;
 }
 
 /**
