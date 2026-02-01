@@ -12,6 +12,7 @@ import {
   type UISourcePart,
   type UIFilePart,
   type UIObjectPart,
+  type UIWorkerPart,
   type DisplayMode,
   type StreamEvent,
   type FileReference,
@@ -89,6 +90,7 @@ interface PendingToolState {
   source?: 'llm' | 'block';
   outputVariable?: string;
   blockIndex?: number;
+  thread?: string;
 }
 
 /**
@@ -227,6 +229,15 @@ interface BlockState {
   toolCalls: Map<string, UIToolCallPart>;
 }
 
+/** Tracks state for a worker part being populated */
+interface WorkerPartState {
+  partIndex: number;
+  currentTextPartIndex: number | null;
+  currentReasoningPartIndex: number | null;
+  currentObjectPartIndex: number | null;
+  accumulatedJson: string;
+}
+
 interface StreamingState {
   messageId: string;
   parts: UIMessagePart[];
@@ -236,6 +247,8 @@ interface StreamingState {
   currentReasoningPartIndex: number | null;
   currentObjectPartIndex: number | null;
   accumulatedJson: string;
+  /** Active workers being populated: workerId -> worker state */
+  activeWorkers: Map<string, WorkerPartState>;
 }
 
 type Listener = () => void;
@@ -369,6 +382,7 @@ function createEmptyStreamingState(): StreamingState {
     currentReasoningPartIndex: null,
     currentObjectPartIndex: null,
     accumulatedJson: '',
+    activeWorkers: new Map(),
   };
 }
 
@@ -773,6 +787,7 @@ export class OctavusChat {
       error,
       outputVariable: pendingTool.outputVariable,
       blockIndex: pendingTool.blockIndex,
+      thread: pendingTool.thread,
     };
     this._completedToolResults.push(toolResult);
 
@@ -934,27 +949,53 @@ export class OctavusChat {
       }
 
       case 'reasoning-start': {
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
         const reasoningPart: UIReasoningPart = {
           type: 'reasoning',
           text: '',
           status: 'streaming',
           thread: threadForPart(state.activeBlock?.thread),
         };
-        state.parts.push(reasoningPart);
-        state.currentReasoningPartIndex = state.parts.length - 1;
+
+        if (workerState) {
+          // Add to worker's nested parts
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          workerPart.parts.push(reasoningPart);
+          workerState.currentReasoningPartIndex = workerPart.parts.length - 1;
+          state.parts[workerState.partIndex] = { ...workerPart };
+        } else {
+          state.parts.push(reasoningPart);
+          state.currentReasoningPartIndex = state.parts.length - 1;
+        }
         this.updateStreamingMessage();
         break;
       }
 
       case 'reasoning-delta': {
-        if (state.currentReasoningPartIndex !== null) {
-          const part = state.parts[state.currentReasoningPartIndex] as UIReasoningPart;
-          part.text += event.delta;
-          state.parts[state.currentReasoningPartIndex] = { ...part };
-        }
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
 
-        if (state.activeBlock) {
-          state.activeBlock.reasoning += event.delta;
+        if (workerState) {
+          // Update worker's reasoning part
+          if (workerState.currentReasoningPartIndex !== null) {
+            const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+            const part = workerPart.parts[workerState.currentReasoningPartIndex] as UIReasoningPart;
+            part.text += event.delta;
+            workerPart.parts[workerState.currentReasoningPartIndex] = { ...part };
+            state.parts[workerState.partIndex] = { ...workerPart };
+          }
+        } else {
+          if (state.currentReasoningPartIndex !== null) {
+            const part = state.parts[state.currentReasoningPartIndex] as UIReasoningPart;
+            part.text += event.delta;
+            state.parts[state.currentReasoningPartIndex] = { ...part };
+          }
+
+          if (state.activeBlock) {
+            state.activeBlock.reasoning += event.delta;
+          }
         }
 
         this.updateStreamingMessage();
@@ -962,7 +1003,20 @@ export class OctavusChat {
       }
 
       case 'reasoning-end': {
-        if (state.currentReasoningPartIndex !== null) {
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
+        if (workerState) {
+          // Finalize worker's reasoning part
+          if (workerState.currentReasoningPartIndex !== null) {
+            const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+            const part = workerPart.parts[workerState.currentReasoningPartIndex] as UIReasoningPart;
+            part.status = 'done';
+            workerPart.parts[workerState.currentReasoningPartIndex] = { ...part };
+            state.parts[workerState.partIndex] = { ...workerPart };
+            workerState.currentReasoningPartIndex = null;
+          }
+        } else if (state.currentReasoningPartIndex !== null) {
           const part = state.parts[state.currentReasoningPartIndex] as UIReasoningPart;
           part.status = 'done';
           state.parts[state.currentReasoningPartIndex] = { ...part };
@@ -973,10 +1027,13 @@ export class OctavusChat {
       }
 
       case 'text-start': {
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
         const thread = threadForPart(state.activeBlock?.thread);
         const shouldAddPart = state.activeBlock?.outputToChat !== false || thread !== undefined;
 
-        if (shouldAddPart) {
+        // For worker events, always add parts
+        if (workerState || shouldAddPart) {
           // Structured output mode: accumulate JSON and parse progressively
           if (event.responseType) {
             const objectPart: UIObjectPart = {
@@ -988,10 +1045,19 @@ export class OctavusChat {
               status: 'streaming',
               thread,
             };
-            state.parts.push(objectPart);
-            state.currentObjectPartIndex = state.parts.length - 1;
-            state.accumulatedJson = '';
-            state.currentTextPartIndex = null;
+            if (workerState) {
+              const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+              workerPart.parts.push(objectPart);
+              workerState.currentObjectPartIndex = workerPart.parts.length - 1;
+              workerState.accumulatedJson = '';
+              workerState.currentTextPartIndex = null;
+              state.parts[workerState.partIndex] = { ...workerPart };
+            } else {
+              state.parts.push(objectPart);
+              state.currentObjectPartIndex = state.parts.length - 1;
+              state.accumulatedJson = '';
+              state.currentTextPartIndex = null;
+            }
           } else {
             const textPart: UITextPart = {
               type: 'text',
@@ -999,9 +1065,17 @@ export class OctavusChat {
               status: 'streaming',
               thread,
             };
-            state.parts.push(textPart);
-            state.currentTextPartIndex = state.parts.length - 1;
-            state.currentObjectPartIndex = null;
+            if (workerState) {
+              const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+              workerPart.parts.push(textPart);
+              workerState.currentTextPartIndex = workerPart.parts.length - 1;
+              workerState.currentObjectPartIndex = null;
+              state.parts[workerState.partIndex] = { ...workerPart };
+            } else {
+              state.parts.push(textPart);
+              state.currentTextPartIndex = state.parts.length - 1;
+              state.currentObjectPartIndex = null;
+            }
           }
         }
         this.updateStreamingMessage();
@@ -1009,22 +1083,44 @@ export class OctavusChat {
       }
 
       case 'text-delta': {
-        if (state.currentObjectPartIndex !== null) {
-          state.accumulatedJson += event.delta;
-          const part = state.parts[state.currentObjectPartIndex] as UIObjectPart;
-          const parsed = parsePartialJson(state.accumulatedJson);
-          if (parsed !== undefined) {
-            part.partial = parsed;
-            state.parts[state.currentObjectPartIndex] = { ...part };
-          }
-        } else if (state.currentTextPartIndex !== null) {
-          const part = state.parts[state.currentTextPartIndex] as UITextPart;
-          part.text += event.delta;
-          state.parts[state.currentTextPartIndex] = { ...part };
-        }
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
 
-        if (state.activeBlock) {
-          state.activeBlock.text += event.delta;
+        if (workerState) {
+          // Update worker's text or object part
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          if (workerState.currentObjectPartIndex !== null) {
+            workerState.accumulatedJson += event.delta;
+            const part = workerPart.parts[workerState.currentObjectPartIndex] as UIObjectPart;
+            const parsed = parsePartialJson(workerState.accumulatedJson);
+            if (parsed !== undefined) {
+              part.partial = parsed;
+              workerPart.parts[workerState.currentObjectPartIndex] = { ...part };
+            }
+          } else if (workerState.currentTextPartIndex !== null) {
+            const part = workerPart.parts[workerState.currentTextPartIndex] as UITextPart;
+            part.text += event.delta;
+            workerPart.parts[workerState.currentTextPartIndex] = { ...part };
+          }
+          state.parts[workerState.partIndex] = { ...workerPart };
+        } else {
+          if (state.currentObjectPartIndex !== null) {
+            state.accumulatedJson += event.delta;
+            const part = state.parts[state.currentObjectPartIndex] as UIObjectPart;
+            const parsed = parsePartialJson(state.accumulatedJson);
+            if (parsed !== undefined) {
+              part.partial = parsed;
+              state.parts[state.currentObjectPartIndex] = { ...part };
+            }
+          } else if (state.currentTextPartIndex !== null) {
+            const part = state.parts[state.currentTextPartIndex] as UITextPart;
+            part.text += event.delta;
+            state.parts[state.currentTextPartIndex] = { ...part };
+          }
+
+          if (state.activeBlock) {
+            state.activeBlock.text += event.delta;
+          }
         }
 
         this.updateStreamingMessage();
@@ -1032,7 +1128,34 @@ export class OctavusChat {
       }
 
       case 'text-end': {
-        if (state.currentObjectPartIndex !== null) {
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
+        if (workerState) {
+          // Finalize worker's text or object part
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          if (workerState.currentObjectPartIndex !== null) {
+            const part = workerPart.parts[workerState.currentObjectPartIndex] as UIObjectPart;
+            try {
+              const finalObject = JSON.parse(workerState.accumulatedJson) as unknown;
+              part.object = finalObject;
+              part.partial = finalObject;
+              part.status = 'done';
+            } catch {
+              part.status = 'error';
+              part.error = 'Failed to parse response as JSON';
+            }
+            workerPart.parts[workerState.currentObjectPartIndex] = { ...part };
+            workerState.currentObjectPartIndex = null;
+            workerState.accumulatedJson = '';
+          } else if (workerState.currentTextPartIndex !== null) {
+            const part = workerPart.parts[workerState.currentTextPartIndex] as UITextPart;
+            part.status = 'done';
+            workerPart.parts[workerState.currentTextPartIndex] = { ...part };
+            workerState.currentTextPartIndex = null;
+          }
+          state.parts[workerState.partIndex] = { ...workerPart };
+        } else if (state.currentObjectPartIndex !== null) {
           const part = state.parts[state.currentObjectPartIndex] as UIObjectPart;
           try {
             const finalObject = JSON.parse(state.accumulatedJson) as unknown;
@@ -1040,7 +1163,6 @@ export class OctavusChat {
             part.partial = finalObject;
             part.status = 'done';
           } catch {
-            // Keep partial data but mark as error
             part.status = 'error';
             part.error = 'Failed to parse response as JSON';
           }
@@ -1058,6 +1180,9 @@ export class OctavusChat {
       }
 
       case 'tool-input-start': {
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
         const toolPart: UIToolCallPart = {
           type: 'tool-call',
           toolCallId: event.toolCallId,
@@ -1067,10 +1192,17 @@ export class OctavusChat {
           status: 'pending',
           thread: threadForPart(state.activeBlock?.thread),
         };
-        state.parts.push(toolPart);
 
-        if (state.activeBlock) {
-          state.activeBlock.toolCalls.set(event.toolCallId, toolPart);
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          workerPart.parts.push(toolPart);
+          state.parts[workerState.partIndex] = { ...workerPart };
+        } else {
+          state.parts.push(toolPart);
+
+          if (state.activeBlock) {
+            state.activeBlock.toolCalls.set(event.toolCallId, toolPart);
+          }
         }
 
         this.updateStreamingMessage();
@@ -1078,17 +1210,38 @@ export class OctavusChat {
       }
 
       case 'tool-input-delta': {
-        const toolPartIndex = state.parts.findIndex(
-          (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
-        );
-        if (toolPartIndex >= 0) {
-          try {
-            const part = state.parts[toolPartIndex] as UIToolCallPart;
-            part.args = JSON.parse(event.inputTextDelta) as Record<string, unknown>;
-            state.parts[toolPartIndex] = { ...part };
-            this.updateStreamingMessage();
-          } catch {
-            // Partial JSON, ignore
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          const toolPartIndex = workerPart.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
+          );
+          if (toolPartIndex >= 0) {
+            try {
+              const part = workerPart.parts[toolPartIndex] as UIToolCallPart;
+              part.args = JSON.parse(event.inputTextDelta) as Record<string, unknown>;
+              workerPart.parts[toolPartIndex] = { ...part };
+              state.parts[workerState.partIndex] = { ...workerPart };
+              this.updateStreamingMessage();
+            } catch {
+              // Partial JSON, ignore
+            }
+          }
+        } else {
+          const toolPartIndex = state.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
+          );
+          if (toolPartIndex >= 0) {
+            try {
+              const part = state.parts[toolPartIndex] as UIToolCallPart;
+              part.args = JSON.parse(event.inputTextDelta) as Record<string, unknown>;
+              state.parts[toolPartIndex] = { ...part };
+              this.updateStreamingMessage();
+            } catch {
+              // Partial JSON, ignore
+            }
           }
         }
         break;
@@ -1099,49 +1252,104 @@ export class OctavusChat {
         break;
 
       case 'tool-input-available': {
-        const toolPartIndex = state.parts.findIndex(
-          (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
-        );
-        if (toolPartIndex >= 0) {
-          const part = state.parts[toolPartIndex] as UIToolCallPart;
-          part.args = event.input as Record<string, unknown>;
-          part.status = 'running';
-          state.parts[toolPartIndex] = { ...part };
-          this.updateStreamingMessage();
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          const toolPartIndex = workerPart.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
+          );
+          if (toolPartIndex >= 0) {
+            const part = workerPart.parts[toolPartIndex] as UIToolCallPart;
+            part.args = event.input as Record<string, unknown>;
+            part.status = 'running';
+            workerPart.parts[toolPartIndex] = { ...part };
+            state.parts[workerState.partIndex] = { ...workerPart };
+            this.updateStreamingMessage();
+          }
+        } else {
+          const toolPartIndex = state.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
+          );
+          if (toolPartIndex >= 0) {
+            const part = state.parts[toolPartIndex] as UIToolCallPart;
+            part.args = event.input as Record<string, unknown>;
+            part.status = 'running';
+            state.parts[toolPartIndex] = { ...part };
+            this.updateStreamingMessage();
+          }
         }
         break;
       }
 
       case 'tool-output-available': {
-        const toolPartIndex = state.parts.findIndex(
-          (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
-        );
-        if (toolPartIndex >= 0) {
-          const part = state.parts[toolPartIndex] as UIToolCallPart;
-          part.result = event.output;
-          part.status = 'done';
-          state.parts[toolPartIndex] = { ...part };
-          this.updateStreamingMessage();
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          const toolPartIndex = workerPart.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
+          );
+          if (toolPartIndex >= 0) {
+            const part = workerPart.parts[toolPartIndex] as UIToolCallPart;
+            part.result = event.output;
+            part.status = 'done';
+            workerPart.parts[toolPartIndex] = { ...part };
+            state.parts[workerState.partIndex] = { ...workerPart };
+            this.updateStreamingMessage();
+          }
+        } else {
+          const toolPartIndex = state.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
+          );
+          if (toolPartIndex >= 0) {
+            const part = state.parts[toolPartIndex] as UIToolCallPart;
+            part.result = event.output;
+            part.status = 'done';
+            state.parts[toolPartIndex] = { ...part };
+            this.updateStreamingMessage();
+          }
         }
         break;
       }
 
       case 'tool-output-error': {
-        const toolPartIndex = state.parts.findIndex(
-          (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
-        );
-        if (toolPartIndex >= 0) {
-          const part = state.parts[toolPartIndex] as UIToolCallPart;
-          part.error = event.error;
-          part.status = 'error';
-          state.parts[toolPartIndex] = { ...part };
-          this.updateStreamingMessage();
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          const toolPartIndex = workerPart.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
+          );
+          if (toolPartIndex >= 0) {
+            const part = workerPart.parts[toolPartIndex] as UIToolCallPart;
+            part.error = event.error;
+            part.status = 'error';
+            workerPart.parts[toolPartIndex] = { ...part };
+            state.parts[workerState.partIndex] = { ...workerPart };
+            this.updateStreamingMessage();
+          }
+        } else {
+          const toolPartIndex = state.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
+          );
+          if (toolPartIndex >= 0) {
+            const part = state.parts[toolPartIndex] as UIToolCallPart;
+            part.error = event.error;
+            part.status = 'error';
+            state.parts[toolPartIndex] = { ...part };
+            this.updateStreamingMessage();
+          }
         }
         break;
       }
 
       case 'source': {
-        // Add source (URL or document) as a part
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
         const thread = threadForPart(state.activeBlock?.thread);
 
         let sourcePart: UISourcePart;
@@ -1166,12 +1374,21 @@ export class OctavusChat {
           };
         }
 
-        state.parts.push(sourcePart);
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          workerPart.parts.push(sourcePart);
+          state.parts[workerState.partIndex] = { ...workerPart };
+        } else {
+          state.parts.push(sourcePart);
+        }
         this.updateStreamingMessage();
         break;
       }
 
       case 'file-available': {
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
         // Add generated file as a part
         const filePart: UIFilePart = {
           type: 'file',
@@ -1183,7 +1400,14 @@ export class OctavusChat {
           toolCallId: event.toolCallId,
           thread: threadForPart(state.activeBlock?.thread),
         };
-        state.parts.push(filePart);
+
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          workerPart.parts.push(filePart);
+          state.parts[workerState.partIndex] = { ...workerPart };
+        } else {
+          state.parts.push(filePart);
+        }
         this.updateStreamingMessage();
         break;
       }
@@ -1192,15 +1416,72 @@ export class OctavusChat {
         this.options.onResourceUpdate?.(event.name, event.value);
         break;
 
-      case 'worker-start':
-        // Worker execution started - could be used for UI indicators
-        // These events are handled at a higher level (SDK or consumer)
-        break;
+      case 'worker-start': {
+        // Check if worker with same workerId already exists (for continuations)
+        const existingIndex = state.parts.findIndex(
+          (p) => p.type === 'worker' && p.workerId === event.workerId,
+        );
 
-      case 'worker-result':
-        // Worker execution completed - could be used for UI indicators
-        // These events are handled at a higher level (SDK or consumer)
+        let partIndex: number;
+        if (existingIndex !== -1) {
+          // Re-use existing worker part (continuation)
+          const existingPart = state.parts[existingIndex] as UIWorkerPart;
+          existingPart.status = 'running';
+          partIndex = existingIndex;
+        } else {
+          // Create a new worker part
+          const workerPart: UIWorkerPart = {
+            type: 'worker',
+            workerId: event.workerId,
+            workerSlug: event.workerSlug,
+            workerSessionId: event.workerSessionId,
+            parts: [],
+            status: 'running',
+          };
+          state.parts.push(workerPart);
+          partIndex = state.parts.length - 1;
+        }
+
+        // Track the worker for event routing
+        const workerState: WorkerPartState = {
+          partIndex,
+          currentTextPartIndex: null,
+          currentReasoningPartIndex: null,
+          currentObjectPartIndex: null,
+          accumulatedJson: '',
+        };
+        state.activeWorkers.set(event.workerId, workerState);
+        this.updateStreamingMessage();
         break;
+      }
+
+      case 'worker-result': {
+        const workerState = state.activeWorkers.get(event.workerId);
+        if (workerState !== undefined) {
+          const part = state.parts[workerState.partIndex] as UIWorkerPart;
+          part.output = event.output;
+          part.error = event.error;
+          part.status = event.error ? 'error' : 'done';
+
+          // Finalize any streaming parts in the worker
+          part.parts = part.parts.map((p): UIMessagePart => {
+            if (p.type === 'text' || p.type === 'reasoning') {
+              if (p.status === 'streaming') {
+                return { ...p, status: 'done' };
+              }
+            }
+            if (p.type === 'object' && p.status === 'streaming') {
+              return { ...p, status: 'done' };
+            }
+            return p;
+          });
+
+          state.parts[workerState.partIndex] = { ...part };
+          state.activeWorkers.delete(event.workerId);
+        }
+        this.updateStreamingMessage();
+        break;
+      }
 
       case 'finish': {
         // Handle client-tool-calls finish reason
@@ -1408,6 +1689,7 @@ export class OctavusChat {
           source: tc.source,
           outputVariable: tc.outputVariable,
           blockIndex: tc.blockIndex,
+          thread: tc.thread,
         };
         // Add to both maps
         this._pendingToolsByCallId.set(tc.toolCallId, toolState);

@@ -39,6 +39,8 @@ export {
   fileReferenceSchema,
   uiMessageSchema,
   uiMessagePartSchema,
+  uiWorkerPartSchema,
+  uiWorkerStatusSchema,
 } from './stream/schemas';
 
 export type {
@@ -115,6 +117,8 @@ export type {
   UIFilePart,
   UIObjectStatus,
   UIObjectPart,
+  UIWorkerStatus,
+  UIWorkerPart,
   UIMessagePart,
   UIMessage,
 } from './stream/types';

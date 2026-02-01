@@ -158,7 +158,11 @@ export class CliApi {
 
   /** Update an existing agent by slug */
   async updateAgent(slug: string, definition: AgentDefinition): Promise<string> {
+    // Exclude slug from settings (it's the identifier in the URL)
+    const { slug: _slug, ...settings } = definition.settings;
+
     const response = await this.request('PATCH', `/api/agents/${slug}?by=slug`, {
+      settings,
       protocol: definition.protocol,
       prompts: definition.prompts,
     });
