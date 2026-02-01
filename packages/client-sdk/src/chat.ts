@@ -196,6 +196,18 @@ export interface OctavusChatOptions {
   onStop?: () => void;
   /** Callback when a resource is updated */
   onResourceUpdate?: (name: string, value: unknown) => void;
+  /**
+   * Callback when execution starts with the session/execution ID.
+   * Useful for tracking the current execution for activity logs.
+   *
+   * @example
+   * ```typescript
+   * onStart: (sessionId) => {
+   *   setCurrentSessionId(sessionId);
+   * }
+   * ```
+   */
+  onStart?: (sessionId: string) => void;
 }
 
 // =============================================================================
@@ -861,6 +873,10 @@ export class OctavusChat {
   private handleStreamEvent(event: StreamEvent, state: StreamingState): void {
     switch (event.type) {
       case 'start':
+        // Call onStart callback with execution/session ID
+        if (event.executionId) {
+          this.options.onStart?.(event.executionId);
+        }
         break;
 
       case 'block-start': {
