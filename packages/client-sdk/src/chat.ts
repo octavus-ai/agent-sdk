@@ -398,6 +398,29 @@ function buildMessageFromState(state: StreamingState, status: 'streaming' | 'don
   };
 }
 
+/**
+ * Finalize nested parts (within workers) when stream is stopped or errors.
+ * Marks streaming parts as done and pending/running tools as cancelled.
+ */
+function finalizeNestedParts(parts: UIMessagePart[]): UIMessagePart[] {
+  return parts.map((part): UIMessagePart => {
+    if (part.type === 'text' || part.type === 'reasoning') {
+      if (part.status === 'streaming') {
+        return { ...part, status: 'done' };
+      }
+    }
+    if (part.type === 'object' && part.status === 'streaming') {
+      return { ...part, status: 'done' };
+    }
+    if (part.type === 'tool-call') {
+      if (part.status === 'pending' || part.status === 'running') {
+        return { ...part, status: 'cancelled' };
+      }
+    }
+    return part;
+  });
+}
+
 // =============================================================================
 // OctavusChat Class
 // =============================================================================
@@ -697,6 +720,17 @@ export class OctavusChat {
             if (part.type === 'operation' && part.status === 'running') {
               return { ...part, status: 'cancelled' };
             }
+            if (part.type === 'worker') {
+              // Finalize running workers as error and clean up their nested parts
+              if (part.status === 'running') {
+                return {
+                  ...part,
+                  status: 'error',
+                  error: 'Stream error',
+                  parts: finalizeNestedParts(part.parts),
+                };
+              }
+            }
             return part;
           });
 
@@ -856,6 +890,17 @@ export class OctavusChat {
           // Mark streaming objects as done
           if (objPart.status === 'streaming') {
             return { ...objPart, status: 'done' };
+          }
+        }
+        if (part.type === 'worker') {
+          // Finalize running workers as cancelled and clean up their nested parts
+          if (part.status === 'running') {
+            return {
+              ...part,
+              status: 'error',
+              error: 'Stopped by user',
+              parts: finalizeNestedParts(part.parts),
+            };
           }
         }
         return part;
