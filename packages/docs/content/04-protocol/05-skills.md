@@ -288,6 +288,19 @@ agent:
   skills: [custom-analysis]
 ```
 
+## Sandbox Timeout
+
+The default sandbox timeout is 5 minutes. For long-running operations, you can configure a custom timeout using `sandboxTimeout` in the agent config:
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  skills: [data-analysis]
+  sandboxTimeout: 1800000 # 30 minutes (in milliseconds)
+```
+
+`sandboxTimeout` Maximum: 1 hour (3,600,000 ms)
+
 ## Security
 
 Skills run in isolated sandbox environments:
@@ -295,7 +308,7 @@ Skills run in isolated sandbox environments:
 - **No network access** (unless explicitly configured)
 - **No persistent storage** (sandbox destroyed after execution)
 - **File output only** via `/output/` directory
-- **Time limits** enforced (5-minute default timeout)
+- **Time limits** enforced (5-minute default, configurable via `sandboxTimeout`)
 
 ## Next Steps
 

@@ -220,11 +220,22 @@ This means:
 
 ### Timeout Limits
 
-Sandboxes have a 5-minute default timeout:
+Sandboxes have a 5-minute default timeout, which can be configured via `sandboxTimeout`:
 
-- **Short operations**: QR codes, simple calculations
-- **Medium operations**: Data analysis, report generation
-- **Long operations**: May need to split into multiple steps
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  skills: [data-analysis]
+  sandboxTimeout: 1800000 # 30 minutes for long-running analysis
+```
+
+`sandboxTimeout` Maximum: 1 hour (3,600,000 ms)
+
+**Timeout guidelines:**
+
+- **Short operations** (default 5 min): QR codes, simple calculations
+- **Medium operations** (10-30 min): Data analysis, report generation
+- **Long operations** (30+ min): Complex processing, large dataset analysis
 
 ### Sandbox Lifecycle
 
@@ -339,7 +350,7 @@ The LLM sees these errors and can retry or explain to users.
 - **No network access** (unless explicitly configured)
 - **No persistent storage** (sandbox destroyed after execution)
 - **File output only** via `/output/` directory
-- **Time limits** enforced (5-minute default)
+- **Time limits** enforced (5-minute default, configurable via `sandboxTimeout`)
 
 ### Input Validation
 
