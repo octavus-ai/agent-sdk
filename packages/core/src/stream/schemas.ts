@@ -261,6 +261,7 @@ export const toolResultSchema = z.object({
 export const toolRequestEventSchema = z.object({
   type: z.literal('tool-request'),
   toolCalls: z.array(pendingToolCallSchema),
+  workerId: z.string().optional(),
 });
 
 export const clientToolRequestEventSchema = z.object({

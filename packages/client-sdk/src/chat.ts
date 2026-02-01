@@ -1729,6 +1729,7 @@ export class OctavusChat {
             result,
             outputVariable: tc.outputVariable,
             blockIndex: tc.blockIndex,
+            thread: tc.thread,
           });
 
           this.emitToolOutputAvailable(tc.toolCallId, result);
@@ -1740,6 +1741,7 @@ export class OctavusChat {
             error: errorMessage,
             outputVariable: tc.outputVariable,
             blockIndex: tc.blockIndex,
+            thread: tc.thread,
           });
 
           this.emitToolOutputError(tc.toolCallId, errorMessage);
@@ -1753,6 +1755,7 @@ export class OctavusChat {
           error: errorMessage,
           outputVariable: tc.outputVariable,
           blockIndex: tc.blockIndex,
+          thread: tc.thread,
         });
 
         this.emitToolOutputError(tc.toolCallId, errorMessage);

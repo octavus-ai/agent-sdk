@@ -354,6 +354,8 @@ export interface PendingToolCall {
 export interface ToolRequestEvent {
   type: 'tool-request';
   toolCalls: PendingToolCall[];
+  /** Worker ID if this tool request originated from a worker execution */
+  workerId?: string;
 }
 
 /**
