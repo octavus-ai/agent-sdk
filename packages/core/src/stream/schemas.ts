@@ -99,17 +99,20 @@ export const textStartEventSchema = z.object({
   type: z.literal('text-start'),
   id: z.string(),
   responseType: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const textDeltaEventSchema = z.object({
   type: z.literal('text-delta'),
   id: z.string(),
   delta: z.string(),
+  workerId: z.string().optional(),
 });
 
 export const textEndEventSchema = z.object({
   type: z.literal('text-end'),
   id: z.string(),
+  workerId: z.string().optional(),
 });
 
 // =============================== Reasoning ===================================
@@ -117,17 +120,20 @@ export const textEndEventSchema = z.object({
 export const reasoningStartEventSchema = z.object({
   type: z.literal('reasoning-start'),
   id: z.string(),
+  workerId: z.string().optional(),
 });
 
 export const reasoningDeltaEventSchema = z.object({
   type: z.literal('reasoning-delta'),
   id: z.string(),
   delta: z.string(),
+  workerId: z.string().optional(),
 });
 
 export const reasoningEndEventSchema = z.object({
   type: z.literal('reasoning-end'),
   id: z.string(),
+  workerId: z.string().optional(),
 });
 
 // ================================= Tool ======================================
@@ -137,17 +143,20 @@ export const toolInputStartEventSchema = z.object({
   toolCallId: z.string(),
   toolName: z.string(),
   title: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const toolInputDeltaEventSchema = z.object({
   type: z.literal('tool-input-delta'),
   toolCallId: z.string(),
   inputTextDelta: z.string(),
+  workerId: z.string().optional(),
 });
 
 export const toolInputEndEventSchema = z.object({
   type: z.literal('tool-input-end'),
   toolCallId: z.string(),
+  workerId: z.string().optional(),
 });
 
 export const toolInputAvailableEventSchema = z.object({
@@ -155,18 +164,21 @@ export const toolInputAvailableEventSchema = z.object({
   toolCallId: z.string(),
   toolName: z.string(),
   input: z.unknown(),
+  workerId: z.string().optional(),
 });
 
 export const toolOutputAvailableEventSchema = z.object({
   type: z.literal('tool-output-available'),
   toolCallId: z.string(),
   output: z.unknown(),
+  workerId: z.string().optional(),
 });
 
 export const toolOutputErrorEventSchema = z.object({
   type: z.literal('tool-output-error'),
   toolCallId: z.string(),
   error: z.string(),
+  workerId: z.string().optional(),
 });
 
 // ================================ Source =====================================
@@ -177,6 +189,7 @@ export const sourceUrlEventSchema = z.object({
   id: z.string(),
   url: z.string(),
   title: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const sourceDocumentEventSchema = z.object({
@@ -186,6 +199,7 @@ export const sourceDocumentEventSchema = z.object({
   mediaType: z.string(),
   title: z.string(),
   filename: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const sourceEventSchema = z.discriminatedUnion('sourceType', [
@@ -208,12 +222,14 @@ export const blockStartEventSchema = z.object({
   description: z.string().optional(),
   outputToChat: z.boolean().optional(),
   thread: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const blockEndEventSchema = z.object({
   type: z.literal('block-end'),
   blockId: z.string(),
   summary: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const resourceUpdateEventSchema = z.object({
@@ -230,6 +246,7 @@ export const pendingToolCallSchema = z.object({
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
   thread: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const toolResultSchema = z.object({
@@ -240,11 +257,13 @@ export const toolResultSchema = z.object({
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
   thread: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 export const toolRequestEventSchema = z.object({
   type: z.literal('tool-request'),
   toolCalls: z.array(pendingToolCallSchema),
+  workerId: z.string().optional(),
 });
 
 export const clientToolRequestEventSchema = z.object({
@@ -275,6 +294,7 @@ export const fileAvailableEventSchema = z.object({
   filename: z.string().optional(),
   size: z.number().optional(),
   toolCallId: z.string().optional(),
+  workerId: z.string().optional(),
 });
 
 // --------------------------------- Worker ------------------------------------
@@ -341,9 +361,11 @@ export const messagePartTypeSchema = z.enum([
   'text',
   'reasoning',
   'tool-call',
+  'operation',
   'source',
   'file',
   'object',
+  'worker',
 ]);
 
 export const sourceUrlInfoSchema = z.object({
@@ -381,14 +403,47 @@ export const objectInfoSchema = z.object({
   value: z.unknown(),
 });
 
+export const operationInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  operationType: z.string(),
+});
+
+// Base message part schema (without worker, for non-recursive use in worker nested parts)
+const baseMessagePartSchema = z.object({
+  type: z.enum(['text', 'reasoning', 'tool-call', 'operation', 'source', 'file', 'object']),
+  visible: z.boolean(),
+  content: z.string().optional(),
+  toolCall: toolCallInfoSchema.optional(),
+  operation: operationInfoSchema.optional(),
+  source: sourceInfoSchema.optional(),
+  file: fileInfoSchema.optional(),
+  object: objectInfoSchema.optional(),
+  thread: z.string().optional(),
+});
+
+// Worker part info schema (nested parts use base schema to avoid infinite recursion)
+export const workerPartInfoSchema = z.object({
+  workerId: z.string(),
+  workerSlug: z.string(),
+  workerSessionId: z.string().optional(),
+  // Worker nested parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
+  nestedParts: z.array(baseMessagePartSchema),
+  output: z.unknown().optional(),
+  error: z.string().optional(),
+});
+
+// Full message part schema including worker type
 export const messagePartSchema = z.object({
   type: messagePartTypeSchema,
   visible: z.boolean(),
   content: z.string().optional(),
   toolCall: toolCallInfoSchema.optional(),
+  operation: operationInfoSchema.optional(),
   source: sourceInfoSchema.optional(),
   file: fileInfoSchema.optional(),
   object: objectInfoSchema.optional(),
+  worker: workerPartInfoSchema.optional(),
   thread: z.string().optional(),
 });
 
@@ -497,8 +552,35 @@ export const uiObjectPartSchema = z.object({
   thread: z.string().optional(),
 });
 
+export const uiWorkerStatusSchema = z.enum(['running', 'done', 'error']);
+
 // Note: We use z.union here because source parts share type: 'source' but
 // differ by sourceType. z.discriminatedUnion requires unique discriminator values.
+// Base parts schema (without worker, for non-recursive use)
+const baseUiMessagePartSchema = z.union([
+  uiTextPartSchema,
+  uiReasoningPartSchema,
+  uiToolCallPartSchema,
+  uiOperationPartSchema,
+  uiSourcePartSchema,
+  uiFilePartSchema,
+  uiObjectPartSchema,
+]);
+
+// Worker part schema with nested parts (uses base schema to avoid infinite recursion)
+export const uiWorkerPartSchema = z.object({
+  type: z.literal('worker'),
+  workerId: z.string(),
+  workerSlug: z.string(),
+  workerSessionId: z.string().optional(),
+  // Worker parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
+  parts: z.array(baseUiMessagePartSchema),
+  output: z.unknown().optional(),
+  error: z.string().optional(),
+  status: uiWorkerStatusSchema,
+});
+
+// Full message part schema including workers
 export const uiMessagePartSchema = z.union([
   uiTextPartSchema,
   uiReasoningPartSchema,
@@ -507,6 +589,7 @@ export const uiMessagePartSchema = z.union([
   uiSourcePartSchema,
   uiFilePartSchema,
   uiObjectPartSchema,
+  uiWorkerPartSchema,
 ]);
 
 export const uiMessageSchema = z.object({

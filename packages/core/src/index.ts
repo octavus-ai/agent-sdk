@@ -39,6 +39,8 @@ export {
   fileReferenceSchema,
   uiMessageSchema,
   uiMessagePartSchema,
+  uiWorkerPartSchema,
+  uiWorkerStatusSchema,
 } from './stream/schemas';
 
 export type {
@@ -98,6 +100,8 @@ export type {
   SourceInfo,
   FileInfo,
   ObjectInfo,
+  OperationInfo,
+  WorkerPartInfo,
   MessagePart,
   ChatMessage,
   // UI Message Types (for client SDK and consumer apps)
@@ -115,6 +119,8 @@ export type {
   UIFilePart,
   UIObjectStatus,
   UIObjectPart,
+  UIWorkerStatus,
+  UIWorkerPart,
   UIMessagePart,
   UIMessage,
 } from './stream/types';

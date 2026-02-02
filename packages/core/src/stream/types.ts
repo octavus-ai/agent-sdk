@@ -154,6 +154,8 @@ export interface TextStartEvent {
    * Client SDK should parse as object, not display as text.
    */
   responseType?: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Incremental text content */
@@ -161,12 +163,16 @@ export interface TextDeltaEvent {
   type: 'text-delta';
   id: string;
   delta: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** End of text generation for a specific text part */
 export interface TextEndEvent {
   type: 'text-end';
   id: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 // =============================== Reasoning ===================================
@@ -175,6 +181,8 @@ export interface TextEndEvent {
 export interface ReasoningStartEvent {
   type: 'reasoning-start';
   id: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Incremental reasoning content */
@@ -182,12 +190,16 @@ export interface ReasoningDeltaEvent {
   type: 'reasoning-delta';
   id: string;
   delta: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** End of reasoning generation */
 export interface ReasoningEndEvent {
   type: 'reasoning-end';
   id: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 // ================================= Tool ======================================
@@ -199,6 +211,8 @@ export interface ToolInputStartEvent {
   toolName: string;
   /** Human-readable title/description for the tool call */
   title?: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Incremental tool input/arguments */
@@ -206,12 +220,16 @@ export interface ToolInputDeltaEvent {
   type: 'tool-input-delta';
   toolCallId: string;
   inputTextDelta: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Tool input streaming has ended */
 export interface ToolInputEndEvent {
   type: 'tool-input-end';
   toolCallId: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Tool input is complete and available */
@@ -220,6 +238,8 @@ export interface ToolInputAvailableEvent {
   toolCallId: string;
   toolName: string;
   input: unknown;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Tool output/result is available */
@@ -227,6 +247,8 @@ export interface ToolOutputAvailableEvent {
   type: 'tool-output-available';
   toolCallId: string;
   output: unknown;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Tool execution resulted in error */
@@ -234,6 +256,8 @@ export interface ToolOutputErrorEvent {
   type: 'tool-output-error';
   toolCallId: string;
   error: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 // ================================ Source =====================================
@@ -243,6 +267,8 @@ interface BaseSourceEvent {
   type: 'source';
   /** Unique source ID */
   id: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** URL source from web search or similar tools */
@@ -286,6 +312,8 @@ export interface BlockStartEvent {
   outputToChat?: boolean;
   /** Thread name (undefined or 'main' for main thread) */
   thread?: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Protocol block execution completed */
@@ -293,6 +321,8 @@ export interface BlockEndEvent {
   type: 'block-end';
   blockId: string;
   summary?: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 /** Resource value updated */
@@ -315,6 +345,8 @@ export interface PendingToolCall {
   blockIndex?: number;
   /** Thread name where this tool call originated (for workers with threads) */
   thread?: string;
+  /** Worker ID if this tool call originated from a worker execution */
+  workerId?: string;
 }
 
 /**
@@ -324,6 +356,8 @@ export interface PendingToolCall {
 export interface ToolRequestEvent {
   type: 'tool-request';
   toolCalls: PendingToolCall[];
+  /** Worker ID if this tool request originated from a worker execution */
+  workerId?: string;
 }
 
 /**
@@ -357,6 +391,8 @@ export interface ToolResult {
   blockIndex?: number;
   /** Thread name where this tool call originated (for workers with threads) */
   thread?: string;
+  /** Worker ID if this tool result is for a worker execution */
+  workerId?: string;
 }
 
 /**
@@ -394,6 +430,8 @@ export interface FileAvailableEvent {
   size?: number;
   /** Tool call that generated this file */
   toolCallId?: string;
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
 }
 
 // --------------------------------- Worker ------------------------------------
@@ -470,7 +508,15 @@ export type StreamEvent =
 /**
  * Type of content in a message part (internal)
  */
-export type MessagePartType = 'text' | 'reasoning' | 'tool-call' | 'source' | 'file' | 'object';
+export type MessagePartType =
+  | 'text'
+  | 'reasoning'
+  | 'tool-call'
+  | 'operation'
+  | 'source'
+  | 'file'
+  | 'object'
+  | 'worker';
 
 /**
  * Source info for URL sources (from web search, etc.)
@@ -522,6 +568,39 @@ export interface ObjectInfo {
 }
 
 /**
+ * Operation info for block operations (internal storage).
+ * Used for operations like set-resource, serialize-thread, etc.
+ */
+export interface OperationInfo {
+  /** Operation ID (same as block ID) */
+  id: string;
+  /** Human-readable name (from block name/description) */
+  name: string;
+  /** Type of operation (e.g., 'set-resource', 'serialize-thread') */
+  operationType: string;
+}
+
+/**
+ * Worker part info for worker execution (internal storage).
+ * Stores nested parts generated by a worker, enabling parallel workers
+ * and persistence across page refresh.
+ */
+export interface WorkerPartInfo {
+  /** Unique ID for this worker invocation */
+  workerId: string;
+  /** The worker's slug (agent identifier) */
+  workerSlug: string;
+  /** Optional session ID if worker execution is tracked */
+  workerSessionId?: string;
+  /** Nested parts generated by the worker (text, reasoning, tool calls, etc.) */
+  nestedParts: MessagePart[];
+  /** Worker output value (when completed) */
+  output?: unknown;
+  /** Error message if worker failed */
+  error?: string;
+}
+
+/**
  * A single part of a message, stored in order for proper display (internal)
  */
 export interface MessagePart {
@@ -532,12 +611,16 @@ export interface MessagePart {
   content?: string;
   /** Tool call info for tool-call parts */
   toolCall?: ToolCallInfo;
+  /** Operation info for operation parts (block operations) */
+  operation?: OperationInfo;
   /** Source info for source parts (from web search, etc.) */
   source?: SourceInfo;
   /** File info for file parts (from skill execution, etc.) */
   file?: FileInfo;
   /** Object info for object parts (structured output) */
   object?: ObjectInfo;
+  /** Worker info for worker parts (worker execution container) */
+  worker?: WorkerPartInfo;
   /** Thread name for non-main-thread content (e.g., "summary") */
   thread?: string;
 }
@@ -729,6 +812,34 @@ export interface UIObjectPart {
 }
 
 /**
+ * Status of a UI worker part
+ */
+export type UIWorkerStatus = 'running' | 'done' | 'error';
+
+/**
+ * Worker execution in a UI message.
+ * Represents a nested worker agent execution with its own parts.
+ * Used to display worker content in a dedicated container.
+ */
+export interface UIWorkerPart {
+  type: 'worker';
+  /** Unique ID for this worker invocation (correlates events) */
+  workerId: string;
+  /** The worker's slug (agent identifier) */
+  workerSlug: string;
+  /** Optional session ID if worker execution is tracked in a session */
+  workerSessionId?: string;
+  /** Nested parts generated by the worker */
+  parts: UIMessagePart[];
+  /** Worker output value (when done) */
+  output?: unknown;
+  /** Error message if worker failed */
+  error?: string;
+  /** Current status */
+  status: UIWorkerStatus;
+}
+
+/**
  * Union of all UI message part types
  */
 export type UIMessagePart =
@@ -738,7 +849,8 @@ export type UIMessagePart =
   | UIOperationPart
   | UISourcePart
   | UIFilePart
-  | UIObjectPart;
+  | UIObjectPart
+  | UIWorkerPart;
 
 /**
  * UI Message - the client-facing message format
