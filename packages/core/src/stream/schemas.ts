@@ -364,6 +364,7 @@ export const messagePartTypeSchema = z.enum([
   'source',
   'file',
   'object',
+  'worker',
 ]);
 
 export const sourceUrlInfoSchema = z.object({
@@ -401,6 +402,30 @@ export const objectInfoSchema = z.object({
   value: z.unknown(),
 });
 
+// Base message part schema (without worker, for non-recursive use in worker nested parts)
+const baseMessagePartSchema = z.object({
+  type: z.enum(['text', 'reasoning', 'tool-call', 'source', 'file', 'object']),
+  visible: z.boolean(),
+  content: z.string().optional(),
+  toolCall: toolCallInfoSchema.optional(),
+  source: sourceInfoSchema.optional(),
+  file: fileInfoSchema.optional(),
+  object: objectInfoSchema.optional(),
+  thread: z.string().optional(),
+});
+
+// Worker part info schema (nested parts use base schema to avoid infinite recursion)
+export const workerPartInfoSchema = z.object({
+  workerId: z.string(),
+  workerSlug: z.string(),
+  workerSessionId: z.string().optional(),
+  // Worker nested parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
+  nestedParts: z.array(baseMessagePartSchema),
+  output: z.unknown().optional(),
+  error: z.string().optional(),
+});
+
+// Full message part schema including worker type
 export const messagePartSchema = z.object({
   type: messagePartTypeSchema,
   visible: z.boolean(),
@@ -409,6 +434,7 @@ export const messagePartSchema = z.object({
   source: sourceInfoSchema.optional(),
   file: fileInfoSchema.optional(),
   object: objectInfoSchema.optional(),
+  worker: workerPartInfoSchema.optional(),
   thread: z.string().optional(),
 });
 

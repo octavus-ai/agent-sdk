@@ -100,6 +100,7 @@ export type {
   SourceInfo,
   FileInfo,
   ObjectInfo,
+  WorkerPartInfo,
   MessagePart,
   ChatMessage,
   // UI Message Types (for client SDK and consumer apps)
