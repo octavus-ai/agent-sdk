@@ -100,6 +100,7 @@ export type {
   SourceInfo,
   FileInfo,
   ObjectInfo,
+  OperationInfo,
   WorkerPartInfo,
   MessagePart,
   ChatMessage,

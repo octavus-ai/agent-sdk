@@ -399,10 +399,11 @@ function buildMessageFromState(state: StreamingState, status: 'streaming' | 'don
 }
 
 /**
- * Finalize nested parts (within workers) when stream is stopped or errors.
- * Marks streaming parts as done and pending/running tools as cancelled.
+ * Finalize parts when stream is stopped or errors.
+ * Marks streaming parts as done, pending/running tools as cancelled,
+ * and recursively finalizes worker parts.
  */
-function finalizeNestedParts(parts: UIMessagePart[]): UIMessagePart[] {
+function finalizeParts(parts: UIMessagePart[], workerError?: string): UIMessagePart[] {
   return parts.map((part): UIMessagePart => {
     if (part.type === 'text' || part.type === 'reasoning') {
       if (part.status === 'streaming') {
@@ -416,6 +417,17 @@ function finalizeNestedParts(parts: UIMessagePart[]): UIMessagePart[] {
       if (part.status === 'pending' || part.status === 'running') {
         return { ...part, status: 'cancelled' };
       }
+    }
+    if (part.type === 'operation' && part.status === 'running') {
+      return { ...part, status: 'cancelled' };
+    }
+    if (part.type === 'worker' && part.status === 'running') {
+      return {
+        ...part,
+        status: 'error',
+        error: workerError,
+        parts: finalizeParts(part.parts), // Recursive for nested parts
+      };
     }
     return part;
   });
@@ -702,37 +714,7 @@ export class OctavusChat {
         const lastMsg = messages[messages.length - 1];
 
         if (state.parts.length > 0) {
-          // Mark in-progress parts as done/cancelled
-          const finalParts = state.parts.map((part): UIMessagePart => {
-            if (part.type === 'text' || part.type === 'reasoning') {
-              if (part.status === 'streaming') {
-                return { ...part, status: 'done' };
-              }
-            }
-            if (part.type === 'object' && part.status === 'streaming') {
-              return { ...part, status: 'done' };
-            }
-            if (part.type === 'tool-call') {
-              if (part.status === 'pending' || part.status === 'running') {
-                return { ...part, status: 'cancelled' };
-              }
-            }
-            if (part.type === 'operation' && part.status === 'running') {
-              return { ...part, status: 'cancelled' };
-            }
-            if (part.type === 'worker') {
-              // Finalize running workers as error and clean up their nested parts
-              if (part.status === 'running') {
-                return {
-                  ...part,
-                  status: 'error',
-                  error: 'Stream error',
-                  parts: finalizeNestedParts(part.parts),
-                };
-              }
-            }
-            return part;
-          });
+          const finalParts = finalizeParts(state.parts, 'Stream error');
 
           const finalMessage: UIMessage = {
             id: state.messageId,
@@ -862,49 +844,7 @@ export class OctavusChat {
 
     const state = this.streamingState;
     if (state && state.parts.length > 0) {
-      // Mark in-progress parts as cancelled/done
-      const finalParts = state.parts.map((part): UIMessagePart => {
-        if (part.type === 'tool-call') {
-          const toolPart = part;
-          // Mark pending/running tools as cancelled
-          if (toolPart.status === 'pending' || toolPart.status === 'running') {
-            return { ...toolPart, status: 'cancelled' };
-          }
-        }
-        if (part.type === 'operation') {
-          const opPart = part;
-          // Mark running operations as cancelled
-          if (opPart.status === 'running') {
-            return { ...opPart, status: 'cancelled' };
-          }
-        }
-        if (part.type === 'text' || part.type === 'reasoning') {
-          const textPart = part;
-          // Mark streaming text/reasoning as done (it's not an error)
-          if (textPart.status === 'streaming') {
-            return { ...textPart, status: 'done' };
-          }
-        }
-        if (part.type === 'object') {
-          const objPart = part;
-          // Mark streaming objects as done
-          if (objPart.status === 'streaming') {
-            return { ...objPart, status: 'done' };
-          }
-        }
-        if (part.type === 'worker') {
-          // Finalize running workers as cancelled and clean up their nested parts
-          if (part.status === 'running') {
-            return {
-              ...part,
-              status: 'error',
-              error: 'Stopped by user',
-              parts: finalizeNestedParts(part.parts),
-            };
-          }
-        }
-        return part;
-      });
+      const finalParts = finalizeParts(state.parts, 'Stopped by user');
 
       const finalMessage: UIMessage = {
         id: state.messageId,
@@ -943,6 +883,9 @@ export class OctavusChat {
         break;
 
       case 'block-start': {
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
         const block: BlockState = {
           blockId: event.blockId,
           blockName: event.blockName,
@@ -970,7 +913,14 @@ export class OctavusChat {
             status: 'running',
             thread: threadForPart(thread),
           };
-          state.parts.push(operationPart);
+
+          if (workerState) {
+            const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+            workerPart.parts.push(operationPart);
+            state.parts[workerState.partIndex] = { ...workerPart };
+          } else {
+            state.parts.push(operationPart);
+          }
         }
 
         state.currentTextPartIndex = null;
@@ -981,12 +931,28 @@ export class OctavusChat {
       }
 
       case 'block-end': {
-        const operationPartIndex = state.parts.findIndex(
-          (p: UIMessagePart) => p.type === 'operation' && p.operationId === event.blockId,
-        );
-        if (operationPartIndex >= 0) {
-          const part = state.parts[operationPartIndex] as UIOperationPart;
-          state.parts[operationPartIndex] = { ...part, status: 'done' };
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+
+        if (workerState) {
+          // Find operation in worker's nested parts
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          const operationPartIndex = workerPart.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'operation' && p.operationId === event.blockId,
+          );
+          if (operationPartIndex >= 0) {
+            const part = workerPart.parts[operationPartIndex] as UIOperationPart;
+            workerPart.parts[operationPartIndex] = { ...part, status: 'done' };
+            state.parts[workerState.partIndex] = { ...workerPart };
+          }
+        } else {
+          const operationPartIndex = state.parts.findIndex(
+            (p: UIMessagePart) => p.type === 'operation' && p.operationId === event.blockId,
+          );
+          if (operationPartIndex >= 0) {
+            const part = state.parts[operationPartIndex] as UIOperationPart;
+            state.parts[operationPartIndex] = { ...part, status: 'done' };
+          }
         }
 
         if (state.activeBlock?.blockId === event.blockId) {

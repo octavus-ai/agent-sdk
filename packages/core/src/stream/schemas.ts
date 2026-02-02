@@ -361,6 +361,7 @@ export const messagePartTypeSchema = z.enum([
   'text',
   'reasoning',
   'tool-call',
+  'operation',
   'source',
   'file',
   'object',
@@ -402,12 +403,19 @@ export const objectInfoSchema = z.object({
   value: z.unknown(),
 });
 
+export const operationInfoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  operationType: z.string(),
+});
+
 // Base message part schema (without worker, for non-recursive use in worker nested parts)
 const baseMessagePartSchema = z.object({
-  type: z.enum(['text', 'reasoning', 'tool-call', 'source', 'file', 'object']),
+  type: z.enum(['text', 'reasoning', 'tool-call', 'operation', 'source', 'file', 'object']),
   visible: z.boolean(),
   content: z.string().optional(),
   toolCall: toolCallInfoSchema.optional(),
+  operation: operationInfoSchema.optional(),
   source: sourceInfoSchema.optional(),
   file: fileInfoSchema.optional(),
   object: objectInfoSchema.optional(),
@@ -431,6 +439,7 @@ export const messagePartSchema = z.object({
   visible: z.boolean(),
   content: z.string().optional(),
   toolCall: toolCallInfoSchema.optional(),
+  operation: operationInfoSchema.optional(),
   source: sourceInfoSchema.optional(),
   file: fileInfoSchema.optional(),
   object: objectInfoSchema.optional(),
