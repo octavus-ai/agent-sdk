@@ -141,7 +141,11 @@ export class WorkersApi extends BaseApiClient {
         config: this.config,
         toolHandlers: options.tools ?? {},
         url: `${this.config.baseUrl}/api/agents/${agentId}/execute`,
-        buildBody: () => ({ type: 'continue', executionId, toolResults }),
+        buildBody: ({ executionId: execId, toolResults: results }) => ({
+          type: 'continue',
+          executionId: execId ?? executionId,
+          toolResults: results ?? toolResults,
+        }),
         errorContext: 'Failed to continue worker',
       },
       { executionId, toolResults },
