@@ -626,6 +626,16 @@ export interface MessagePart {
 }
 
 /**
+ * Tool result entry for tool continuation messages.
+ * Used internally when injecting tool results back into conversation history.
+ */
+export interface ToolResultEntry {
+  toolCallId: string;
+  toolName?: string;
+  result: unknown;
+}
+
+/**
  * Internal chat message - stored in session state, used by LLM
  */
 export interface ChatMessage {
@@ -647,6 +657,12 @@ export interface ChatMessage {
   reasoning?: string;
   /** Required by Anthropic to verify reasoning blocks */
   reasoningSignature?: string;
+  /**
+   * Tool results for continuation messages.
+   * When present, this message represents tool results being injected back
+   * into the conversation (converted to role: 'tool' for the AI SDK).
+   */
+  toolResults?: ToolResultEntry[];
 }
 
 // =============================================================================

@@ -103,6 +103,7 @@ export type {
   OperationInfo,
   WorkerPartInfo,
   MessagePart,
+  ToolResultEntry,
   ChatMessage,
   // UI Message Types (for client SDK and consumer apps)
   UIMessageStatus,
