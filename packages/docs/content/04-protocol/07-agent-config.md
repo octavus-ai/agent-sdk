@@ -54,7 +54,7 @@ agent:
 
 # Google Gemini 3
 agent:
-  model: google/gemini-3-flash
+  model: google/gemini-3-flash-preview
 
 # OpenAI GPT-5
 agent:
