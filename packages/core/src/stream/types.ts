@@ -49,6 +49,8 @@ export interface ToolCallInfo {
   status: ToolCallStatus;
   result?: unknown;
   error?: string;
+  /** Google Gemini 3 thought signature - required for tool call continuation */
+  thoughtSignature?: string;
 }
 
 // =============================================================================
@@ -347,6 +349,8 @@ export interface PendingToolCall {
   thread?: string;
   /** Worker ID if this tool call originated from a worker execution */
   workerId?: string;
+  /** Google Gemini 3 thought signature - required for tool call continuation */
+  thoughtSignature?: string;
 }
 
 /**
