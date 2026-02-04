@@ -39,11 +39,11 @@ Specify models in `provider/model-id` format. Any model supported by the provide
 
 ### Supported Providers
 
-| Provider  | Format                 | Examples                                                     |
-| --------- | ---------------------- | ------------------------------------------------------------ |
-| Anthropic | `anthropic/{model-id}` | `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5`   |
-| Google    | `google/{model-id}`    | `gemini-3-pro-preview`, `gemini-3-flash`, `gemini-2.5-flash` |
-| OpenAI    | `openai/{model-id}`    | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`          |
+| Provider  | Format                 | Examples                                                             |
+| --------- | ---------------------- | -------------------------------------------------------------------- |
+| Anthropic | `anthropic/{model-id}` | `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5`           |
+| Google    | `google/{model-id}`    | `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash` |
+| OpenAI    | `openai/{model-id}`    | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`                  |
 
 ### Examples
 
