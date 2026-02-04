@@ -1448,7 +1448,7 @@ export class OctavusChat {
             type: 'worker',
             workerId: event.workerId,
             workerSlug: event.workerSlug,
-            workerSessionId: event.workerSessionId,
+            description: event.description,
             parts: [],
             status: 'running',
           };

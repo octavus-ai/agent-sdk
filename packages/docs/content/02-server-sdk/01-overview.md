@@ -111,6 +111,7 @@ interface OctavusClientConfig {
 class OctavusClient {
   readonly agents: AgentsApi;
   readonly agentSessions: AgentSessionsApi;
+  readonly workers: WorkersApi;
   readonly files: FilesApi;
 
   constructor(config: OctavusClientConfig);
@@ -219,3 +220,4 @@ The client uploads files directly to S3 using the presigned upload URL. See [Fil
 - [Sessions](/docs/server-sdk/sessions) — Deep dive into session management
 - [Tools](/docs/server-sdk/tools) — Implementing tool handlers
 - [Streaming](/docs/server-sdk/streaming) — Understanding stream events
+- [Workers](/docs/server-sdk/workers) — Executing worker agents

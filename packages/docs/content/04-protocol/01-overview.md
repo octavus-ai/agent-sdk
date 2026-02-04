@@ -17,7 +17,22 @@ Protocols provide:
 - **Validation** — Catch errors before runtime
 - **Visualization** — Debug execution flows
 
-## Protocol Structure
+## Agent Formats
+
+Octavus supports two agent formats:
+
+| Format        | Use Case                       | Structure                         |
+| ------------- | ------------------------------ | --------------------------------- |
+| `interactive` | Chat and multi-turn dialogue   | `triggers` + `handlers` + `agent` |
+| `worker`      | Background tasks and pipelines | `steps` + `output`                |
+
+**Interactive agents** handle conversations — they respond to triggers (like user messages) and maintain session state across interactions.
+
+**Worker agents** execute tasks — they run steps sequentially and return an output value. Workers can be called independently or composed into interactive agents.
+
+See [Workers](/docs/protocol/workers) for the worker protocol reference.
+
+## Interactive Protocol Structure
 
 ```yaml
 # Agent inputs (provided when creating a session)
@@ -148,5 +163,6 @@ Variables are replaced with their values at runtime. If a variable is not provid
 - [Skills](/docs/protocol/skills) — Code execution and knowledge packages
 - [Handlers](/docs/protocol/handlers) — Execution blocks
 - [Agent Config](/docs/protocol/agent-config) — Model and settings
+- [Workers](/docs/protocol/workers) — Worker agent format
 - [Provider Options](/docs/protocol/provider-options) — Provider-specific features
 - [Types](/docs/protocol/types) — Custom type definitions

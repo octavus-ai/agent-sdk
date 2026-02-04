@@ -303,7 +303,7 @@ export const workerStartEventSchema = z.object({
   type: z.literal('worker-start'),
   workerId: z.string(),
   workerSlug: z.string(),
-  workerSessionId: z.string().optional(),
+  description: z.string().optional(),
 });
 
 export const workerResultEventSchema = z.object({
@@ -426,7 +426,7 @@ const baseMessagePartSchema = z.object({
 export const workerPartInfoSchema = z.object({
   workerId: z.string(),
   workerSlug: z.string(),
-  workerSessionId: z.string().optional(),
+  description: z.string().optional(),
   // Worker nested parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
   nestedParts: z.array(baseMessagePartSchema),
   output: z.unknown().optional(),
@@ -572,7 +572,7 @@ export const uiWorkerPartSchema = z.object({
   type: z.literal('worker'),
   workerId: z.string(),
   workerSlug: z.string(),
-  workerSessionId: z.string().optional(),
+  description: z.string().optional(),
   // Worker parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
   parts: z.array(baseUiMessagePartSchema),
   output: z.unknown().optional(),
