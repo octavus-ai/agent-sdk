@@ -1,6 +1,6 @@
 {
   "name": "@octavus/docs",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Documentation content for Octavus SDKs",
   "license": "MIT",
   "author": "Octavus AI <dev@octavus.ai>",
