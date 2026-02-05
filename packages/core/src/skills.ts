@@ -1,39 +1,20 @@
 /**
- * Octavus skill tool names
+ * Skill-specific utilities.
  *
- * These are internal tools executed in E2B sandboxes.
- * Use these constants to filter skill tool events from external tool call events.
+ * For internal tool definitions and checking, see internal-tools.ts
  */
-export const OCTAVUS_SKILL_TOOLS = {
-  SKILL_READ: 'octavus_skill_read',
-  SKILL_LIST: 'octavus_skill_list',
-  SKILL_RUN: 'octavus_skill_run',
-  CODE_RUN: 'octavus_code_run',
-  FILE_WRITE: 'octavus_file_write',
-  FILE_READ: 'octavus_file_read',
-} as const;
 
-export type OctavusSkillToolName = (typeof OCTAVUS_SKILL_TOOLS)[keyof typeof OCTAVUS_SKILL_TOOLS];
+import {
+  isOctavusSkillTool,
+  OCTAVUS_SKILL_TOOLS,
+  type OctavusSkillToolName,
+} from './internal-tools';
+
+// Re-export skill tool constants for backward compatibility
+export { OCTAVUS_SKILL_TOOLS, isOctavusSkillTool, type OctavusSkillToolName };
 
 /**
- * Check if a tool name is an Octavus skill tool
- *
- * @example
- * ```typescript
- * if (isOctavusSkillTool(event.toolName)) {
- *   // This is a skill tool, executed in E2B sandbox
- *   const skillSlug = event.input?.skill;
- * } else {
- *   // This is an external tool, executed on consumer's server
- * }
- * ```
- */
-export function isOctavusSkillTool(toolName: string): toolName is OctavusSkillToolName {
-  return Object.values(OCTAVUS_SKILL_TOOLS).includes(toolName as OctavusSkillToolName);
-}
-
-/**
- * Extract skill slug from skill tool arguments
+ * Extract skill slug from skill tool arguments.
  *
  * Most skill tools include a `skill` parameter with the skill slug.
  * Returns undefined if the tool is not a skill tool or if the skill slug is not present.
