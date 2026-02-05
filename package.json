@@ -1,16 +1,16 @@
 {
-  "name": "js-sdk",
+  "name": "agent-sdk",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Official JavaScript/TypeScript SDKs for Octavus AI",
+  "description": "The official TypeScript SDKs for integrating Octavus agents",
   "repository": {
     "type": "git",
-    "url": "https://github.com/octavus-ai/js-sdk.git"
+    "url": "https://github.com/octavus-ai/agent-sdk.git"
   },
   "homepage": "https://octavus.ai",
   "bugs": {
-    "url": "https://github.com/octavus-ai/js-sdk/issues"
+    "url": "https://github.com/octavus-ai/agent-sdk/issues"
   },
   "author": "Octavus AI <dev@octavus.ai>",
   "license": "MIT",

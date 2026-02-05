@@ -6,12 +6,12 @@
   "author": "Octavus AI <dev@octavus.ai>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/octavus-ai/js-sdk.git",
+    "url": "https://github.com/octavus-ai/agent-sdk.git",
     "directory": "packages/server-sdk"
   },
   "homepage": "https://octavus.ai",
   "bugs": {
-    "url": "https://github.com/octavus-ai/js-sdk/issues"
+    "url": "https://github.com/octavus-ai/agent-sdk/issues"
   },
   "keywords": [
     "octavus",
