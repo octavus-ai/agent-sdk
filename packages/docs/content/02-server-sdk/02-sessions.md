@@ -176,7 +176,9 @@ conn.on('data', async (rawData: string) => {
   if (msg.type === 'trigger' || msg.type === 'continue' || msg.type === 'stop') {
     await session.handleSocketMessage(msg as SocketMessage, {
       onEvent: (event) => conn.write(JSON.stringify(event)),
-      onFinish: () => sendMessagesUpdate(), // Optional callback after streaming
+      onFinish: async () => {
+        // Fetch and persist messages to your database for restoration
+      },
     });
   }
 });

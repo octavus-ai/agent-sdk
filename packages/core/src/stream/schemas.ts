@@ -29,6 +29,8 @@ export const toolCallInfoSchema = z.object({
   status: toolCallStatusSchema,
   result: z.unknown().optional(),
   error: z.string().optional(),
+  thoughtSignature: z.string().optional(),
+  display: displayModeSchema.optional(),
 });
 
 // =============================================================================
@@ -479,6 +481,7 @@ export const uiReasoningPartSchema = z.object({
   text: z.string(),
   status: uiPartStatusSchema,
   thread: z.string().optional(),
+  providerMetadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const uiToolCallPartSchema = z.object({
@@ -491,6 +494,7 @@ export const uiToolCallPartSchema = z.object({
   error: z.string().optional(),
   status: uiToolCallStatusSchema,
   thread: z.string().optional(),
+  providerMetadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const uiOperationStatusSchema = z.enum(['running', 'done']);

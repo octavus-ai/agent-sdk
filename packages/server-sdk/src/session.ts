@@ -169,7 +169,9 @@ export class AgentSession {
    * conn.on('data', (raw) => {
    *   session.handleSocketMessage(JSON.parse(raw), {
    *     onEvent: (event) => conn.write(JSON.stringify(event)),
-   *     onFinish: () => sendMessagesUpdate(),
+   *     onFinish: async () => {
+   *       // Fetch messages and persist to your database for restoration
+   *     },
    *   });
    * });
    * ```
