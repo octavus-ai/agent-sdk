@@ -200,7 +200,7 @@ agent:
   agentic: true
 ```
 
-When `imageModel` is configured, the `octavus_generate_image` tool becomes available. The LLM can decide when to generate images based on user requests.
+When `imageModel` is configured, the `octavus_generate_image` tool becomes available. The LLM can decide when to generate images based on user requests. The tool supports both text-to-image generation and image editing/transformation using reference images.
 
 ### Supported Image Providers
 
@@ -220,16 +220,26 @@ The tool supports three image sizes:
 - `1792x1024` — Landscape (16:9)
 - `1024x1792` — Portrait (9:16)
 
+### Image Editing with Reference Images
+
+Both the agentic tool and the `generate-image` block support reference images for editing and transformation. When reference images are provided, the prompt describes how to modify or use those images.
+
+| Provider | Models | Reference Image Support |
+| -------- | ------ | ----------------------- |
+| OpenAI | `gpt-image-1` | Yes |
+| Google | Gemini native (`gemini-*-image`) | Yes |
+| Google | Imagen (`imagen-*`) | No |
+
 ### Agentic vs Deterministic
 
 Use `imageModel` in agent config when:
 
-- The LLM should decide when to generate images
+- The LLM should decide when to generate or edit images
 - Users ask for images in natural language
 
 Use `generate-image` block (see [Handlers](/docs/protocol/handlers#generate-image)) when:
 
-- You want explicit control over image generation
+- You want explicit control over image generation or editing
 - Building prompt engineering pipelines
 - Images are generated at specific handler steps
 
