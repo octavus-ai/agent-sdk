@@ -224,11 +224,11 @@ The tool supports three image sizes:
 
 Both the agentic tool and the `generate-image` block support reference images for editing and transformation. When reference images are provided, the prompt describes how to modify or use those images.
 
-| Provider | Models | Reference Image Support |
-| -------- | ------ | ----------------------- |
-| OpenAI | `gpt-image-1` | Yes |
-| Google | Gemini native (`gemini-*-image`) | Yes |
-| Google | Imagen (`imagen-*`) | No |
+| Provider | Models                           | Reference Image Support |
+| -------- | -------------------------------- | ----------------------- |
+| OpenAI   | `gpt-image-1`                    | Yes                     |
+| Google   | Gemini native (`gemini-*-image`) | Yes                     |
+| Google   | Imagen (`imagen-*`)              | No                      |
 
 ### Agentic vs Deterministic
 

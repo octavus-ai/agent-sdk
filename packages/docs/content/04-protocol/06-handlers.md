@@ -198,15 +198,15 @@ Edit image:
   description: Editing image...
 ```
 
-| Field             | Required | Description                                                      |
-| ----------------- | -------- | ---------------------------------------------------------------- |
-| `prompt`          | Yes      | Variable name containing the image prompt or edit instructions   |
+| Field             | Required | Description                                                     |
+| ----------------- | -------- | --------------------------------------------------------------- |
+| `prompt`          | Yes      | Variable name containing the image prompt or edit instructions  |
 | `imageModel`      | Yes      | Image model identifier (e.g., `google/gemini-2.5-flash-image`)  |
 | `size`            | No       | Image dimensions: `1024x1024`, `1792x1024`, or `1024x1792`      |
-| `referenceImages` | No       | Variable names containing image URLs for editing/transformation  |
-| `output`          | No       | Variable name to store the generated image URL                   |
-| `thread`          | No       | Thread to associate the output file with                         |
-| `description`     | No       | Description shown in the UI during generation                    |
+| `referenceImages` | No       | Variable names containing image URLs for editing/transformation |
+| `output`          | No       | Variable name to store the generated image URL                  |
+| `thread`          | No       | Thread to associate the output file with                        |
+| `description`     | No       | Description shown in the UI during generation                   |
 
 This block is for deterministic image generation pipelines where the prompt is constructed programmatically (e.g., via prompt engineering in a separate thread). When `referenceImages` are provided, the prompt describes how to modify those images.
 
