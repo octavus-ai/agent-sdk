@@ -238,6 +238,21 @@ export const resourceUpdateEventSchema = z.object({
   value: z.unknown(),
 });
 
+// --------------------------------- File --------------------------------------
+
+/**
+ * Schema for file references used in trigger input and user messages.
+ */
+export const fileReferenceSchema = z.object({
+  id: z.string(),
+  mediaType: z.string(),
+  url: z.string(),
+  filename: z.string().optional(),
+  size: z.number().optional(),
+});
+
+// --------------------------------- Tool --------------------------------------
+
 export const pendingToolCallSchema = z.object({
   toolCallId: z.string(),
   toolName: z.string(),
@@ -254,6 +269,7 @@ export const toolResultSchema = z.object({
   toolName: z.string().optional(),
   result: z.unknown().optional(),
   error: z.string().optional(),
+  files: z.array(fileReferenceSchema).optional(),
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
   thread: z.string().optional(),
@@ -271,19 +287,6 @@ export const clientToolRequestEventSchema = z.object({
   executionId: z.string(),
   toolCalls: z.array(pendingToolCallSchema),
   serverToolResults: z.array(toolResultSchema).optional(),
-});
-
-// --------------------------------- File --------------------------------------
-
-/**
- * Schema for file references used in trigger input and user messages.
- */
-export const fileReferenceSchema = z.object({
-  id: z.string(),
-  mediaType: z.string(),
-  url: z.string(),
-  filename: z.string().optional(),
-  size: z.number().optional(),
 });
 
 export const fileAvailableEventSchema = z.object({

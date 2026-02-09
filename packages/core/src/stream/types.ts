@@ -391,6 +391,8 @@ export interface ToolResult {
   toolName?: string;
   result?: unknown;
   error?: string;
+  /** Files produced by the tool (e.g., screenshots, generated images). */
+  files?: FileReference[];
   outputVariable?: string;
   blockIndex?: number;
   /** Thread name where this tool call originated (for workers with threads) */
@@ -637,6 +639,8 @@ export interface ToolResultEntry {
   toolCallId: string;
   toolName?: string;
   result: unknown;
+  /** Files produced by the tool, included as visual content for the LLM. */
+  files?: FileReference[];
 }
 
 /**
