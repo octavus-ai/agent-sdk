@@ -19,6 +19,7 @@ export type ErrorType =
   | 'provider_error' // 5xx - Provider-side failure
   | 'provider_overloaded' // 529/503 - Provider overloaded
   | 'provider_timeout' // 504 - Provider timeout
+  | 'unsupported_error' // Feature not supported by the model/provider
 
   // Agent/Platform Issues
   | 'execution_error' // Agent execution failed

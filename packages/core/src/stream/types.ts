@@ -51,6 +51,8 @@ export interface ToolCallInfo {
   error?: string;
   /** Google Gemini 3 thought signature - required for tool call continuation */
   thoughtSignature?: string;
+  /** Display mode from tool definition - controls what data flows to UIMessage */
+  display?: DisplayMode;
 }
 
 // =============================================================================
@@ -707,6 +709,12 @@ export interface UIReasoningPart {
   status: UIPartStatus;
   /** Thread name (undefined or 'main' for main thread) */
   thread?: string;
+  /**
+   * Provider-specific metadata for this reasoning block.
+   * Used to preserve cryptographic signatures across session restore.
+   * e.g. `{ anthropic: { signature: "..." } }`
+   */
+  providerMetadata?: Record<string, unknown>;
 }
 
 /**
@@ -729,6 +737,12 @@ export interface UIToolCallPart {
   status: UIToolCallStatus;
   /** Thread name (undefined or 'main' for main thread) */
   thread?: string;
+  /**
+   * Provider-specific metadata for this tool call.
+   * Used to preserve cryptographic signatures across session restore.
+   * e.g. `{ google: { thoughtSignature: "..." } }`
+   */
+  providerMetadata?: Record<string, unknown>;
 }
 
 /**

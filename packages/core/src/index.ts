@@ -128,9 +128,16 @@ export type {
 
 export { safeParseStreamEvent, safeParseUIMessage, safeParseUIMessages } from './stream/schemas';
 
+// Internal tools
 export {
+  OCTAVUS_INTERNAL_PREFIX,
+  OCTAVUS_INTERNAL_TOOLS,
+  isOctavusInternalTool,
   OCTAVUS_SKILL_TOOLS,
   isOctavusSkillTool,
-  getSkillSlugFromToolCall,
+  type OctavusInternalToolName,
   type OctavusSkillToolName,
-} from './skills';
+} from './internal-tools';
+
+// Skill utilities
+export { getSkillSlugFromToolCall } from './skills';
