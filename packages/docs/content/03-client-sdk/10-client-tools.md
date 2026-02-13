@@ -135,6 +135,7 @@ interface ClientToolContext {
   toolCallId: string; // Unique ID for this call
   toolName: string; // Name of the tool
   signal: AbortSignal; // Aborted if user stops generation
+  addFile: (file: FileReference) => void; // Attach a file to the result
 }
 ```
 
@@ -148,6 +149,8 @@ Use the signal to cancel long-running operations:
   return await response.json();
 }
 ```
+
+Tools that produce files (e.g., screenshots) can call `ctx.addFile()` to attach them to the result. Attached files are sent to the platform alongside the tool result so the LLM can see them as visual content on the next turn.
 
 ## Interactive Client Tools
 
@@ -541,6 +544,7 @@ interface ClientToolContext {
   toolCallId: string;
   toolName: string;
   signal: AbortSignal;
+  addFile: (file: FileReference) => void;
 }
 
 // Interactive tool (with bound methods)

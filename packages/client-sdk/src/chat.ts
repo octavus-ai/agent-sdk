@@ -41,6 +41,12 @@ export interface ClientToolContext {
   toolName: string;
   /** Signal for cancellation if user stops generation */
   signal: AbortSignal;
+  /**
+   * Register a file produced by this tool (e.g., a screenshot).
+   * Files are sent to the platform alongside the tool result so the LLM
+   * can see them as visual content rather than just a JSON URL.
+   */
+  addFile: (file: FileReference) => void;
 }
 
 /**
@@ -1732,16 +1738,19 @@ export class OctavusChat {
         }
       } else if (handler) {
         try {
+          const collectedFiles: FileReference[] = [];
           const result = await handler(tc.args, {
             toolCallId: tc.toolCallId,
             toolName: tc.toolName,
             signal: this._clientToolAbortController.signal,
+            addFile: (file) => collectedFiles.push(file),
           });
 
           this._completedToolResults.push({
             toolCallId: tc.toolCallId,
             toolName: tc.toolName,
             result,
+            files: collectedFiles.length > 0 ? collectedFiles : undefined,
             outputVariable: tc.outputVariable,
             blockIndex: tc.blockIndex,
             thread: tc.thread,

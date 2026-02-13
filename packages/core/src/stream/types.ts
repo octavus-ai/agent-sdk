@@ -22,7 +22,7 @@ export type ToolHandlers = Record<string, ToolHandler>;
 
 /**
  * Reference to an uploaded file.
- * Used in trigger input and user messages for file attachments.
+ * Used in trigger input, user messages, and tool results for file attachments.
  * Compatible with UIFilePart structure for rendering.
  */
 export interface FileReference {
@@ -393,6 +393,8 @@ export interface ToolResult {
   toolName?: string;
   result?: unknown;
   error?: string;
+  /** Files produced by the tool (e.g., screenshots, generated images). */
+  files?: FileReference[];
   outputVariable?: string;
   blockIndex?: number;
   /** Thread name where this tool call originated (for workers with threads) */
@@ -639,6 +641,8 @@ export interface ToolResultEntry {
   toolCallId: string;
   toolName?: string;
   result: unknown;
+  /** Files produced by the tool, included as visual content for the LLM. */
+  files?: FileReference[];
 }
 
 /**
