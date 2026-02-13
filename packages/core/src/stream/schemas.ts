@@ -243,7 +243,7 @@ export const resourceUpdateEventSchema = z.object({
 // --------------------------------- File --------------------------------------
 
 /**
- * Schema for file references used in trigger input and user messages.
+ * Schema for file references used in trigger input, user messages, and tool results.
  */
 export const fileReferenceSchema = z.object({
   id: z.string(),
