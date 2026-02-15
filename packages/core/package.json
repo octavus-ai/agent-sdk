@@ -1,6 +1,6 @@
 {
   "name": "@octavus/core",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Public types and utilities for Octavus client/server SDK communication",
   "license": "MIT",
   "author": "Octavus AI <dev@octavus.ai>",

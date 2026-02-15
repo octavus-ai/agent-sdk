@@ -1,6 +1,6 @@
 {
   "name": "@octavus/client-sdk",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Framework-agnostic client SDK for Octavus agents",
   "license": "MIT",
   "author": "Octavus AI <dev@octavus.ai>",
