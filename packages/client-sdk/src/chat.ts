@@ -244,6 +244,8 @@ interface WorkerPartState {
   currentReasoningPartIndex: number | null;
   currentObjectPartIndex: number | null;
   accumulatedJson: string;
+  /** Accumulated raw JSON text per tool call ID for progressive partial parsing */
+  toolInputBuffers: Map<string, string>;
 }
 
 interface StreamingState {
@@ -257,6 +259,8 @@ interface StreamingState {
   accumulatedJson: string;
   /** Active workers being populated: workerId -> worker state */
   activeWorkers: Map<string, WorkerPartState>;
+  /** Accumulated raw JSON text per tool call ID for progressive partial parsing */
+  toolInputBuffers: Map<string, string>;
 }
 
 type Listener = () => void;
@@ -361,6 +365,10 @@ function parsePartialJson(jsonText: string): unknown {
   }
 
   // Close unclosed structures
+  if (escaped) {
+    // If input ends with a dangling backslash, complete the escape sequence.
+    fixed += '\\';
+  }
   if (inString) {
     fixed += '"';
   }
@@ -391,6 +399,7 @@ function createEmptyStreamingState(): StreamingState {
     currentObjectPartIndex: null,
     accumulatedJson: '',
     activeWorkers: new Map(),
+    toolInputBuffers: new Map(),
   };
 }
 
@@ -1213,11 +1222,14 @@ export class OctavusChat {
           thread: threadForPart(state.activeBlock?.thread),
         };
 
+        // Initialize the input buffer for this tool call
         if (workerState) {
+          workerState.toolInputBuffers.set(event.toolCallId, '');
           const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
           workerPart.parts.push(toolPart);
           state.parts[workerState.partIndex] = { ...workerPart };
         } else {
+          state.toolInputBuffers.set(event.toolCallId, '');
           state.parts.push(toolPart);
 
           if (state.activeBlock) {
@@ -1234,33 +1246,41 @@ export class OctavusChat {
         const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
 
         if (workerState) {
+          // Accumulate the delta into the worker's buffer
+          const existing = workerState.toolInputBuffers.get(event.toolCallId) ?? '';
+          const accumulated = existing + event.inputTextDelta;
+          workerState.toolInputBuffers.set(event.toolCallId, accumulated);
+
           const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
           const toolPartIndex = workerPart.parts.findIndex(
             (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
           );
           if (toolPartIndex >= 0) {
-            try {
-              const part = workerPart.parts[toolPartIndex] as UIToolCallPart;
-              part.args = JSON.parse(event.inputTextDelta) as Record<string, unknown>;
-              workerPart.parts[toolPartIndex] = { ...part };
+            const toolPart = workerPart.parts[toolPartIndex] as UIToolCallPart;
+            const parsed = parsePartialJson(accumulated);
+            if (parsed !== undefined) {
+              toolPart.args = parsed as Record<string, unknown>;
+              workerPart.parts[toolPartIndex] = { ...toolPart };
               state.parts[workerState.partIndex] = { ...workerPart };
               this.updateStreamingMessage();
-            } catch {
-              // Partial JSON, ignore
             }
           }
         } else {
+          // Accumulate the delta into the top-level buffer
+          const existing = state.toolInputBuffers.get(event.toolCallId) ?? '';
+          const accumulated = existing + event.inputTextDelta;
+          state.toolInputBuffers.set(event.toolCallId, accumulated);
+
           const toolPartIndex = state.parts.findIndex(
             (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
           );
           if (toolPartIndex >= 0) {
-            try {
-              const part = state.parts[toolPartIndex] as UIToolCallPart;
-              part.args = JSON.parse(event.inputTextDelta) as Record<string, unknown>;
-              state.parts[toolPartIndex] = { ...part };
+            const toolPart = state.parts[toolPartIndex] as UIToolCallPart;
+            const parsed = parsePartialJson(accumulated);
+            if (parsed !== undefined) {
+              toolPart.args = parsed as Record<string, unknown>;
+              state.parts[toolPartIndex] = { ...toolPart };
               this.updateStreamingMessage();
-            } catch {
-              // Partial JSON, ignore
             }
           }
         }
@@ -1276,6 +1296,9 @@ export class OctavusChat {
         const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
 
         if (workerState) {
+          // Clean up the worker buffer
+          workerState.toolInputBuffers.delete(event.toolCallId);
+
           const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
           const toolPartIndex = workerPart.parts.findIndex(
             (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
@@ -1289,6 +1312,9 @@ export class OctavusChat {
             this.updateStreamingMessage();
           }
         } else {
+          // Clean up the top-level buffer
+          state.toolInputBuffers.delete(event.toolCallId);
+
           const toolPartIndex = state.parts.findIndex(
             (p: UIMessagePart) => p.type === 'tool-call' && p.toolCallId === event.toolCallId,
           );
@@ -1469,6 +1495,7 @@ export class OctavusChat {
           currentReasoningPartIndex: null,
           currentObjectPartIndex: null,
           accumulatedJson: '',
+          toolInputBuffers: new Map(),
         };
         state.activeWorkers.set(event.workerId, workerState);
         this.updateStreamingMessage();
