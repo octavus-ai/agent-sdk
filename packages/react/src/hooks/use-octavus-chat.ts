@@ -215,30 +215,32 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
   const transportRef = useRef<Transport | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // Store the session ID setter in a ref so we can use it in a stable callback
   const sessionIdSetterRef = useRef(setSessionId);
   sessionIdSetterRef.current = setSessionId;
 
-  // Store user's onStart callback in a ref
-  const userOnStartRef = useRef(options.onStart);
-  userOnStartRef.current = options.onStart;
-
   if (transportRef.current !== options.transport) {
     chatRef.current?.stop();
-    // Reset session ID when transport changes
     setSessionId(null);
-    // Create chat with wrapped onStart callback
-    chatRef.current = new OctavusChat({
-      ...options,
-      onStart: (id) => {
-        sessionIdSetterRef.current(id);
-        userOnStartRef.current?.(id);
-      },
-    });
+    chatRef.current = new OctavusChat(options);
     transportRef.current = options.transport;
   }
 
   const chat = chatRef.current!;
+
+  // Keep all mutable options (callbacks, tool handlers) fresh on every render.
+  // This ensures handlers always reference the latest closures instead of going stale.
+  chat.updateOptions({
+    clientTools: options.clientTools,
+    onError: options.onError,
+    onFinish: options.onFinish,
+    onStop: options.onStop,
+    onResourceUpdate: options.onResourceUpdate,
+    onStart: (id) => {
+      sessionIdSetterRef.current(id);
+      options.onStart?.(id);
+    },
+    requestUploadUrls: options.requestUploadUrls,
+  });
   const transport = options.transport;
 
   const subscribe = useCallback((callback: () => void) => chat.subscribe(callback), [chat]);
