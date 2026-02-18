@@ -526,6 +526,17 @@ export class OctavusChat {
     this.transport = options.transport;
   }
 
+  /**
+   * Update mutable options (callbacks and tool handlers) without recreating the instance.
+   * Used by the React hook to keep options fresh across renders, but can also be
+   * called directly by non-React consumers.
+   *
+   * `transport` and `initialMessages` are excluded since they're only consumed at construction time.
+   */
+  updateOptions(updates: Partial<Omit<OctavusChatOptions, 'transport' | 'initialMessages'>>): void {
+    this.options = { ...this.options, ...updates };
+  }
+
   // =========================================================================
   // Public Getters
   // =========================================================================
