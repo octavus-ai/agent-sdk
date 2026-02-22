@@ -64,6 +64,12 @@ export interface SyncResult {
   created: boolean;
 }
 
+/** Archive result from delete endpoint */
+export interface ArchiveResult {
+  agentId: string;
+  message: string;
+}
+
 // Response schemas for validation
 const agentSchema = z.object({
   slug: z.string(),
@@ -120,6 +126,11 @@ const updateResponseSchema = z.object({
   message: z.string(),
 });
 
+const archiveResponseSchema = z.object({
+  agentId: z.string(),
+  message: z.string(),
+});
+
 export class CliApi {
   constructor(private readonly config: CliConfig) {}
 
@@ -168,6 +179,12 @@ export class CliApi {
     });
     const data = updateResponseSchema.parse(response);
     return data.agentId;
+  }
+
+  /** Archive an agent by slug */
+  async archiveAgent(slug: string): Promise<ArchiveResult> {
+    const response = await this.request('DELETE', `/api/agents/${slug}?by=slug`);
+    return archiveResponseSchema.parse(response);
   }
 
   /** Sync agent (create or update) */

@@ -15,6 +15,7 @@ Manage agent definitions including protocols and prompts.
 | `/api/agents/:id`      | GET    | Agents OR Sessions  |
 | `/api/agents`          | POST   | Agents              |
 | `/api/agents/:id`      | PATCH  | Agents              |
+| `/api/agents/:id`      | DELETE | Agents              |
 | `/api/agents/validate` | POST   | Agents              |
 
 Read endpoints work with either permission since both the CLI (for sync) and Server SDK (for sessions) need to read agent definitions.
@@ -201,6 +202,37 @@ curl -X PATCH https://octavus.ai/api/agents/:agentId \
   -d '{
     "protocol": "agent:\n  model: anthropic/claude-sonnet-4-5\n  system: system\n  thinking: high"
   }'
+```
+
+## Archive Agent
+
+Archive an agent (soft delete). The agent is removed from the active agent list and its slug is freed for reuse. Session history is preserved.
+
+```
+DELETE /api/agents/:id
+```
+
+Supports `?by=slug` query parameter to look up by slug instead of ID.
+
+### Response
+
+```json
+{
+  "agentId": "cm5xvz7k80001abcd",
+  "message": "Agent archived successfully"
+}
+```
+
+### Example
+
+```bash
+# Archive by ID
+curl -X DELETE https://octavus.ai/api/agents/:agentId \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+# Archive by slug
+curl -X DELETE https://octavus.ai/api/agents/support-chat?by=slug \
+  -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ## Creating and Managing Agents

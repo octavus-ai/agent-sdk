@@ -46,6 +46,11 @@ const restoreSessionResponseSchema = z.object({
   restored: z.boolean(),
 });
 
+const clearSessionResponseSchema = z.object({
+  sessionId: z.string(),
+  cleared: z.boolean(),
+});
+
 /** Session status indicating whether it's active or expired */
 export type SessionStatus = 'active' | 'expired';
 
@@ -79,6 +84,11 @@ export interface RestoreSessionResult {
   sessionId: string;
   /** True if session was restored from messages, false if already active */
   restored: boolean;
+}
+
+export interface ClearSessionResult {
+  sessionId: string;
+  cleared: boolean;
 }
 
 export interface SessionAttachOptions {
@@ -176,6 +186,15 @@ export class AgentSessionsApi extends BaseApiClient {
       { messages, input },
       restoreSessionResponseSchema,
     );
+  }
+
+  /**
+   * Clear session state from the server.
+   * The session will transition to 'expired' status and can be restored with restore().
+   * Idempotent: succeeds even if state was already cleared/expired.
+   */
+  async clear(sessionId: string): Promise<ClearSessionResult> {
+    return await this.httpDelete(`/api/agent-sessions/${sessionId}`, clearSessionResponseSchema);
   }
 
   /** Attach to an existing session for triggering events */
