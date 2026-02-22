@@ -7,6 +7,8 @@ import { WorkersApi } from '@/workers.js';
 export interface OctavusClientConfig {
   baseUrl: string;
   apiKey?: string;
+  /** Enable model request tracing to capture full payloads sent to providers (default: false) */
+  traceModelRequests?: boolean;
 }
 
 /** Client for interacting with the Octavus platform API */
@@ -17,10 +19,12 @@ export class OctavusClient {
   readonly workers: WorkersApi;
   readonly baseUrl: string;
   private readonly apiKey?: string;
+  private readonly traceModelRequests: boolean;
 
   constructor(config: OctavusClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.apiKey = config.apiKey;
+    this.traceModelRequests = config.traceModelRequests ?? false;
 
     const apiConfig: ApiClientConfig = {
       baseUrl: this.baseUrl,
@@ -40,6 +44,10 @@ export class OctavusClient {
 
     if (this.apiKey) {
       headers.Authorization = `Bearer ${this.apiKey}`;
+    }
+
+    if (this.traceModelRequests) {
+      headers['X-Octavus-Trace'] = 'true';
     }
 
     return headers;

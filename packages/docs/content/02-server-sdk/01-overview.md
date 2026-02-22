@@ -106,6 +106,7 @@ The main entry point for interacting with Octavus.
 interface OctavusClientConfig {
   baseUrl: string; // Octavus API URL
   apiKey?: string; // Your API key
+  traceModelRequests?: boolean; // Enable model request tracing (default: false)
 }
 
 class OctavusClient {
@@ -221,3 +222,4 @@ The client uploads files directly to S3 using the presigned upload URL. See [Fil
 - [Tools](/docs/server-sdk/tools) — Implementing tool handlers
 - [Streaming](/docs/server-sdk/streaming) — Understanding stream events
 - [Workers](/docs/server-sdk/workers) — Executing worker agents
+- [Debugging](/docs/server-sdk/debugging) — Model request tracing and debugging
