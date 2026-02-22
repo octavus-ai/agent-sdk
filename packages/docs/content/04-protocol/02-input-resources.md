@@ -71,11 +71,13 @@ agent:
   model: MODEL # Resolved from session input
 ```
 
-In prompts, reference with `{{INPUT_NAME}}`:
+In prompts, reference variables with `{{VARIABLE_NAME}}`:
 
 ```markdown
 You are a support agent for {{COMPANY_NAME}}.
 ```
+
+To use a variable in a prompt, it must be passed through the `input` mapping on the [agent config](/docs/protocol/agent-config#system-prompt) or [block](/docs/protocol/handlers#block-input-mapping).
 
 > **Note:** Variables must be `UPPER_SNAKE_CASE`. Nested properties (dot notation like `{{VAR.property}}`) are not supported. Objects are serialized as JSON when interpolated.
 

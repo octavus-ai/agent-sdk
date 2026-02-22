@@ -23,7 +23,7 @@ agent:
 | ------------- | -------- | --------------------------------------------------------- |
 | `model`       | Yes      | Model identifier or variable reference                    |
 | `system`      | Yes      | System prompt filename (without .md)                      |
-| `input`       | No       | Variables to interpolate in system prompt                 |
+| `input`       | No       | Variables to pass to the system prompt                    |
 | `tools`       | No       | List of tools the LLM can call                            |
 | `skills`      | No       | List of Octavus skills the LLM can use                    |
 | `imageModel`  | No       | Image generation model (enables agentic image generation) |
@@ -102,7 +102,7 @@ The model value is validated at runtime to ensure it's in the correct `provider/
 
 ## System Prompt
 
-The system prompt sets the agent's persona and instructions:
+The system prompt sets the agent's persona and instructions. The `input` field controls which variables are available to the prompt — only variables listed in `input` are interpolated.
 
 ```yaml
 agent:
@@ -112,7 +112,30 @@ agent:
     - PRODUCT_NAME
 ```
 
-Example `prompts/system.md`:
+Variables in `input` can come from `protocol.input`, `protocol.resources`, or `protocol.variables`.
+
+### Input Mapping Formats
+
+```yaml
+# Array format (same name)
+input:
+  - COMPANY_NAME
+  - PRODUCT_NAME
+
+# Array format (rename)
+input:
+  - CONTEXT: CONVERSATION_SUMMARY  # Prompt sees CONTEXT, value comes from CONVERSATION_SUMMARY
+
+# Object format (rename)
+input:
+  CONTEXT: CONVERSATION_SUMMARY
+```
+
+The left side (label) is what the prompt sees. The right side (source) is where the value comes from.
+
+### Example
+
+`prompts/system.md`:
 
 ```markdown
 You are a friendly support agent for {{COMPANY_NAME}}.

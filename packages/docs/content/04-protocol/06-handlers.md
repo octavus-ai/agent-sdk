@@ -305,16 +305,23 @@ handlers:
 
 ## Block Input Mapping
 
-Map variables to block inputs:
+The `input` field on blocks controls which variables are passed to the prompt. Only variables listed in `input` are available for interpolation.
+
+Variables can come from `protocol.input`, `protocol.resources`, `protocol.variables`, `trigger.input`, or outputs from prior blocks.
 
 ```yaml
-# Simple list (variable name = prompt variable)
+# Array format (same name)
 input: [USER_MESSAGE, COMPANY_NAME]
 
-# Mapping (different names)
+# Array format (rename)
 input:
-  - CONVERSATION: CONVERSATION_TEXT  # CONVERSATION in prompt = CONVERSATION_TEXT
+  - CONVERSATION: CONVERSATION_TEXT  # Prompt sees CONVERSATION, value comes from CONVERSATION_TEXT
   - TICKET_DETAILS: TICKET
+
+# Object format (rename)
+input:
+  CONVERSATION: CONVERSATION_TEXT
+  TICKET_DETAILS: TICKET
 ```
 
 ## Independent Blocks
