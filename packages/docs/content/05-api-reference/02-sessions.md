@@ -212,6 +212,32 @@ curl -X POST https://octavus.ai/api/agent-sessions/:sessionId/restore \
 
 > **Note**: Store the `UIMessage[]` array after each interaction to enable restoration. The restore endpoint reconstructs the conversation state from these messages.
 
+## Clear Session
+
+Clear session state, transitioning it to `expired` status. The session can be restored afterwards with the [Restore Session](#restore-session) endpoint.
+
+This is idempotent — clearing an already expired session succeeds without error.
+
+```
+DELETE /api/agent-sessions/:sessionId
+```
+
+### Response
+
+```json
+{
+  "sessionId": "cm5xyz123abc456def",
+  "cleared": true
+}
+```
+
+### Example
+
+```bash
+curl -X DELETE https://octavus.ai/api/agent-sessions/:sessionId \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
 ## Trigger Session
 
 Execute a trigger on a session. Returns a Server-Sent Events stream.

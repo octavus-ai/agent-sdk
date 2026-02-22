@@ -203,6 +203,8 @@ flowchart TD
     C --> D[4. RETRIEVE]
     D --> C
     C --> E[5. EXPIRE]
+    C --> G[5b. CLEAR]
+    G --> F
     E --> F{6. RESTORE?}
     F -->|Yes| C
     F -->|No| A
@@ -226,6 +228,10 @@ flowchart TD
 
     E -.- E1["`Sessions expire after
     24 hours (configurable)`"]
+
+    G -.- G1["`**client.agentSessions.clear()**
+    Programmatically clear state
+    Session becomes expired`"]
 
     F -.- F1["`**client.agentSessions.restore()**
     Restore from stored messages
@@ -379,6 +385,26 @@ async function getOrCreateSession(chatId: string, agentId: string, input: Record
   return { sessionId, messages: [] };
 }
 ```
+
+## Clearing Sessions
+
+To programmatically clear a session's state (e.g., for testing reset/restore flows), use `clear()`:
+
+```typescript
+const result = await client.agentSessions.clear(sessionId);
+console.log(result.cleared); // true
+```
+
+After clearing, the session transitions to `expired` status. You can then restore it with `restore()` or create a new session.
+
+```typescript
+interface ClearSessionResult {
+  sessionId: string;
+  cleared: boolean;
+}
+```
+
+This is idempotent — calling `clear()` on an already expired session succeeds without error.
 
 ## Error Handling
 

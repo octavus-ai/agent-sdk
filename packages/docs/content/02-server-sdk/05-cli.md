@@ -140,6 +140,27 @@ Get details about a specific agent by its slug.
 octavus get support-chat
 ```
 
+### `octavus archive <slug>`
+
+Archive an agent by slug (soft delete). Archived agents are removed from the active agent list and their slug is freed for reuse.
+
+```bash
+octavus archive support-chat
+```
+
+**Options:**
+
+- `--json` — Output as JSON (for CI/CD parsing)
+- `--quiet` — Suppress non-essential output
+
+**Example output:**
+
+```
+ℹ Archiving support-chat...
+✓ Archived: support-chat
+  Agent ID: clxyz123abc456
+```
+
 ## Agent Directory Structure
 
 The CLI expects agent definitions in a specific directory structure:

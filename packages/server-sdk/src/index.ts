@@ -6,6 +6,7 @@ export {
   type UISessionState,
   type ExpiredSessionState,
   type RestoreSessionResult,
+  type ClearSessionResult,
   type SessionStatus,
   type SessionAttachOptions,
 } from '@/agent-sessions.js';

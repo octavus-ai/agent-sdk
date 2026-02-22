@@ -77,6 +77,9 @@ const { messages, status } = await client.agentSessions.getMessages(sessionId);
 // Restore expired session
 await client.agentSessions.restore(sessionId, storedMessages, input);
 
+// Clear session state (resets to expired)
+await client.agentSessions.clear(sessionId);
+
 // Attach to session for triggering
 const session = client.agentSessions.attach(sessionId, options);
 ```
@@ -201,7 +204,7 @@ Sessions remain active for 24 hours (configurable). Use `getMessages()` for UI d
 
 ### Expired Sessions
 
-When Redis state expires:
+When session state expires:
 
 ```typescript
 const result = await client.agentSessions.getMessages(sessionId);

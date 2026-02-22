@@ -59,4 +59,18 @@ export abstract class BaseApiClient {
     const data: unknown = await response.json();
     return schema.parse(data);
   }
+
+  protected async httpDelete<T>(path: string, schema: ZodType<T>): Promise<T> {
+    const response = await fetch(`${this.config.baseUrl}${path}`, {
+      method: 'DELETE',
+      headers: this.config.getHeaders(),
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Request failed');
+    }
+
+    const data: unknown = await response.json();
+    return schema.parse(data);
+  }
 }

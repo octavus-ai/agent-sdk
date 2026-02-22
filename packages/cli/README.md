@@ -21,6 +21,7 @@ The Octavus CLI provides commands for managing agent definitions from your local
 - **Validate** agent definitions before deploying
 - **Sync** agents to the Octavus platform
 - **List** and **get** agent details
+- **Archive** agents you no longer need
 
 ## Configuration
 
@@ -136,6 +137,31 @@ octavus get support-chat
 #   Description: Customer support agent with escalation
 #
 #   Prompts: system, user-message, escalation-summary
+```
+
+### archive
+
+Archive an agent by slug (soft delete).
+
+```bash
+octavus archive <slug>
+```
+
+**Options:**
+
+- `--json` - Output as JSON
+- `--quiet` - Suppress non-essential output
+
+**Example:**
+
+```bash
+octavus archive support-chat
+# ℹ Archiving support-chat...
+# ✓ Archived: support-chat
+#   Agent ID: agent_abc123
+
+octavus archive support-chat --json
+# { "slug": "support-chat", "agentId": "agent_abc123", "archived": true }
 ```
 
 ## Agent Definition Structure

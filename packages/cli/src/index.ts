@@ -6,6 +6,7 @@
  *   octavus sync <path>      - Sync agent to platform (creates or updates)
  *   octavus list             - List all agents in the project
  *   octavus get <slug>       - Get agent details by slug
+ *   octavus archive <slug>   - Archive an agent (soft delete)
  *
  * Global Options:
  *   --env <file>  - Load environment from a specific file (default: .env)
@@ -22,6 +23,7 @@ import { registerValidateCommand } from '@/commands/validate.js';
 import { registerSyncCommand } from '@/commands/sync.js';
 import { registerListCommand } from '@/commands/list.js';
 import { registerGetCommand } from '@/commands/get.js';
+import { registerArchiveCommand } from '@/commands/archive.js';
 
 // Pre-parse to extract --env option before loading environment
 const envIndex = process.argv.indexOf('--env');
@@ -43,6 +45,7 @@ registerValidateCommand(program);
 registerSyncCommand(program);
 registerListCommand(program);
 registerGetCommand(program);
+registerArchiveCommand(program);
 
 // Parse and run
 program.parse();
