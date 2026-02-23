@@ -60,10 +60,7 @@ In the Octavus dashboard:
 - **Session debug view** — Full execution log with expandable model request entries
 - **Agent preview** — Activity panel shows model requests in the execution steps
 
-Each entry has two view modes:
-
-- **Formatted** — Human-readable view with system prompt, message conversation, and tool list
-- **JSON** — Raw JSON payload for copying or detailed inspection
+Each entry shows the raw JSON payload with a copy button for easy inspection.
 
 ### Storage
 
