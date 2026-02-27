@@ -1,6 +1,7 @@
 import type { StreamEvent, ToolHandlers, ToolResult } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
 import { executeStream } from '@/streaming.js';
+import { WorkerError } from '@/worker-error.js';
 
 // =============================================================================
 // Request Types
@@ -23,7 +24,7 @@ export interface WorkerContinueRequest {
 export type WorkerRequest = WorkerStartRequest | WorkerContinueRequest;
 
 // =============================================================================
-// Execution Options
+// Execution Options & Results
 // =============================================================================
 
 /** Options for worker execution */
@@ -32,6 +33,14 @@ export interface WorkerExecuteOptions {
   tools?: ToolHandlers;
   /** Abort signal to cancel the execution */
   signal?: AbortSignal;
+}
+
+/** Result from a non-streaming worker execution via `generate()` */
+export interface WorkerGenerateResult {
+  /** The worker's output value */
+  output: unknown;
+  /** Session ID for the worker execution (usable for debugging/session URLs) */
+  sessionId: string;
 }
 
 // =============================================================================
@@ -100,6 +109,61 @@ export class WorkersApi extends BaseApiClient {
       {},
       options.signal,
     );
+  }
+
+  /**
+   * Execute a worker agent and return the final output.
+   *
+   * Non-streaming equivalent of `execute()` — runs the worker to completion
+   * and returns the output value directly. Use this when you don't need to
+   * observe intermediate streaming events.
+   *
+   * @param agentId - The worker agent ID
+   * @param input - Input values for the worker
+   * @param options - Optional configuration including tools and abort signal
+   * @returns The worker output and session ID
+   * @throws {WorkerError} If the worker fails or completes without output
+   *
+   * @example Basic usage
+   * ```typescript
+   * const { output, sessionId } = await client.workers.generate(agentId, {
+   *   TOPIC: 'AI safety',
+   * });
+   * console.log(output);
+   * console.log(`Debug: ${client.baseUrl}/sessions/${sessionId}`);
+   * ```
+   *
+   * @example With timeout
+   * ```typescript
+   * const { output } = await client.workers.generate(agentId, input, {
+   *   signal: AbortSignal.timeout(120_000),
+   * });
+   * ```
+   */
+  async generate(
+    agentId: string,
+    input: Record<string, unknown>,
+    options: WorkerExecuteOptions = {},
+  ): Promise<WorkerGenerateResult> {
+    let sessionId: string | undefined;
+
+    for await (const event of this.execute(agentId, input, options)) {
+      if (event.type === 'start' && event.executionId) {
+        sessionId = event.executionId;
+      } else if (event.type === 'error') {
+        throw new WorkerError(event.message, sessionId);
+      } else if (event.type === 'worker-result') {
+        if (event.error) {
+          throw new WorkerError(event.error, sessionId ?? event.workerId);
+        }
+        return {
+          output: event.output,
+          sessionId: sessionId ?? event.workerId,
+        };
+      }
+    }
+
+    throw new WorkerError('Worker completed without producing a result', sessionId);
   }
 
   /**

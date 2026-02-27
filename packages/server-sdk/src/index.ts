@@ -34,7 +34,9 @@ export {
   type WorkerContinueRequest,
   type WorkerRequest,
   type WorkerExecuteOptions,
+  type WorkerGenerateResult,
 } from '@/workers.js';
+export { WorkerError } from '@/worker-error.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
 
