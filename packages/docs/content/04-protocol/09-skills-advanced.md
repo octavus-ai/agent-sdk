@@ -59,7 +59,7 @@ skills:
 steps:
   Start analysis:
     block: start-thread
-    thread: main
+    thread: analysis
     model: anthropic/claude-sonnet-4-5
     system: system
     skills: [qr-code, data-analysis]

@@ -375,7 +375,7 @@ skills:
 steps:
   Start thread:
     block: start-thread
-    thread: main
+    thread: worker
     model: anthropic/claude-sonnet-4-5
     system: system
     skills: [qr-code]
