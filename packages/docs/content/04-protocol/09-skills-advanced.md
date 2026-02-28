@@ -394,7 +394,7 @@ if len(data) > 1000:
 Be aware of:
 
 - **File size limits** - Large files may fail to upload
-- **Execution time** - 1-hour sandbox timeout (configurable)
+- **Execution time** - Sandbox timeout (5-minute default, 1-hour maximum)
 - **Memory limits** - Sandbox environment constraints
 
 ## Debugging Skills
