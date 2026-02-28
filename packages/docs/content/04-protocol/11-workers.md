@@ -148,7 +148,7 @@ steps:
     tools: [tool-b]
 ```
 
-This gives workers flexibility to use different models, tools, and settings at different stages.
+This gives workers flexibility to use different models, tools, skills, and settings at different stages.
 
 ### Steps Instead of Handlers
 
@@ -226,7 +226,7 @@ All LLM configuration goes here:
 | `system`      | System prompt filename (required)                 |
 | `input`       | Variables for system prompt                       |
 | `tools`       | Tools available in this thread                    |
-| `workers`     | Workers available to this thread (as LLM tools)   |
+| `skills`      | Octavus skills available in this thread           |
 | `imageModel`  | Image generation model                            |
 | `thinking`    | Extended reasoning level                          |
 | `temperature` | Model temperature                                 |
@@ -361,6 +361,31 @@ steps:
 
 output: CONVERSATION_SUMMARY
 ```
+
+## Skills and Image Generation
+
+Workers can use Octavus skills and image generation, configured per-thread via `start-thread`:
+
+```yaml
+skills:
+  qr-code:
+    display: description
+    description: Generate QR codes
+
+steps:
+  Start thread:
+    block: start-thread
+    thread: main
+    model: anthropic/claude-sonnet-4-5
+    system: system
+    skills: [qr-code]
+    imageModel: google/gemini-2.5-flash-image
+    maxSteps: 10
+```
+
+Workers define their own skills independently -- they don't inherit skills from a parent interactive agent. Each thread gets its own sandbox scoped to only its listed skills.
+
+See [Skills](/docs/protocol/skills) for full documentation.
 
 ## Tool Handling
 

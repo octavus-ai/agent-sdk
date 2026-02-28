@@ -61,23 +61,47 @@ skills:
 
 ## Enabling Skills
 
-After defining skills in the `skills:` section, specify which skills are available for the chat thread in `agent.skills`:
+After defining skills in the `skills:` section, specify which skills are available. Skills work in both interactive agents and workers.
+
+### Interactive Agents
+
+Reference skills in `agent.skills`:
 
 ```yaml
-# All skills available to this agent (defined once at protocol level)
 skills:
   qr-code:
     display: description
     description: Generating QR codes
 
-# Skills available for this chat thread
 agent:
   model: anthropic/claude-sonnet-4-5
   system: system
   tools: [get-user-account]
-  skills: [qr-code] # Skills available for this thread
+  skills: [qr-code]
   agentic: true
 ```
+
+### Workers and Named Threads
+
+Reference skills per-thread in `start-thread.skills`:
+
+```yaml
+skills:
+  qr-code:
+    display: description
+    description: Generating QR codes
+
+steps:
+  Start thread:
+    block: start-thread
+    thread: main
+    model: anthropic/claude-sonnet-4-5
+    system: system
+    skills: [qr-code]
+    maxSteps: 10
+```
+
+This also works for named threads in interactive agents, allowing different threads to have different skills.
 
 ## Skill Tools
 
@@ -290,23 +314,35 @@ agent:
 
 ## Sandbox Timeout
 
-The default sandbox timeout is 5 minutes. For long-running operations, you can configure a custom timeout using `sandboxTimeout` in the agent config:
+The default sandbox timeout is 5 minutes. You can configure a custom timeout using `sandboxTimeout` in the agent config or on individual `start-thread` blocks:
 
 ```yaml
+# Agent-level timeout (applies to main thread)
 agent:
   model: anthropic/claude-sonnet-4-5
   skills: [data-analysis]
   sandboxTimeout: 1800000 # 30 minutes (in milliseconds)
 ```
 
-`sandboxTimeout` Maximum: 1 hour (3,600,000 ms)
+```yaml
+# Thread-level timeout (overrides agent-level for this thread)
+steps:
+  Start thread:
+    block: start-thread
+    thread: analysis
+    model: anthropic/claude-sonnet-4-5
+    skills: [data-analysis]
+    sandboxTimeout: 3600000 # 1 hour
+```
+
+Thread-level `sandboxTimeout` takes priority over agent-level. Maximum: 1 hour (3,600,000 ms).
 
 ## Security
 
 Skills run in isolated sandbox environments:
 
 - **No network access** (unless explicitly configured)
-- **No persistent storage** (sandbox destroyed after execution)
+- **No persistent storage** (sandbox destroyed after each `next-message` execution)
 - **File output only** via `/output/` directory
 - **Time limits** enforced (5-minute default, configurable via `sandboxTimeout`)
 

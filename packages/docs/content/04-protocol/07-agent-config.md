@@ -19,19 +19,20 @@ agent:
 
 ## Configuration Options
 
-| Field         | Required | Description                                               |
-| ------------- | -------- | --------------------------------------------------------- |
-| `model`       | Yes      | Model identifier or variable reference                    |
-| `system`      | Yes      | System prompt filename (without .md)                      |
-| `input`       | No       | Variables to pass to the system prompt                    |
-| `tools`       | No       | List of tools the LLM can call                            |
-| `skills`      | No       | List of Octavus skills the LLM can use                    |
-| `imageModel`  | No       | Image generation model (enables agentic image generation) |
-| `agentic`     | No       | Allow multiple tool call cycles                           |
-| `maxSteps`    | No       | Maximum agentic steps (default: 10)                       |
-| `temperature` | No       | Model temperature (0-2)                                   |
-| `thinking`    | No       | Extended reasoning level                                  |
-| `anthropic`   | No       | Anthropic-specific options (tools, skills)                |
+| Field            | Required | Description                                               |
+| ---------------- | -------- | --------------------------------------------------------- |
+| `model`          | Yes      | Model identifier or variable reference                    |
+| `system`         | Yes      | System prompt filename (without .md)                      |
+| `input`          | No       | Variables to pass to the system prompt                    |
+| `tools`          | No       | List of tools the LLM can call                            |
+| `skills`         | No       | List of Octavus skills the LLM can use                    |
+| `sandboxTimeout` | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour) |
+| `imageModel`     | No       | Image generation model (enables agentic image generation) |
+| `agentic`        | No       | Allow multiple tool call cycles                           |
+| `maxSteps`       | No       | Maximum agentic steps (default: 10)                       |
+| `temperature`    | No       | Model temperature (0-2)                                   |
+| `thinking`       | No       | Extended reasoning level                                  |
+| `anthropic`      | No       | Anthropic-specific options (tools, skills)                |
 
 ## Models
 
@@ -319,7 +320,11 @@ handlers:
       thinking: low # Different thinking
       maxSteps: 1 # Limit tool calls
       system: escalation-summary # Different prompt
+      skills: [data-analysis] # Thread-specific skills
+      imageModel: google/gemini-2.5-flash-image # Thread-specific image model
 ```
+
+Each thread can have its own skills and image model. Skills referenced here must be defined in the protocol's `skills:` section. Workers use this same pattern since they don't have a global `agent:` section.
 
 ## Full Example
 

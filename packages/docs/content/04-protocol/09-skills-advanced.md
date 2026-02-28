@@ -26,10 +26,11 @@ Use external tools instead when:
 
 ### Defining Available Skills
 
-Define all skills available to this agent in the `skills:` section. Then specify which skills are available for the chat thread in `agent.skills`:
+Define all skills in the `skills:` section, then reference which skills are available where they're used:
+
+**Interactive agents** — reference in `agent.skills`:
 
 ```yaml
-# All skills available to this agent (defined once at protocol level)
 skills:
   qr-code:
     display: description
@@ -37,23 +38,39 @@ skills:
   pdf-processor:
     display: description
     description: Processing PDFs
+
+agent:
+  model: anthropic/claude-sonnet-4-5
+  system: system
+  skills: [qr-code]
+```
+
+**Workers and named threads** — reference per-thread in `start-thread.skills`:
+
+```yaml
+skills:
+  qr-code:
+    display: description
+    description: Generating QR codes
   data-analysis:
     display: description
     description: Analyzing data
 
-# Skills available for this chat thread
-agent:
-  model: anthropic/claude-sonnet-4-5
-  system: system
-  skills: [qr-code] # Skills available for this thread
+steps:
+  Start analysis:
+    block: start-thread
+    thread: main
+    model: anthropic/claude-sonnet-4-5
+    system: system
+    skills: [qr-code, data-analysis]
+    maxSteps: 10
 ```
 
 ### Match Skills to Use Cases
 
-Define all skills available to this agent in the `skills:` section. Then specify which skills are available for the chat thread based on use case:
+Different threads can have different skills. Define all skills at the protocol level, then scope them to each thread:
 
 ```yaml
-# All skills available to this agent (defined once at protocol level)
 skills:
   qr-code:
     display: description
@@ -65,14 +82,13 @@ skills:
     display: description
     description: Creating charts and visualizations
 
-# Skills available for this chat thread (support use case)
 agent:
   model: anthropic/claude-sonnet-4-5
   system: system
-  skills: [qr-code] # Skills available for this thread
+  skills: [qr-code]
 ```
 
-For a data analysis thread, you would specify `[data-analysis, visualization]` in `agent.skills`, but still define all available skills in the `skills:` section above.
+For a data analysis thread, you would specify `[data-analysis, visualization]` in `agent.skills` or in a `start-thread` block's `skills` field.
 
 ## Display Mode Strategy
 
@@ -207,43 +223,48 @@ with open(f'{output_dir}/metadata.json', 'w') as f:
 Sandboxes are created only when a skill tool is first called:
 
 ```yaml
-# Sandbox not created until LLM calls a skill tool
 agent:
-  skills: [qr-code] # Sandbox created on first use
+  skills: [qr-code] # Sandbox created on first skill tool call
 ```
 
 This means:
 
 - No cost if skills aren't used
 - Fast startup (no sandbox creation delay)
-- Sandbox reused for all skill calls in a trigger
+- Each `next-message` execution gets its own sandbox with only the skills it needs
 
 ### Timeout Limits
 
-Sandboxes have a 5-minute default timeout, which can be configured via `sandboxTimeout`:
+Sandboxes default to a 5-minute timeout. Configure `sandboxTimeout` on the agent config or per thread:
 
 ```yaml
+# Agent-level
 agent:
   model: anthropic/claude-sonnet-4-5
   skills: [data-analysis]
-  sandboxTimeout: 1800000 # 30 minutes for long-running analysis
+  sandboxTimeout: 1800000 # 30 minutes
 ```
 
-`sandboxTimeout` Maximum: 1 hour (3,600,000 ms)
+```yaml
+# Thread-level (overrides agent-level)
+steps:
+  Start thread:
+    block: start-thread
+    thread: analysis
+    skills: [data-analysis]
+    sandboxTimeout: 3600000 # 1 hour for long-running analysis
+```
 
-**Timeout guidelines:**
-
-- **Short operations** (default 5 min): QR codes, simple calculations
-- **Medium operations** (10-30 min): Data analysis, report generation
-- **Long operations** (30+ min): Complex processing, large dataset analysis
+Thread-level `sandboxTimeout` takes priority. Maximum: 1 hour (3,600,000 ms).
 
 ### Sandbox Lifecycle
 
-Each trigger execution gets a fresh sandbox:
+Each `next-message` execution gets its own sandbox:
 
-- **Clean state** - No leftover files from previous executions
-- **Isolated** - No interference between sessions
-- **Destroyed** - Sandbox cleaned up after trigger completes
+- **Scoped** - Only contains the skills available to that thread
+- **Isolated** - Interactive agents and workers don't share sandboxes
+- **Resilient** - If a sandbox expires, it's transparently recreated
+- **Cleaned up** - Sandbox destroyed when the LLM call completes
 
 ## Combining Skills with Tools
 
@@ -348,7 +369,7 @@ The LLM sees these errors and can retry or explain to users.
 ### Sandbox Isolation
 
 - **No network access** (unless explicitly configured)
-- **No persistent storage** (sandbox destroyed after execution)
+- **No persistent storage** (sandbox destroyed after each `next-message` execution)
 - **File output only** via `/output/` directory
 - **Time limits** enforced (5-minute default, configurable via `sandboxTimeout`)
 
@@ -373,7 +394,7 @@ if len(data) > 1000:
 Be aware of:
 
 - **File size limits** - Large files may fail to upload
-- **Execution time** - 5-minute sandbox timeout
+- **Execution time** - 1-hour sandbox timeout (configurable)
 - **Memory limits** - Sandbox environment constraints
 
 ## Debugging Skills
