@@ -96,6 +96,22 @@ return new Response(toSSEStream(events), {
 });
 ```
 
+### Workers
+
+Execute worker agents for task-based processing:
+
+```typescript
+// Non-streaming: get the output directly
+const { output } = await client.workers.generate(agentId, {
+  TOPIC: 'AI safety',
+});
+
+// Streaming: observe events in real-time
+for await (const event of client.workers.execute(agentId, input)) {
+  // Handle stream events
+}
+```
+
 ## API Reference
 
 ### OctavusClient
