@@ -395,14 +395,24 @@ Workers support the same tool handling as interactive agents:
 - **Client tools** — Pause execution, return tool request to caller
 
 ```typescript
+// Non-streaming: get the output directly
+const { output } = await client.workers.generate(
+  agentId,
+  { TOPIC: 'AI safety' },
+  {
+    tools: {
+      'web-search': async (args) => await searchWeb(args.query),
+    },
+  },
+);
+
+// Streaming: observe events in real-time
 const events = client.workers.execute(
   agentId,
   { TOPIC: 'AI safety' },
   {
     tools: {
-      'web-search': async (args) => {
-        return await searchWeb(args.query);
-      },
+      'web-search': async (args) => await searchWeb(args.query),
     },
   },
 );
