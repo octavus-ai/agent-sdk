@@ -899,6 +899,27 @@ export class OctavusChat {
   // Private Helpers
   // =========================================================================
 
+  /**
+   * IMMUTABILITY RULES — all event handlers must follow these patterns:
+   *
+   * 1. Never mutate an existing part/message object. Some environments (e.g.
+   *    React Native with Reanimated) freeze objects between renders, so
+   *    mutations silently fail or throw.
+   *
+   * 2. Always create a new object via spread and assign it back:
+   *      GOOD: state.parts[i] = { ...part, text: part.text + delta };
+   *       BAD: part.text += delta; state.parts[i] = { ...part };
+   *
+   * 3. For nested worker parts, copy the parts array too:
+   *      const updatedParts = [...workerPart.parts];
+   *      updatedParts[i] = { ...part, status: 'done' };
+   *      state.parts[wi] = { ...workerPart, parts: updatedParts };
+   *
+   * 4. For the messages array, copy before mutating:
+   *      const messages = [...this._messages];
+   *      messages[i] = newMessage;   // or messages.pop()
+   *      this.setMessages(messages);
+   */
   private handleStreamEvent(event: StreamEvent, state: StreamingState): void {
     switch (event.type) {
       case 'start':
@@ -1624,14 +1645,19 @@ export class OctavusChat {
           return part;
         });
 
+        const messages = [...this._messages];
+        const lastMsg = messages[messages.length - 1];
+
         if (finalMessage.parts.length > 0) {
-          const messages = [...this._messages];
-          const lastMsg = messages[messages.length - 1];
           if (lastMsg?.id === state.messageId) {
             messages[messages.length - 1] = finalMessage;
           } else {
             messages.push(finalMessage);
           }
+          this.setMessages(messages);
+        } else if (lastMsg?.id === state.messageId) {
+          // No parts produced — remove the empty streaming message
+          messages.pop();
           this.setMessages(messages);
         }
 
