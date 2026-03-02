@@ -50,7 +50,7 @@ export class AgentFileError extends Error {
  * Expects:
  *   - settings.json (required)
  *   - protocol.yaml (required)
- *   - prompts/*.md (optional)
+ *   - prompts/**\/*.md (optional, supports nested directories)
  */
 export async function readAgentDefinition(agentPath: string): Promise<AgentDefinition> {
   const resolvedPath = path.resolve(agentPath);
@@ -117,21 +117,25 @@ async function readProtocol(filePath: string): Promise<string> {
   }
 }
 
-async function readPrompts(promptsDir: string): Promise<AgentPrompt[]> {
+async function readPrompts(promptsDir: string, relativePath = ''): Promise<AgentPrompt[]> {
   const prompts: AgentPrompt[] = [];
 
   try {
-    const files = await fs.readdir(promptsDir);
+    const entries = await fs.readdir(promptsDir, { withFileTypes: true });
 
-    for (const file of files) {
-      if (file.endsWith('.md')) {
-        const name = file.replace(/\.md$/, '');
-        const content = await fs.readFile(path.join(promptsDir, file), 'utf-8');
+    for (const entry of entries) {
+      const entryRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        const subPrompts = await readPrompts(path.join(promptsDir, entry.name), entryRelativePath);
+        prompts.push(...subPrompts);
+      } else if (entry.name.endsWith('.md')) {
+        const name = entryRelativePath.replace(/\.md$/, '');
+        const content = await fs.readFile(path.join(promptsDir, entry.name), 'utf-8');
         prompts.push({ name, content });
       }
     }
   } catch (err) {
-    // No prompts directory is fine
     if ((err as { code?: string }).code !== 'ENOENT') {
       throw err;
     }

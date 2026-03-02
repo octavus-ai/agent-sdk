@@ -105,11 +105,15 @@ Each agent is a folder with:
 my-agent/
 ├── protocol.yaml           # Main logic (required)
 ├── settings.json           # Agent metadata (required)
-└── prompts/               # Prompt templates
+└── prompts/               # Prompt templates (supports subdirectories)
     ├── system.md
     ├── user-message.md
-    └── escalation-summary.md
+    └── shared/
+        ├── company-info.md
+        └── formatting-rules.md
 ```
+
+Prompts can be organized in subdirectories. In the protocol, reference nested prompts by their path relative to `prompts/` (without `.md`): `shared/company-info`.
 
 ### settings.json
 
@@ -133,7 +137,7 @@ my-agent/
 
 - **Slugs**: `lowercase-with-dashes`
 - **Variables**: `UPPERCASE_SNAKE_CASE`
-- **Prompts**: `lowercase-with-dashes.md`
+- **Prompts**: `lowercase-with-dashes.md` (paths use `/` for subdirectories)
 - **Tools**: `lowercase-with-dashes`
 - **Triggers**: `lowercase-with-dashes`
 
@@ -153,7 +157,25 @@ Help users with their {{PRODUCT_NAME}} questions.
 {{SUPPORT_POLICIES}}
 ```
 
-Variables are replaced with their values at runtime. If a variable is not provided, it's replaced with an empty string.
+Variables are replaced with their values at runtime. If a variable is not provided, the placeholder is kept as-is.
+
+## Prompt Interpolation
+
+Include other prompts inside a prompt with `{{@path.md}}`:
+
+```markdown
+<!-- prompts/system.md -->
+
+You are a customer support agent.
+
+{{@shared/company-info.md}}
+
+{{@shared/formatting-rules.md}}
+
+Help users with their questions.
+```
+
+The referenced prompt content is inserted before variable interpolation, so variables in included prompts work the same way. Circular references are not allowed and will be caught during validation.
 
 ## Next Steps
 
