@@ -134,6 +134,16 @@ chat.stop(); // Stops streaming and finalizes partial content
 ## File Uploads
 
 ```typescript
+const chat = new OctavusChat({
+  transport,
+  requestUploadUrls, // Required for file uploads
+  uploadOptions: {
+    timeoutMs: 60_000, // Per-file timeout (default: 60s)
+    maxRetries: 2, // Retries on transient failures (default: 2)
+    retryDelayMs: 1_000, // Delay between retries (default: 1s)
+  },
+});
+
 // Upload files separately (for progress tracking)
 const fileRefs = await chat.uploadFiles(fileInput.files, (index, progress) => {
   console.log(`File ${index}: ${progress}%`);
@@ -143,7 +153,7 @@ const fileRefs = await chat.uploadFiles(fileInput.files, (index, progress) => {
 await chat.send('user-message', { FILES: fileRefs }, { userMessage: { files: fileRefs } });
 ```
 
-Note: File uploads require configuring `requestUploadUrls` in the chat options.
+Uploads automatically retry on transient failures (network errors, timeouts, 5xx, 429). Non-retryable errors (4xx) fail immediately.
 
 ## Message Types
 

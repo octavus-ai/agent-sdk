@@ -77,6 +77,12 @@ function Chat({ sessionId }: { sessionId: string }) {
   const { messages, status, send, uploadFiles } = useOctavusChat({
     transport,
     requestUploadUrls,
+    // Optional: configure upload timeout and retry behavior
+    uploadOptions: {
+      timeoutMs: 60_000, // Per-file timeout (default: 60s, set to 0 to disable)
+      maxRetries: 2, // Retry attempts on transient failures (default: 2)
+      retryDelayMs: 1_000, // Delay between retries (default: 1s)
+    },
   });
 
   // ...
@@ -176,6 +182,54 @@ async function handleSend(message: string, files?: File[]) {
 
 The SDK automatically uploads the files before sending. Note: This doesn't provide upload progress.
 
+## Upload Reliability
+
+Uploads include built-in timeout and retry logic for handling transient failures (network errors, server issues, mobile network switches).
+
+**Default behavior:**
+
+- **Timeout**: 60 seconds per file — prevents uploads from hanging on stalled connections
+- **Retries**: 2 automatic retries on transient failures (network errors, 5xx, 429)
+- **Retry delay**: 1 second between retries
+- **Non-retryable errors** (4xx like 403, 404) fail immediately without retrying
+
+Only the S3 upload is retried — the presigned URL stays valid for 15 minutes. On retry, the progress callback resets to 0%.
+
+Configure via `uploadOptions`:
+
+```typescript
+const { send, uploadFiles } = useOctavusChat({
+  transport,
+  requestUploadUrls,
+  uploadOptions: {
+    timeoutMs: 120_000, // 2 minutes for large files
+    maxRetries: 3,
+    retryDelayMs: 2_000,
+  },
+});
+```
+
+To disable timeout or retries:
+
+```typescript
+uploadOptions: {
+  timeoutMs: 0,    // No timeout
+  maxRetries: 0,   // No retries
+}
+```
+
+### Using `OctavusChat` Directly
+
+When using the `OctavusChat` class directly (without the React hook), pass `uploadOptions` in the constructor:
+
+```typescript
+const chat = new OctavusChat({
+  transport,
+  requestUploadUrls,
+  uploadOptions: { timeoutMs: 120_000, maxRetries: 3 },
+});
+```
+
 ## FileReference Type
 
 File references contain metadata and URLs:
@@ -234,15 +288,15 @@ The `file` type is a built-in type representing uploaded files. Use `file[]` for
 | Type      | Media Types                                                          |
 | --------- | -------------------------------------------------------------------- |
 | Images    | `image/jpeg`, `image/png`, `image/gif`, `image/webp`                 |
+| Video     | `video/mp4`, `video/webm`, `video/quicktime`, `video/mpeg`           |
 | Documents | `application/pdf`, `text/plain`, `text/markdown`, `application/json` |
 
 ## File Limits
 
 | Limit                 | Value      |
 | --------------------- | ---------- |
-| Max file size         | 10 MB      |
-| Max total per request | 50 MB      |
-| Max files per request | 20         |
+| Max file size         | 100 MB     |
+| Max total per request | 200 MB     |
 | Upload URL expiry     | 15 minutes |
 | Download URL expiry   | 24 hours   |
 
