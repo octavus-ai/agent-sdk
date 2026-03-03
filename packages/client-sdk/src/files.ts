@@ -89,6 +89,9 @@ function uploadFileWithProgress(
 
     if (timeoutMs !== undefined && timeoutMs > 0) {
       xhr.timeout = timeoutMs;
+      xhr.addEventListener('timeout', () => {
+        reject(new UploadError(`Upload timed out after ${timeoutMs}ms`, true));
+      });
     }
 
     xhr.upload.addEventListener('progress', (event) => {
@@ -103,7 +106,7 @@ function uploadFileWithProgress(
         resolve();
       } else {
         const detail = xhr.responseText ? `: ${xhr.responseText}` : '';
-        const retryable = xhr.status >= 500;
+        const retryable = xhr.status >= 500 || xhr.status === 429;
         reject(
           new UploadError(
             `Upload failed with status ${xhr.status}${detail}`,
@@ -116,10 +119,6 @@ function uploadFileWithProgress(
 
     xhr.addEventListener('error', () => {
       reject(new UploadError('Upload failed: network error', true));
-    });
-
-    xhr.addEventListener('timeout', () => {
-      reject(new UploadError(`Upload timed out after ${timeoutMs}ms`, true));
     });
 
     xhr.addEventListener('abort', () => {
