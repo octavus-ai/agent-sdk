@@ -146,6 +146,9 @@ export interface OctavusChatOptions {
    */
   requestUploadUrls?: UploadFilesOptions['requestUploadUrls'];
 
+  /** Upload timeout and retry configuration. Defaults: 60s timeout, 2 retries, 1s delay. */
+  uploadOptions?: Pick<UploadFilesOptions, 'timeoutMs' | 'maxRetries' | 'retryDelayMs'>;
+
   /**
    * Client-side tool handlers.
    * Register handlers for tools that should execute in the browser.
@@ -672,6 +675,7 @@ export class OctavusChat {
       } else if (this.options.requestUploadUrls) {
         fileRefs = await uploadFiles(files, {
           requestUploadUrls: this.options.requestUploadUrls,
+          ...this.options.uploadOptions,
         });
       } else {
         throw new Error(
@@ -689,6 +693,7 @@ export class OctavusChat {
           fileRefs ??
           (await uploadFiles(inputFiles, {
             requestUploadUrls: this.options.requestUploadUrls,
+            ...this.options.uploadOptions,
           }));
         processedInput = { ...input, FILES: uploadedRefs };
         fileRefs = fileRefs ?? uploadedRefs;
@@ -797,6 +802,7 @@ export class OctavusChat {
     return await uploadFiles(files, {
       requestUploadUrls: this.options.requestUploadUrls,
       onProgress,
+      ...this.options.uploadOptions,
     });
   }
 

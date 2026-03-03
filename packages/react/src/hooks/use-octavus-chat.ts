@@ -240,6 +240,7 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
       options.onStart?.(id);
     },
     requestUploadUrls: options.requestUploadUrls,
+    uploadOptions: options.uploadOptions,
   });
   const transport = options.transport;
 
