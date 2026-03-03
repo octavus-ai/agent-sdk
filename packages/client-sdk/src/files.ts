@@ -46,19 +46,50 @@ export interface UploadFilesOptions {
    * @param progress - Progress percentage (0-100)
    */
   onProgress?: (fileIndex: number, progress: number) => void;
+
+  /** Upload timeout per file in milliseconds. Default: 60000 (60s). Set to 0 to disable. */
+  timeoutMs?: number;
+
+  /** Max retry attempts per file after initial failure. Default: 2. Set to 0 to disable retries. */
+  maxRetries?: number;
+
+  /** Delay between retries in milliseconds. Default: 1000 (1s). */
+  retryDelayMs?: number;
+}
+
+const UPLOAD_DEFAULTS = {
+  timeoutMs: 60_000,
+  maxRetries: 2,
+  retryDelayMs: 1_000,
+} as const;
+
+class UploadError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'UploadError';
+  }
 }
 
 /**
- * Upload a single file to S3 with progress tracking.
+ * Upload a single file to S3 with progress tracking and timeout.
  * Uses XMLHttpRequest for upload progress events (fetch doesn't support this).
  */
 function uploadFileWithProgress(
   url: string,
   file: File,
   onProgress?: (progress: number) => void,
+  timeoutMs?: number,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+
+    if (timeoutMs !== undefined && timeoutMs > 0) {
+      xhr.timeout = timeoutMs;
+    }
 
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {
@@ -71,22 +102,74 @@ function uploadFileWithProgress(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
       } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
+        const detail = xhr.responseText ? `: ${xhr.responseText}` : '';
+        const retryable = xhr.status >= 500;
+        reject(
+          new UploadError(
+            `Upload failed with status ${xhr.status}${detail}`,
+            retryable,
+            xhr.status,
+          ),
+        );
       }
     });
 
     xhr.addEventListener('error', () => {
-      reject(new Error('Upload failed: network error'));
+      reject(new UploadError('Upload failed: network error', true));
+    });
+
+    xhr.addEventListener('timeout', () => {
+      reject(new UploadError(`Upload timed out after ${timeoutMs}ms`, true));
     });
 
     xhr.addEventListener('abort', () => {
-      reject(new Error('Upload aborted'));
+      reject(new UploadError('Upload aborted', false));
     });
 
     xhr.open('PUT', url);
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
     xhr.send(file);
   });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * Upload a single file with automatic retries on transient failures.
+ * Only the S3 PUT is retried — the presigned URL stays valid for 15 minutes.
+ */
+async function uploadFileWithRetry(
+  url: string,
+  file: File,
+  onProgress: ((progress: number) => void) | undefined,
+  timeoutMs: number,
+  maxRetries: number,
+  retryDelayMs: number,
+): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await uploadFileWithProgress(url, file, onProgress, timeoutMs);
+      return;
+    } catch (err) {
+      lastError = err;
+
+      const isRetryable = err instanceof UploadError && err.retryable;
+      if (!isRetryable || attempt >= maxRetries) {
+        break;
+      }
+
+      onProgress?.(0);
+      await delay(retryDelayMs);
+    }
+  }
+
+  throw lastError;
 }
 
 /**
@@ -96,6 +179,9 @@ function uploadFileWithProgress(
  * 1. Requests presigned upload URLs from the platform
  * 2. Uploads each file directly to S3 with progress tracking
  * 3. Returns file references that can be used in trigger input
+ *
+ * Uploads include automatic timeout (default 60s) and retry (default 2 retries)
+ * for transient failures like network errors or server issues.
  *
  * @param files - Files to upload (from file input or drag/drop)
  * @param options - Upload configuration
@@ -128,6 +214,10 @@ export async function uploadFiles(
     return [];
   }
 
+  const timeoutMs = options.timeoutMs ?? UPLOAD_DEFAULTS.timeoutMs;
+  const maxRetries = options.maxRetries ?? UPLOAD_DEFAULTS.maxRetries;
+  const retryDelayMs = options.retryDelayMs ?? UPLOAD_DEFAULTS.retryDelayMs;
+
   const { files: uploadInfos } = await options.requestUploadUrls(
     fileArray.map((f) => ({
       filename: f.name,
@@ -142,9 +232,14 @@ export async function uploadFiles(
     const file = fileArray[i]!;
     const uploadInfo = uploadInfos[i]!;
 
-    await uploadFileWithProgress(uploadInfo.uploadUrl, file, (progress) => {
-      options.onProgress?.(i, progress);
-    });
+    await uploadFileWithRetry(
+      uploadInfo.uploadUrl,
+      file,
+      options.onProgress ? (progress) => options.onProgress!(i, progress) : undefined,
+      timeoutMs,
+      maxRetries,
+      retryDelayMs,
+    );
 
     references.push({
       id: uploadInfo.id,
