@@ -32,6 +32,12 @@ export const OCTAVUS_INTERNAL_TOOLS = {
   /** Read files from sandbox */
   FILE_READ: 'octavus_file_read',
 
+  // === Reference Tools (agent-local documents fetched on demand) ===
+  /** List all available references with descriptions */
+  REFERENCE_LIST: 'octavus_reference_list',
+  /** Read the full content of a specific reference */
+  REFERENCE_READ: 'octavus_reference_read',
+
   // === Image Generation ===
   /** Generate images using AI models */
   GENERATE_IMAGE: 'octavus_generate_image',
@@ -89,4 +95,25 @@ export type OctavusSkillToolName = (typeof OCTAVUS_SKILL_TOOLS)[keyof typeof OCT
  */
 export function isOctavusSkillTool(toolName: string): toolName is OctavusSkillToolName {
   return Object.values(OCTAVUS_SKILL_TOOLS).includes(toolName as OctavusSkillToolName);
+}
+
+/**
+ * Reference tool names (subset of internal tools).
+ *
+ * Reference tools let agents dynamically fetch agent-local documents
+ * without loading everything into the system prompt upfront.
+ */
+export const OCTAVUS_REFERENCE_TOOLS = {
+  REFERENCE_LIST: OCTAVUS_INTERNAL_TOOLS.REFERENCE_LIST,
+  REFERENCE_READ: OCTAVUS_INTERNAL_TOOLS.REFERENCE_READ,
+} as const;
+
+export type OctavusReferenceToolName =
+  (typeof OCTAVUS_REFERENCE_TOOLS)[keyof typeof OCTAVUS_REFERENCE_TOOLS];
+
+/**
+ * Check if a tool name is an Octavus reference tool.
+ */
+export function isOctavusReferenceTool(toolName: string): toolName is OctavusReferenceToolName {
+  return Object.values(OCTAVUS_REFERENCE_TOOLS).includes(toolName as OctavusReferenceToolName);
 }

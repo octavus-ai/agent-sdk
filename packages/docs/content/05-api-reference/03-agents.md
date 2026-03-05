@@ -5,7 +5,7 @@ description: Agent management API endpoints.
 
 # Agents API
 
-Manage agent definitions including protocols and prompts.
+Manage agent definitions including protocols, prompts, and references.
 
 ## Permissions
 
@@ -82,6 +82,13 @@ GET /api/agents/:id
       "name": "user-message",
       "content": "{{USER_MESSAGE}}"
     }
+  ],
+  "references": [
+    {
+      "name": "api-guidelines",
+      "description": "API design guidelines and conventions",
+      "content": "# API Guidelines\n\nUse lowercase with dashes..."
+    }
   ]
 }
 ```
@@ -119,18 +126,26 @@ POST /api/agents
       "name": "system",
       "content": "You are a support agent..."
     }
+  ],
+  "references": [
+    {
+      "name": "api-guidelines",
+      "description": "API design guidelines and conventions",
+      "content": "# API Guidelines\n..."
+    }
   ]
 }
 ```
 
-| Field                  | Type   | Required | Description               |
-| ---------------------- | ------ | -------- | ------------------------- |
-| `settings.slug`        | string | Yes      | URL-safe identifier       |
-| `settings.name`        | string | Yes      | Display name              |
-| `settings.description` | string | No       | Agent description         |
-| `settings.format`      | string | Yes      | `interactive` or `worker` |
-| `protocol`             | string | Yes      | YAML protocol definition  |
-| `prompts`              | array  | Yes      | Prompt files              |
+| Field                  | Type   | Required | Description                                      |
+| ---------------------- | ------ | -------- | ------------------------------------------------ |
+| `settings.slug`        | string | Yes      | URL-safe identifier                              |
+| `settings.name`        | string | Yes      | Display name                                     |
+| `settings.description` | string | No       | Agent description                                |
+| `settings.format`      | string | Yes      | `interactive` or `worker`                        |
+| `protocol`             | string | Yes      | YAML protocol definition                         |
+| `prompts`              | array  | Yes      | Prompt files                                     |
+| `references`           | array  | No       | Reference documents (name, description, content) |
 
 ### Response
 
@@ -177,6 +192,13 @@ PATCH /api/agents/:id
     {
       "name": "system",
       "content": "Updated system prompt..."
+    }
+  ],
+  "references": [
+    {
+      "name": "api-guidelines",
+      "description": "Updated description",
+      "content": "Updated content..."
     }
   ]
 }
