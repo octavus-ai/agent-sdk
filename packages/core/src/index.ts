@@ -135,8 +135,11 @@ export {
   isOctavusInternalTool,
   OCTAVUS_SKILL_TOOLS,
   isOctavusSkillTool,
+  OCTAVUS_REFERENCE_TOOLS,
+  isOctavusReferenceTool,
   type OctavusInternalToolName,
   type OctavusSkillToolName,
+  type OctavusReferenceToolName,
 } from './internal-tools';
 
 // Skill utilities

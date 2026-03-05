@@ -41,6 +41,7 @@ export interface AgentDetails {
   };
   protocol: string;
   prompts: { name: string; content: string }[];
+  references: { name: string; description: string; content: string }[];
   id: string;
 }
 
@@ -95,6 +96,9 @@ const agentDefinitionSchema = z.object({
   }),
   protocol: z.string(),
   prompts: z.array(z.object({ name: z.string(), content: z.string() })),
+  references: z
+    .array(z.object({ name: z.string(), description: z.string(), content: z.string() }))
+    .default([]),
   id: z.string(),
 });
 
@@ -176,6 +180,7 @@ export class CliApi {
       settings,
       protocol: definition.protocol,
       prompts: definition.prompts,
+      references: definition.references,
     });
     const data = updateResponseSchema.parse(response);
     return data.agentId;

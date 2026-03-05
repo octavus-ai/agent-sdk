@@ -15,6 +15,7 @@ agent:
   system: system # References prompts/system.md
   tools: [get-user-account] # Available tools
   skills: [qr-code] # Available skills
+  references: [api-guidelines] # On-demand context documents
 ```
 
 ## Configuration Options
@@ -26,6 +27,7 @@ agent:
 | `input`          | No       | Variables to pass to the system prompt                    |
 | `tools`          | No       | List of tools the LLM can call                            |
 | `skills`         | No       | List of Octavus skills the LLM can use                    |
+| `references`     | No       | List of references the LLM can fetch on demand            |
 | `sandboxTimeout` | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour) |
 | `imageModel`     | No       | Image generation model (enables agentic image generation) |
 | `agentic`        | No       | Allow multiple tool call cycles                           |
@@ -212,6 +214,22 @@ Skills provide provider-agnostic code execution in isolated sandboxes. When enab
 
 See [Skills](/docs/protocol/skills) for full documentation.
 
+## References
+
+Enable on-demand context loading via reference documents:
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  system: system
+  references: [api-guidelines, error-codes]
+  agentic: true
+```
+
+References are markdown files stored in the agent's `references/` directory. When enabled, the LLM can list available references and read their content using `octavus_reference_list` and `octavus_reference_read` tools.
+
+See [References](/docs/protocol/references) for full documentation.
+
 ## Image Generation
 
 Enable the LLM to generate images autonomously:
@@ -321,10 +339,11 @@ handlers:
       maxSteps: 1 # Limit tool calls
       system: escalation-summary # Different prompt
       skills: [data-analysis] # Thread-specific skills
+      references: [escalation-policy] # Thread-specific references
       imageModel: google/gemini-2.5-flash-image # Thread-specific image model
 ```
 
-Each thread can have its own skills and image model. Skills referenced here must be defined in the protocol's `skills:` section. Workers use this same pattern since they don't have a global `agent:` section.
+Each thread can have its own skills, references, and image model. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
 
 ## Full Example
 
@@ -372,6 +391,7 @@ agent:
     - search-docs
     - create-support-ticket
   skills: [qr-code] # Octavus skills
+  references: [support-policies] # On-demand context
   agentic: true
   maxSteps: 10
   thinking: medium

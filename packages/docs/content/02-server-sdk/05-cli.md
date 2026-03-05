@@ -169,10 +169,16 @@ The CLI expects agent definitions in a specific directory structure:
 my-agent/
 ├── settings.json     # Required: Agent metadata
 ├── protocol.yaml     # Required: Agent protocol
-└── prompts/          # Optional: Prompt templates
-    ├── system.md
-    └── user-message.md
+├── prompts/          # Optional: Prompt templates
+│   ├── system.md
+│   └── user-message.md
+└── references/       # Optional: Reference documents
+    └── api-guidelines.md
 ```
+
+### references/
+
+Reference files are markdown documents with YAML frontmatter containing a `description`. The agent can fetch these on demand during execution. See [References](/docs/protocol/references) for details.
 
 ### settings.json
 

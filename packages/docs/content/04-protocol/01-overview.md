@@ -105,15 +105,19 @@ Each agent is a folder with:
 my-agent/
 ├── protocol.yaml           # Main logic (required)
 ├── settings.json           # Agent metadata (required)
-└── prompts/               # Prompt templates (supports subdirectories)
-    ├── system.md
-    ├── user-message.md
-    └── shared/
-        ├── company-info.md
-        └── formatting-rules.md
+├── prompts/               # Prompt templates (supports subdirectories)
+│   ├── system.md
+│   ├── user-message.md
+│   └── shared/
+│       ├── company-info.md
+│       └── formatting-rules.md
+└── references/            # On-demand context documents (optional)
+    └── api-guidelines.md
 ```
 
 Prompts can be organized in subdirectories. In the protocol, reference nested prompts by their path relative to `prompts/` (without `.md`): `shared/company-info`.
+
+References are markdown files with YAML frontmatter that the agent can fetch on demand during execution. See [References](/docs/protocol/references).
 
 ### settings.json
 
@@ -183,6 +187,7 @@ The referenced prompt content is inserted before variable interpolation, so vari
 - [Triggers](/docs/protocol/triggers) — How agents are invoked
 - [Tools](/docs/protocol/tools) — External capabilities
 - [Skills](/docs/protocol/skills) — Code execution and knowledge packages
+- [References](/docs/protocol/references) — On-demand context documents
 - [Handlers](/docs/protocol/handlers) — Execution blocks
 - [Agent Config](/docs/protocol/agent-config) — Model and settings
 - [Workers](/docs/protocol/workers) — Worker agent format

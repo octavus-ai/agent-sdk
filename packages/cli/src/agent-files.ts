@@ -1,11 +1,12 @@
 /**
  * Agent file reading from filesystem.
- * Reads settings.json, protocol.yaml, and prompts/*.md files.
+ * Reads settings.json, protocol.yaml, prompts/*.md, and references/*.md files.
  */
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
+import { parse as parseYaml } from 'yaml';
 
 /** Agent settings from settings.json */
 export interface AgentSettings {
@@ -21,11 +22,19 @@ export interface AgentPrompt {
   content: string;
 }
 
+/** Agent reference from references/*.md */
+export interface AgentReference {
+  name: string;
+  description: string;
+  content: string;
+}
+
 /** Complete agent definition read from filesystem */
 export interface AgentDefinition {
   settings: AgentSettings;
   protocol: string;
   prompts: AgentPrompt[];
+  references: AgentReference[];
 }
 
 const agentSettingsSchema = z.object({
@@ -51,6 +60,7 @@ export class AgentFileError extends Error {
  *   - settings.json (required)
  *   - protocol.yaml (required)
  *   - prompts/**\/*.md (optional, supports nested directories)
+ *   - references/*.md (optional, YAML frontmatter with description)
  */
 export async function readAgentDefinition(agentPath: string): Promise<AgentDefinition> {
   const resolvedPath = path.resolve(agentPath);
@@ -80,7 +90,11 @@ export async function readAgentDefinition(agentPath: string): Promise<AgentDefin
   const promptsPath = path.join(resolvedPath, 'prompts');
   const prompts = await readPrompts(promptsPath);
 
-  return { settings, protocol, prompts };
+  // Read references
+  const referencesPath = path.join(resolvedPath, 'references');
+  const references = await readReferences(referencesPath);
+
+  return { settings, protocol, prompts, references };
 }
 
 async function readSettings(filePath: string): Promise<AgentSettings> {
@@ -142,4 +156,56 @@ async function readPrompts(promptsDir: string, relativePath = ''): Promise<Agent
   }
 
   return prompts;
+}
+
+const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
+
+const referenceFrontmatterSchema = z.object({
+  description: z.string().min(1, 'Description is required'),
+});
+
+async function readReferences(referencesDir: string): Promise<AgentReference[]> {
+  const references: AgentReference[] = [];
+
+  try {
+    const entries = await fs.readdir(referencesDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+
+      const name = entry.name.replace(/\.md$/, '');
+      const raw = await fs.readFile(path.join(referencesDir, entry.name), 'utf-8');
+      const match = FRONTMATTER_REGEX.exec(raw);
+
+      if (!match) {
+        throw new AgentFileError(
+          `Reference "${name}" is missing YAML frontmatter (---description: ...---)`,
+          path.join(referencesDir, entry.name),
+        );
+      }
+
+      const frontmatter = parseYaml(match[1]!) as unknown;
+      const result = referenceFrontmatterSchema.safeParse(frontmatter);
+
+      if (!result.success) {
+        const issues = result.error.issues.map((i) => i.message).join(', ');
+        throw new AgentFileError(
+          `Invalid frontmatter in reference "${name}": ${issues}`,
+          path.join(referencesDir, entry.name),
+        );
+      }
+
+      references.push({
+        name,
+        description: result.data.description,
+        content: match[2]!.trim(),
+      });
+    }
+  } catch (err) {
+    if ((err as { code?: string }).code !== 'ENOENT') {
+      throw err;
+    }
+  }
+
+  return references;
 }
