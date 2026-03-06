@@ -81,6 +81,7 @@ agent:
   tools: [get-user-account]
   skills: [qr-code] # Enable skills
   imageModel: google/gemini-2.5-flash-image # Enable image generation
+  webSearch: true # Enable web search
   agentic: true # Allow multiple tool calls
   thinking: medium # Extended reasoning
 
