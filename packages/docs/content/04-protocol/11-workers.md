@@ -228,6 +228,7 @@ All LLM configuration goes here:
 | `tools`       | Tools available in this thread                    |
 | `skills`      | Octavus skills available in this thread           |
 | `imageModel`  | Image generation model                            |
+| `webSearch`   | Enable built-in web search tool                   |
 | `thinking`    | Extended reasoning level                          |
 | `temperature` | Model temperature                                 |
 | `maxSteps`    | Maximum tool call cycles (enables agentic if > 1) |
@@ -362,9 +363,9 @@ steps:
 output: CONVERSATION_SUMMARY
 ```
 
-## Skills and Image Generation
+## Skills, Image Generation, and Web Search
 
-Workers can use Octavus skills and image generation, configured per-thread via `start-thread`:
+Workers can use Octavus skills, image generation, and web search, configured per-thread via `start-thread`:
 
 ```yaml
 skills:
@@ -380,6 +381,7 @@ steps:
     system: system
     skills: [qr-code]
     imageModel: google/gemini-2.5-flash-image
+    webSearch: true
     maxSteps: 10
 ```
 

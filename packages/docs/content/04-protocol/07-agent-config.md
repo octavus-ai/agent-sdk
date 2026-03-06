@@ -30,6 +30,7 @@ agent:
 | `references`     | No       | List of references the LLM can fetch on demand            |
 | `sandboxTimeout` | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour) |
 | `imageModel`     | No       | Image generation model (enables agentic image generation) |
+| `webSearch`      | No       | Enable built-in web search tool (provider-agnostic)       |
 | `agentic`        | No       | Allow multiple tool call cycles                           |
 | `maxSteps`       | No       | Maximum agentic steps (default: 10)                       |
 | `temperature`    | No       | Model temperature (0-2)                                   |
@@ -285,6 +286,28 @@ Use `generate-image` block (see [Handlers](/docs/protocol/handlers#generate-imag
 - Building prompt engineering pipelines
 - Images are generated at specific handler steps
 
+## Web Search
+
+Enable the LLM to search the web for current information:
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  system: system
+  webSearch: true
+  agentic: true
+```
+
+When `webSearch` is enabled, the `octavus_web_search` tool becomes available. The LLM can decide when to search the web based on the conversation. Search results include source URLs that are emitted as citations in the UI.
+
+This is a **provider-agnostic** built-in tool — it works with any LLM provider (Anthropic, Google, OpenAI, etc.). For Anthropic's own web search implementation, see [Provider Options](/docs/protocol/provider-options).
+
+Use cases:
+
+- Current events and real-time data
+- Fact verification and documentation lookups
+- Any information that may have changed since the model's training
+
 ## Temperature
 
 Control response randomness:
@@ -341,9 +364,10 @@ handlers:
       skills: [data-analysis] # Thread-specific skills
       references: [escalation-policy] # Thread-specific references
       imageModel: google/gemini-2.5-flash-image # Thread-specific image model
+      webSearch: true # Thread-specific web search
 ```
 
-Each thread can have its own skills, references, and image model. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
+Each thread can have its own skills, references, image model, and web search setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
 
 ## Full Example
 
@@ -392,6 +416,7 @@ agent:
     - create-support-ticket
   skills: [qr-code] # Octavus skills
   references: [support-policies] # On-demand context
+  webSearch: true # Built-in web search
   agentic: true
   maxSteps: 10
   thinking: medium

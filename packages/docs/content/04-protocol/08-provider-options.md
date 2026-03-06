@@ -65,7 +65,7 @@ anthropic:
 
 ### Web Search
 
-Allows the agent to search the web for current information:
+Allows the agent to search the web using Anthropic's built-in web search:
 
 ```yaml
 agent:
@@ -77,12 +77,7 @@ agent:
         description: Looking up current information
 ```
 
-Use cases:
-
-- Current events and news
-- Real-time data (prices, weather)
-- Fact verification
-- Documentation lookups
+> **Tip**: Octavus also provides a **provider-agnostic** web search via `webSearch: true` in the agent config. This works with any LLM provider and is the recommended approach for multi-provider agents. See [Web Search](/docs/protocol/agent-config#web-search) for details.
 
 ### Code Execution
 
