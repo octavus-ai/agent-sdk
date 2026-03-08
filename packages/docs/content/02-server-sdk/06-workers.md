@@ -142,7 +142,7 @@ try {
   if (error instanceof WorkerError) {
     console.error('Worker failed:', error.message);
     if (error.sessionId) {
-      console.error(`Debug: ${client.baseUrl}/sessions/${error.sessionId}`);
+      console.error(`Debug: ${client.baseUrl}/platform/sessions/${error.sessionId}`);
     }
   }
 }
@@ -355,7 +355,7 @@ try {
   if (error instanceof WorkerError) {
     console.error('Failed:', error.message);
     if (error.sessionId) {
-      console.error(`Debug: ${client.baseUrl}/sessions/${error.sessionId}`);
+      console.error(`Debug: ${client.baseUrl}/platform/sessions/${error.sessionId}`);
     }
   }
 }
