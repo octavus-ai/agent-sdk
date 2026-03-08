@@ -35,7 +35,7 @@ POST /api/agent-sessions
 | `agentId` | string | Yes      | Agent ID (the `id` field, not `slug`) |
 | `input`   | object | No       | Input variables for the agent         |
 
-> **Getting the agent ID:** Copy the ID from the agent URL in the [platform](https://octavus.ai) (e.g., `octavus.ai/agents/clxyz123`), or use the [CLI](/docs/server-sdk/cli) (`octavus sync ./agents/my-agent`) for local development workflows.
+> **Getting the agent ID:** Copy the ID from the agent URL in the [platform](https://octavus.ai) (e.g., `octavus.ai/platform/agents/clxyz123`), or use the [CLI](/docs/server-sdk/cli) (`octavus sync ./agents/my-agent`) for local development workflows.
 
 ### Response
 
