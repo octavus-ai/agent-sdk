@@ -183,6 +183,21 @@ const { stop } = useOctavusChat({ transport });
 stop();
 ```
 
+### Retry Last Trigger
+
+Re-execute the last trigger from the same starting point. Messages are rolled back to the state before the trigger, the user message is re-added (if any), and the agent re-executes. Already-uploaded files are reused without re-uploading.
+
+```tsx
+const { retry, canRetry } = useOctavusChat({ transport });
+
+// Retry after an error, cancellation, or unsatisfactory result
+if (canRetry) {
+  await retry();
+}
+```
+
+`canRetry` is `true` when a trigger has been sent and the chat is not currently streaming or awaiting input.
+
 ## Hook Reference (React)
 
 ### useOctavusChat
@@ -234,6 +249,8 @@ interface UseOctavusChatReturn {
     options?: { userMessage?: UserMessageInput },
   ) => Promise<void>;
   stop: () => void;
+  retry: () => Promise<void>; // Retry last trigger from same starting point
+  canRetry: boolean; // Whether retry() can be called
 
   // Connection management (socket transport only - undefined for HTTP)
   connect: (() => Promise<void>) | undefined;

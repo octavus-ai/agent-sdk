@@ -5,6 +5,18 @@ import type { StreamEvent, ToolResult } from '@octavus/core';
 // =============================================================================
 
 /**
+ * Options for trigger execution (e.g., retry with rollback).
+ */
+export interface TriggerOptions {
+  /**
+   * ID of the last message to keep in session state.
+   * Messages after this are removed before execution.
+   * Use `null` to truncate all messages (retry from empty history).
+   */
+  rollbackAfterMessageId?: string | null;
+}
+
+/**
  * Transport interface for delivering events from server to client.
  *
  * Abstracts the connection mechanism (HTTP/SSE or WebSocket) behind a unified
@@ -16,8 +28,13 @@ export interface Transport {
    * Trigger the agent and stream events.
    * @param triggerName - The trigger name defined in the agent's protocol
    * @param input - Input parameters for variable substitution
+   * @param options - Optional trigger options (e.g., rollback for retry)
    */
-  trigger(triggerName: string, input?: Record<string, unknown>): AsyncIterable<StreamEvent>;
+  trigger(
+    triggerName: string,
+    input?: Record<string, unknown>,
+    options?: TriggerOptions,
+  ): AsyncIterable<StreamEvent>;
 
   /**
    * Continue execution with tool results after client-side tool handling.

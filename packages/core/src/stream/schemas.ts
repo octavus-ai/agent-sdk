@@ -43,6 +43,7 @@ export const startEventSchema = z.object({
   type: z.literal('start'),
   messageId: z.string().optional(),
   executionId: z.string().optional(),
+  lastMessageId: z.string().optional(),
 });
 
 export const finishEventSchema = z.object({

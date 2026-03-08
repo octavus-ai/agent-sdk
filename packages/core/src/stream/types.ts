@@ -67,6 +67,8 @@ export interface StartEvent {
   messageId?: string;
   /** Execution ID for tool continuation. Used by client to resume after client-side tool handling. */
   executionId?: string;
+  /** ID of the last ChatMessage in session state before this execution. Used by client SDK for retry rollback. */
+  lastMessageId?: string;
 }
 
 /** Signals completion of streaming */

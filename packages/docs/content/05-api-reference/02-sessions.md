@@ -258,11 +258,12 @@ POST /api/agent-sessions/:sessionId/trigger
 }
 ```
 
-| Field         | Type   | Required | Description                                    |
-| ------------- | ------ | -------- | ---------------------------------------------- |
-| `triggerName` | string | Yes      | Name of the trigger to execute                 |
-| `input`       | object | No       | Input variables for the trigger                |
-| `toolResults` | array  | No       | Tool results for continuation (handled by SDK) |
+| Field                    | Type           | Required | Description                                                                                        |
+| ------------------------ | -------------- | -------- | -------------------------------------------------------------------------------------------------- |
+| `triggerName`            | string         | Yes      | Name of the trigger to execute                                                                     |
+| `input`                  | object         | No       | Input variables for the trigger                                                                    |
+| `toolResults`            | array          | No       | Tool results for continuation (handled by SDK)                                                     |
+| `rollbackAfterMessageId` | string \| null | No       | For retry: ID of the last message to keep. Messages after this are removed. `null` = truncate all. |
 
 ### Response
 

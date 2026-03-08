@@ -271,6 +271,7 @@ interface TriggerRequest {
   type: 'trigger';
   triggerName: string;
   input?: Record<string, unknown>;
+  rollbackAfterMessageId?: string | null; // For retry: truncate messages after this ID
 }
 
 // Continue after client-side tool handling

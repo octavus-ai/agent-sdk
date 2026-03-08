@@ -18,6 +18,7 @@ export {
   createSocketTransport,
   isSocketTransport,
   type Transport,
+  type TriggerOptions,
   type SocketTransport,
   type ConnectionState,
   type ConnectionStateListener,

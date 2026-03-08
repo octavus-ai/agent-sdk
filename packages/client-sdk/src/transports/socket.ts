@@ -1,5 +1,10 @@
 import { safeParseStreamEvent, type StreamEvent, type ToolResult } from '@octavus/core';
-import type { SocketTransport, ConnectionState, ConnectionStateListener } from './types';
+import type {
+  SocketTransport,
+  ConnectionState,
+  ConnectionStateListener,
+  TriggerOptions,
+} from './types';
 
 // =============================================================================
 // Types
@@ -276,21 +281,18 @@ export function createSocketTransport(options: SocketTransportOptions): SocketTr
     // Streaming
     // =========================================================================
 
-    async *trigger(triggerName, input) {
+    async *trigger(triggerName, input, triggerOptions?: TriggerOptions) {
       await ensureConnected();
 
       eventQueue = [];
-      eventResolver = null; // Clear any pending resolver
+      eventResolver = null;
       isStreaming = true;
 
-      // Note: clientToolResults not sent here - socket uses sendClientToolResults() for continuation
-      socket!.send(
-        JSON.stringify({
-          type: 'trigger',
-          triggerName,
-          input,
-        }),
-      );
+      const message: Record<string, unknown> = { type: 'trigger', triggerName, input };
+      if (triggerOptions?.rollbackAfterMessageId !== undefined) {
+        message.rollbackAfterMessageId = triggerOptions.rollbackAfterMessageId;
+      }
+      socket!.send(JSON.stringify(message));
 
       while (true) {
         const event = await nextEvent();
