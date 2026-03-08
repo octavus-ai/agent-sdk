@@ -124,6 +124,21 @@ if (isProviderError(error) && error.provider) {
 }
 ```
 
+## Retrying After Errors
+
+Use `retry()` to re-execute the last trigger from the same starting point. Messages are rolled back, the user message is re-added (if any), and the agent re-executes. Files are reused without re-uploading.
+
+```tsx
+const { error, canRetry, retry } = useOctavusChat({ transport });
+
+// Retry after any error
+if (canRetry) {
+  await retry();
+}
+```
+
+`retry()` also works after stopping (cancellation) or when the result is unsatisfactory — not just errors.
+
 ## Building Error UI
 
 ```tsx
@@ -135,7 +150,7 @@ import {
 } from '@octavus/react';
 
 function Chat() {
-  const { error, status } = useOctavusChat({ transport });
+  const { error, status, retry, canRetry } = useOctavusChat({ transport });
 
   return (
     <div>
@@ -149,7 +164,11 @@ function Chat() {
               Please try again in {error.retryAfter} seconds
             </p>
           )}
-          {error.retryable && <button className="mt-3 text-red-700 underline">Try again</button>}
+          {canRetry && (
+            <button className="mt-3 text-red-700 underline" onClick={() => void retry()}>
+              Retry
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -197,12 +216,17 @@ useOctavusChat({
 The hook exposes error state directly:
 
 ```typescript
-const { error, status } = useOctavusChat({ transport });
+const { error, status, retry, canRetry } = useOctavusChat({ transport });
 
 // status is 'error' when an error occurred
 // error contains the OctavusError object
 
-// Clear error by sending a new message
+// Option 1: Retry the same trigger (rolls back messages, re-executes)
+if (canRetry) {
+  await retry();
+}
+
+// Option 2: Send a new message (clears the error)
 await send('user-message', { USER_MESSAGE: 'Try again' });
 ```
 

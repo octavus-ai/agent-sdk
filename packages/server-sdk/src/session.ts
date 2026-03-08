@@ -17,6 +17,8 @@ export interface TriggerRequest {
   type: 'trigger';
   triggerName: string;
   input?: Record<string, unknown>;
+  /** ID of the last message to keep. Messages after this are removed before execution. `null` = truncate all. */
+  rollbackAfterMessageId?: string | null;
 }
 
 /** Continue execution after client-side tool handling */
@@ -150,7 +152,11 @@ export class AgentSession {
       );
     } else {
       yield* this.executeStream(
-        { triggerName: request.triggerName, input: request.input },
+        {
+          triggerName: request.triggerName,
+          input: request.input,
+          rollbackAfterMessageId: request.rollbackAfterMessageId,
+        },
         options?.signal,
       );
     }
@@ -217,6 +223,7 @@ export class AgentSession {
       input?: Record<string, unknown>;
       executionId?: string;
       toolResults?: ToolResult[];
+      rollbackAfterMessageId?: string | null;
     },
     signal?: AbortSignal,
   ): AsyncGenerator<StreamEvent> {
@@ -229,6 +236,8 @@ export class AgentSession {
           const body: Record<string, unknown> = {};
           if (payload.triggerName !== undefined) body.triggerName = payload.triggerName;
           if (payload.input !== undefined) body.input = payload.input;
+          if (payload.rollbackAfterMessageId !== undefined)
+            body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
           if (executionId !== undefined) body.executionId = executionId;
           if (toolResults !== undefined) body.toolResults = toolResults;
           return body;

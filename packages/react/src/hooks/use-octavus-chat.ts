@@ -98,6 +98,17 @@ export interface UseOctavusChatReturn {
   /** Stop the current streaming and finalize any partial message */
   stop: () => void;
   /**
+   * Retry the last trigger from the same starting point.
+   * Rolls back messages, re-adds the user message (if any), and re-executes.
+   * No-op if no trigger has been sent yet.
+   */
+  retry: () => Promise<void>;
+  /**
+   * Whether `retry()` can be called.
+   * True when a trigger has been sent and the chat is not currently streaming or awaiting input.
+   */
+  canRetry: boolean;
+  /**
    * Eagerly connect to the socket (socket transport only).
    * Returns a promise that resolves when connected or rejects on error.
    * Safe to call multiple times - subsequent calls resolve immediately if already connected.
@@ -249,6 +260,7 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
   const getStatusSnapshot = useCallback(() => chat.status, [chat]);
   const getErrorSnapshot = useCallback(() => chat.error, [chat]);
   const getPendingClientToolsSnapshot = useCallback(() => chat.pendingClientTools, [chat]);
+  const getCanRetrySnapshot = useCallback(() => chat.canRetry, [chat]);
 
   const messages = useSyncExternalStore(subscribe, getMessagesSnapshot, getMessagesSnapshot);
   const status = useSyncExternalStore(subscribe, getStatusSnapshot, getStatusSnapshot);
@@ -258,6 +270,7 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     getPendingClientToolsSnapshot,
     getPendingClientToolsSnapshot,
   );
+  const canRetry = useSyncExternalStore(subscribe, getCanRetrySnapshot, getCanRetrySnapshot);
 
   const socketTransport = isSocketTransport(transport) ? transport : null;
   const [connectionState, setConnectionState] = useState<ConnectionState | undefined>(
@@ -290,6 +303,7 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
   );
 
   const stop = useCallback(() => chat.stop(), [chat]);
+  const retry = useCallback(() => chat.retry(), [chat]);
 
   const uploadFiles = useCallback(
     (files: FileList | File[], onProgress?: (fileIndex: number, progress: number) => void) =>
@@ -314,6 +328,8 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     pendingClientTools,
     send,
     stop,
+    retry,
+    canRetry,
     connect: socketTransport ? connect : undefined,
     disconnect: socketTransport ? disconnect : undefined,
     uploadFiles,

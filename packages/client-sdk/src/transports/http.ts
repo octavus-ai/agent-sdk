@@ -1,6 +1,6 @@
 import { isAbortError, type ToolResult } from '@octavus/core';
 import { parseSSEStream } from '@/stream/reader';
-import type { Transport } from './types';
+import type { Transport, TriggerOptions } from './types';
 
 // =============================================================================
 // Request Types
@@ -11,6 +11,7 @@ export interface TriggerRequest {
   type: 'trigger';
   triggerName: string;
   input?: Record<string, unknown>;
+  rollbackAfterMessageId?: string | null;
 }
 
 /** Continue execution after client-side tool handling */
@@ -111,12 +112,13 @@ export function createHttpTransport(options: HttpTransportOptions): Transport {
   }
 
   return {
-    async *trigger(triggerName, input) {
+    async *trigger(triggerName, input, triggerOptions?: TriggerOptions) {
       abortController = new AbortController();
-      const response = options.request(
-        { type: 'trigger', triggerName, input },
-        { signal: abortController.signal },
-      );
+      const request: TriggerRequest = { type: 'trigger', triggerName, input };
+      if (triggerOptions?.rollbackAfterMessageId !== undefined) {
+        request.rollbackAfterMessageId = triggerOptions.rollbackAfterMessageId;
+      }
+      const response = options.request(request, { signal: abortController.signal });
       yield* streamResponse(response);
     },
 

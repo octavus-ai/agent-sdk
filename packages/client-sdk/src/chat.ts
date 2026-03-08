@@ -19,7 +19,7 @@ import {
   type PendingToolCall,
   type ToolResult,
 } from '@octavus/core';
-import type { Transport } from './transports/types';
+import type { Transport, TriggerOptions } from './transports/types';
 import { uploadFiles, type UploadFilesOptions } from './files';
 
 /** Block types that are internal operations (not LLM-driven) */
@@ -520,6 +520,15 @@ export class OctavusChat {
   // Used to handle the race condition where finish arrives before async tools complete
   private _finishEventReceived = false;
 
+  // Last trigger snapshot for retry support
+  private _lastTrigger: {
+    triggerName: string;
+    input?: Record<string, unknown>;
+    sendOptions?: { userMessage?: UserMessageInput };
+    rollbackAfterMessageId: string | null;
+    messageCount: number;
+  } | null = null;
+
   // Listener sets for reactive frameworks
   private listeners = new Set<Listener>();
 
@@ -580,6 +589,18 @@ export class OctavusChat {
    */
   get pendingClientTools(): Record<string, InteractiveTool[]> {
     return this._pendingClientToolsCache;
+  }
+
+  /**
+   * Whether `retry()` can be called.
+   * True when a trigger has been sent and the chat is not currently streaming or awaiting input.
+   */
+  get canRetry(): boolean {
+    return (
+      this._lastTrigger !== null &&
+      this._status !== 'streaming' &&
+      this._status !== 'awaiting-input'
+    );
   }
 
   // =========================================================================
@@ -700,12 +721,75 @@ export class OctavusChat {
       }
     }
 
+    // Store trigger snapshot for retry (after file processing, before message changes).
+    // sendOptions is stored with resolved FileReference[] so retry skips re-upload.
+    const currentMessages = this._messages;
+    this._lastTrigger = {
+      triggerName,
+      input: processedInput,
+      sendOptions: sendOptions?.userMessage
+        ? { userMessage: { content: sendOptions.userMessage.content, files: fileRefs } }
+        : undefined,
+      rollbackAfterMessageId: currentMessages[currentMessages.length - 1]?.id ?? null,
+      messageCount: currentMessages.length,
+    };
+
     // Optimistic UI: add user message before server responds
     if (sendOptions?.userMessage !== undefined) {
       const userMsg = createUserMessage(sendOptions.userMessage, fileRefs);
       this.setMessages([...this._messages, userMsg]);
     }
 
+    await this._executeTrigger(triggerName, processedInput);
+  }
+
+  /**
+   * Retry the last trigger from the same starting point.
+   * Rolls back messages to the state before the last trigger, re-adds the user message
+   * (if any), and re-executes. Files are not re-uploaded.
+   *
+   * No-op if no trigger has been sent yet.
+   *
+   * @example
+   * ```typescript
+   * // After an error or unsatisfactory result
+   * if (chat.canRetry) {
+   *   await chat.retry();
+   * }
+   * ```
+   */
+  async retry(): Promise<void> {
+    if (!this._lastTrigger) return;
+
+    this.transport.stop();
+
+    const { triggerName, input, sendOptions, rollbackAfterMessageId, messageCount } =
+      this._lastTrigger;
+
+    // Roll back UI messages to pre-trigger state
+    const baseMessages = this._messages.slice(0, messageCount);
+
+    // Re-add optimistic user message (files are already FileReference[])
+    if (sendOptions?.userMessage) {
+      const fileRefs = sendOptions.userMessage.files as FileReference[] | undefined;
+      const userMsg = createUserMessage(sendOptions.userMessage, fileRefs);
+      this.setMessages([...baseMessages, userMsg]);
+    } else {
+      this.setMessages(baseMessages);
+    }
+
+    await this._executeTrigger(triggerName, input, { rollbackAfterMessageId });
+  }
+
+  /**
+   * Shared streaming logic for `send()` and `retry()`.
+   * Sets up streaming state, consumes the transport stream, and handles errors.
+   */
+  private async _executeTrigger(
+    triggerName: string,
+    input?: Record<string, unknown>,
+    triggerOptions?: TriggerOptions,
+  ): Promise<void> {
     this.setStatus('streaming');
     this.setError(null);
     this.streamingState = createEmptyStreamingState();
@@ -721,7 +805,7 @@ export class OctavusChat {
     this.updatePendingClientToolsCache();
 
     try {
-      for await (const event of this.transport.trigger(triggerName, processedInput)) {
+      for await (const event of this.transport.trigger(triggerName, input, triggerOptions)) {
         if (this.streamingState === null) break;
 
         this.handleStreamEvent(event, this.streamingState);
@@ -929,9 +1013,12 @@ export class OctavusChat {
   private handleStreamEvent(event: StreamEvent, state: StreamingState): void {
     switch (event.type) {
       case 'start':
-        // Call onStart callback with execution/session ID
         if (event.executionId) {
           this.options.onStart?.(event.executionId);
+        }
+        // Sync rollback anchor with server-side message ID for accurate retry
+        if (event.lastMessageId !== undefined && this._lastTrigger) {
+          this._lastTrigger.rollbackAfterMessageId = event.lastMessageId;
         }
         break;
 

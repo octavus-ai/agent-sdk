@@ -1,5 +1,6 @@
 export {
   type Transport,
+  type TriggerOptions,
   type SocketTransport,
   type ConnectionState,
   type ConnectionStateListener,
