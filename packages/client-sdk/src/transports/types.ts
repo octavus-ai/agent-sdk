@@ -44,6 +44,16 @@ export interface Transport {
    */
   continueWithToolResults(executionId: string, results: ToolResult[]): AsyncIterable<StreamEvent>;
 
+  /**
+   * Observe an already-active execution without triggering a new one.
+   * Returns events from the current execution.
+   *
+   * Only applicable to transports where execution happens independently of the
+   * client connection (e.g., polling). HTTP and WebSocket transports do not need
+   * to implement this.
+   */
+  observe?(): AsyncIterable<StreamEvent>;
+
   /** Stop the current stream. Safe to call when no stream is active. */
   stop(): void;
 }

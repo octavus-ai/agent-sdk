@@ -15,3 +15,4 @@ export {
   type ContinueRequest,
 } from './http';
 export { createSocketTransport, type SocketLike, type SocketTransportOptions } from './socket';
+export { createPollingTransport, type PollingTransportOptions, type PollResult } from './polling';

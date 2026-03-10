@@ -21,6 +21,7 @@ export {
   createHttpTransport,
   createSocketTransport,
   isSocketTransport,
+  createPollingTransport,
   // Error classes
   AppError,
   NotFoundError,

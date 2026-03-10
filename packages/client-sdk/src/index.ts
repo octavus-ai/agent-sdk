@@ -17,6 +17,7 @@ export {
   createHttpTransport,
   createSocketTransport,
   isSocketTransport,
+  createPollingTransport,
   type Transport,
   type TriggerOptions,
   type SocketTransport,
@@ -29,6 +30,8 @@ export {
   type ContinueRequest,
   type SocketLike,
   type SocketTransportOptions,
+  type PollingTransportOptions,
+  type PollResult,
 } from './transports';
 
 export type * from '@octavus/core';
