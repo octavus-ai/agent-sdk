@@ -104,6 +104,18 @@ export interface UseOctavusChatReturn {
    */
   retry: () => Promise<void>;
   /**
+   * Observe an already-active execution without triggering a new one.
+   * Only works with transports that support `observe()` (e.g., polling transport).
+   * Use when the page loads and the session is already streaming.
+   */
+  observe: () => Promise<void>;
+  /**
+   * Replace the message list with externally-provided messages.
+   * Use to sync with server-authoritative state (e.g., multi-observer scenarios).
+   * Must NOT be called while streaming.
+   */
+  replaceMessages: (messages: UIMessage[]) => void;
+  /**
    * Whether `retry()` can be called.
    * True when a trigger has been sent and the chat is not currently streaming or awaiting input.
    */
@@ -304,6 +316,8 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
 
   const stop = useCallback(() => chat.stop(), [chat]);
   const retry = useCallback(() => chat.retry(), [chat]);
+  const observe = useCallback(() => chat.observe(), [chat]);
+  const replaceMessages = useCallback((msgs: UIMessage[]) => chat.replaceMessages(msgs), [chat]);
 
   const uploadFiles = useCallback(
     (files: FileList | File[], onProgress?: (fileIndex: number, progress: number) => void) =>
@@ -329,6 +343,8 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     send,
     stop,
     retry,
+    observe,
+    replaceMessages,
     canRetry,
     connect: socketTransport ? connect : undefined,
     disconnect: socketTransport ? disconnect : undefined,

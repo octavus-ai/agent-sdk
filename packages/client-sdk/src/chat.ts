@@ -604,6 +604,23 @@ export class OctavusChat {
   }
 
   // =========================================================================
+  // Public State Management
+  // =========================================================================
+
+  /**
+   * Replace the message list with externally-provided messages.
+   *
+   * Use this to sync with server-authoritative state (e.g., after an execution
+   * completes or when an observer detects new messages from another client).
+   *
+   * Must NOT be called while streaming — only when status is `idle` or `error`.
+   */
+  replaceMessages(messages: UIMessage[]): void {
+    this._messages = messages;
+    this.notifyListeners();
+  }
+
+  // =========================================================================
   // Subscription Methods (for reactive frameworks)
   // =========================================================================
 
@@ -782,14 +799,35 @@ export class OctavusChat {
   }
 
   /**
-   * Shared streaming logic for `send()` and `retry()`.
-   * Sets up streaming state, consumes the transport stream, and handles errors.
+   * Observe an already-active execution without triggering a new one.
+   *
+   * Only supported by transports that implement `observe()` (e.g., polling transport).
+   * Use this when the page loads and the session is already streaming — the transport
+   * will start consuming events without dispatching a new trigger.
+   *
+   * When using with `initialMessages`, exclude any in-progress assistant message
+   * from the initial messages to avoid duplication — the event stream will rebuild it.
    */
+  async observe(): Promise<void> {
+    if (!this.transport.observe) {
+      throw new Error('Transport does not support observe()');
+    }
+    await this._consumeStream(this.transport.observe());
+  }
+
   private async _executeTrigger(
     triggerName: string,
     input?: Record<string, unknown>,
     triggerOptions?: TriggerOptions,
   ): Promise<void> {
+    await this._consumeStream(this.transport.trigger(triggerName, input, triggerOptions));
+  }
+
+  /**
+   * Shared streaming logic for `send()`, `retry()`, and `observe()`.
+   * Sets up streaming state, consumes an event stream, and handles errors.
+   */
+  private async _consumeStream(stream: AsyncIterable<StreamEvent>): Promise<void> {
     this.setStatus('streaming');
     this.setError(null);
     this.streamingState = createEmptyStreamingState();
@@ -805,7 +843,7 @@ export class OctavusChat {
     this.updatePendingClientToolsCache();
 
     try {
-      for await (const event of this.transport.trigger(triggerName, input, triggerOptions)) {
+      for await (const event of stream) {
         if (this.streamingState === null) break;
 
         this.handleStreamEvent(event, this.streamingState);
