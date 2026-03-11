@@ -519,6 +519,9 @@ export class OctavusChat {
   // Flag indicating the finish event with client-tool-calls reason has been received
   // Used to handle the race condition where finish arrives before async tools complete
   private _finishEventReceived = false;
+  // Tracks whether the rollback anchor has been synced for the current trigger execution.
+  // Prevents continuation start events from overwriting the pre-trigger rollback point.
+  private _rollbackSynced = false;
 
   // Last trigger snapshot for retry support
   private _lastTrigger: {
@@ -840,6 +843,7 @@ export class OctavusChat {
     this._pendingExecutionId = null;
     this._readyToContinue = false;
     this._finishEventReceived = false;
+    this._rollbackSynced = false;
     this.updatePendingClientToolsCache();
 
     try {
@@ -1054,9 +1058,13 @@ export class OctavusChat {
         if (event.executionId) {
           this.options.onStart?.(event.executionId);
         }
-        // Sync rollback anchor with server-side message ID for accurate retry
-        if (event.lastMessageId !== undefined && this._lastTrigger) {
+        // Sync rollback anchor from the first start event only. Continuation
+        // streams (after client tool handling) also emit start events with a
+        // lastMessageId that reflects post-tool-call state, which would move
+        // the rollback point forward into the execution and break retry.
+        if (!this._rollbackSynced && event.lastMessageId !== undefined && this._lastTrigger) {
           this._lastTrigger.rollbackAfterMessageId = event.lastMessageId;
+          this._rollbackSynced = true;
         }
         break;
 
