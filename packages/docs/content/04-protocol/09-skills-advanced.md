@@ -307,6 +307,76 @@ Pattern:
 2. LLM uses skill to analyze/process the data
 3. Generate outputs (files, reports)
 
+## Secure Skills
+
+When a skill declares secrets and an organization configures them, the skill runs in secure mode with its own isolated sandbox.
+
+### Standard vs Secure Skills
+
+| Aspect              | Standard Skills                   | Secure Skills                                       |
+| ------------------- | --------------------------------- | --------------------------------------------------- |
+| **Sandbox**         | Shared with other standard skills | Isolated (one per skill)                            |
+| **Available tools** | All 6 skill tools                 | `skill_read`, `skill_list`, `skill_run` only        |
+| **Script input**    | CLI arguments via `args`          | JSON via stdin (use `input` parameter)              |
+| **Environment**     | No secrets                        | Secrets as env vars                                 |
+| **Output**          | Raw stdout/stderr                 | Redacted (secret values replaced with `[REDACTED]`) |
+
+### Writing Scripts for Secure Skills
+
+Secure skill scripts receive structured input via stdin (JSON) and access secrets from environment variables:
+
+```python
+#!/usr/bin/env python3
+import json
+import os
+import sys
+import subprocess
+
+input_data = json.load(sys.stdin)
+token = os.environ["GITHUB_TOKEN"]
+
+repo = input_data.get("repo", "")
+result = subprocess.run(
+    ["gh", "repo", "view", repo, "--json", "name,description"],
+    capture_output=True, text=True,
+    env={**os.environ, "GH_TOKEN": token}
+)
+
+print(result.stdout)
+```
+
+Key patterns:
+
+- **Read stdin**: `json.load(sys.stdin)` to get the `input` object from the `octavus_skill_run` call
+- **Access secrets**: `os.environ["SECRET_NAME"]` — secrets are injected as env vars
+- **Print output**: Write results to stdout — the LLM sees the (redacted) stdout
+- **Error handling**: Write errors to stderr and exit with non-zero code
+
+### Declaring Secrets in SKILL.md
+
+```yaml
+---
+name: github
+description: >
+  Run GitHub CLI (gh) commands to manage repos, issues, PRs, and more.
+secrets:
+  - name: GITHUB_TOKEN
+    description: GitHub personal access token with repo access
+    required: true
+  - name: GITHUB_ORG
+    description: Default GitHub organization
+    required: false
+---
+```
+
+### Testing Secure Skills Locally
+
+You can test scripts locally by piping JSON to stdin:
+
+```bash
+echo '{"repo": "octavus-ai/agent-sdk"}' | GITHUB_TOKEN=ghp_xxx python scripts/list-issues.py
+```
+
 ## Skill Development Tips
 
 ### Writing SKILL.md
@@ -372,6 +442,15 @@ The LLM sees these errors and can retry or explain to users.
 - **No persistent storage** (sandbox destroyed after each `next-message` execution)
 - **File output only** via `/output/` directory
 - **Time limits** enforced (5-minute default, configurable via `sandboxTimeout`)
+
+### Secret Protection
+
+For skills with configured secrets:
+
+- **Isolated sandbox** — each secure skill gets its own sandbox, preventing cross-skill secret leakage
+- **No arbitrary code** — `octavus_code_run`, `octavus_file_write`, and `octavus_file_read` are blocked for secure skills, so only pre-built scripts can execute
+- **Output redaction** — all stdout and stderr are scanned for secret values before being returned to the LLM
+- **Encrypted at rest** — secrets are encrypted using AES-256-GCM and only decrypted at execution time
 
 ### Input Validation
 
@@ -455,14 +534,16 @@ Check execution logs in the platform debug view:
 
 ## Best Practices Summary
 
-1. **Enable only needed skills** - Don't overwhelm the LLM
-2. **Choose appropriate display modes** - Match user experience needs
-3. **Write clear skill descriptions** - Help LLM understand when to use
-4. **Handle errors gracefully** - Provide helpful error messages
-5. **Test skills locally** - Verify before uploading
-6. **Monitor execution** - Check logs for issues
-7. **Combine with tools** - Use tools for data, skills for processing
-8. **Consider performance** - Be aware of timeouts and limits
+1. **Enable only needed skills** — Don't overwhelm the LLM
+2. **Choose appropriate display modes** — Match user experience needs
+3. **Write clear skill descriptions** — Help LLM understand when to use
+4. **Handle errors gracefully** — Provide helpful error messages
+5. **Test skills locally** — Verify before uploading
+6. **Monitor execution** — Check logs for issues
+7. **Combine with tools** — Use tools for data, skills for processing
+8. **Consider performance** — Be aware of timeouts and limits
+9. **Use secrets for credentials** — Declare secrets in frontmatter instead of hardcoding tokens
+10. **Design scripts for stdin input** — Secure skills receive JSON via stdin, so plan for both input methods if the skill might be used in either mode
 
 ## Next Steps
 
