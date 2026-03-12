@@ -1058,12 +1058,16 @@ export class OctavusChat {
         if (event.executionId) {
           this.options.onStart?.(event.executionId);
         }
-        // Sync rollback anchor from the first start event only. Continuation
+        // Lock the rollback anchor on the first start event only. Continuation
         // streams (after client tool handling) also emit start events with a
         // lastMessageId that reflects post-tool-call state, which would move
         // the rollback point forward into the execution and break retry.
-        if (!this._rollbackSynced && event.lastMessageId !== undefined && this._lastTrigger) {
-          this._lastTrigger.rollbackAfterMessageId = event.lastMessageId;
+        // When lastMessageId is undefined (empty session), the anchor from
+        // send() (null = truncate all) is already correct — just lock it.
+        if (!this._rollbackSynced && this._lastTrigger) {
+          if (event.lastMessageId !== undefined) {
+            this._lastTrigger.rollbackAfterMessageId = event.lastMessageId;
+          }
           this._rollbackSynced = true;
         }
         break;
