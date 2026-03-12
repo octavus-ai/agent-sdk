@@ -107,16 +107,18 @@ This also works for named threads in interactive agents, allowing different thre
 
 When skills are enabled, the LLM has access to these tools:
 
-| Tool                 | Purpose                                 |
-| -------------------- | --------------------------------------- |
-| `octavus_skill_read` | Read skill documentation (SKILL.md)     |
-| `octavus_skill_list` | List available scripts in a skill       |
-| `octavus_skill_run`  | Execute a pre-built script from a skill |
-| `octavus_code_run`   | Execute arbitrary Python/Bash code      |
-| `octavus_file_write` | Create files in the sandbox             |
-| `octavus_file_read`  | Read files from the sandbox             |
+| Tool                 | Purpose                                 | Availability         |
+| -------------------- | --------------------------------------- | -------------------- |
+| `octavus_skill_read` | Read skill documentation (SKILL.md)     | All skills           |
+| `octavus_skill_list` | List available scripts in a skill       | All skills           |
+| `octavus_skill_run`  | Execute a pre-built script from a skill | All skills           |
+| `octavus_code_run`   | Execute arbitrary Python/Bash code      | Standard skills only |
+| `octavus_file_write` | Create files in the sandbox             | Standard skills only |
+| `octavus_file_read`  | Read files from the sandbox             | Standard skills only |
 
 The LLM learns about available skills through system prompt injection and can use these tools to interact with skills.
+
+Skills that have [secrets](#skill-secrets) configured run in **secure mode**, where only `octavus_skill_read`, `octavus_skill_list`, and `octavus_skill_run` are available. See [Skill Secrets](#skill-secrets) below.
 
 ## Example: QR Code Generation
 
@@ -211,6 +213,17 @@ output_dir = os.environ.get('OUTPUT_DIR', '/output')
 Main script for generating QR codes...
 
 ````
+
+### Frontmatter Fields
+
+| Field         | Required | Description                                            |
+| ------------- | -------- | ------------------------------------------------------ |
+| `name`        | Yes      | Skill slug (lowercase, hyphens)                        |
+| `description` | Yes      | What the skill does (shown to the LLM)                 |
+| `version`     | No       | Semantic version string                                |
+| `license`     | No       | License identifier                                     |
+| `author`      | No       | Skill author                                           |
+| `secrets`     | No       | Array of secret declarations (enables secure mode)     |
 
 ## Best Practices
 
@@ -337,6 +350,72 @@ steps:
 
 Thread-level `sandboxTimeout` takes priority over agent-level. Maximum: 1 hour (3,600,000 ms).
 
+## Skill Secrets
+
+Skills can declare secrets they need to function. When an organization configures those secrets, the skill runs in **secure mode** with additional isolation.
+
+### Declaring Secrets
+
+Add a `secrets` array to your SKILL.md frontmatter:
+
+```yaml
+---
+name: github
+description: >
+  Run GitHub CLI (gh) commands to manage repos, issues, PRs, and more.
+secrets:
+  - name: GITHUB_TOKEN
+    description: GitHub personal access token with repo access
+    required: true
+  - name: GITHUB_ORG
+    description: Default GitHub organization
+    required: false
+---
+```
+
+Each secret declaration has:
+
+| Field         | Required | Description                                                 |
+| ------------- | -------- | ----------------------------------------------------------- |
+| `name`        | Yes      | Environment variable name (uppercase, e.g., `GITHUB_TOKEN`) |
+| `description` | No       | Explains what this secret is for (shown in the UI)          |
+| `required`    | No       | Whether the secret is required (defaults to `true`)         |
+
+Secret names must match the pattern `^[A-Z_][A-Z0-9_]*$` (uppercase letters, digits, and underscores).
+
+### Configuring Secrets
+
+Organization admins configure secret values through the skill editor in the platform UI. Each organization maintains its own independent set of secrets for each skill.
+
+Secrets are encrypted at rest and only decrypted at execution time.
+
+### Secure Mode
+
+When a skill has secrets configured for the organization, it automatically runs in **secure mode**:
+
+- The skill gets its own **isolated sandbox** (separate from other skills)
+- Secrets are injected as **environment variables** available to all scripts
+- Only `octavus_skill_read`, `octavus_skill_list`, and `octavus_skill_run` are available — `octavus_code_run`, `octavus_file_write`, and `octavus_file_read` are blocked
+- Scripts receive input as **JSON via stdin** (using the `input` parameter on `octavus_skill_run`) instead of CLI args
+- All output (stdout/stderr) is **automatically redacted** for secret values before being returned to the LLM
+
+### Writing Scripts for Secure Skills
+
+Scripts in secure skills read input from stdin as JSON and access secrets from environment variables:
+
+```python
+import json
+import os
+import sys
+
+input_data = json.load(sys.stdin)
+token = os.environ.get('GITHUB_TOKEN')
+
+# Use the token and input_data to perform the task
+```
+
+For standard skills (without secrets), scripts receive input as CLI arguments. For secure skills, always use stdin JSON.
+
 ## Security
 
 Skills run in isolated sandbox environments:
@@ -345,6 +424,7 @@ Skills run in isolated sandbox environments:
 - **No persistent storage** (sandbox destroyed after each `next-message` execution)
 - **File output only** via `/output/` directory
 - **Time limits** enforced (5-minute default, configurable via `sandboxTimeout`)
+- **Secret redaction** — output from secure skills is automatically scanned for secret values
 
 ## Next Steps
 
