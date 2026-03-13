@@ -27,6 +27,7 @@ return new Response(toSSEStream(events), {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
   },
 });
 
@@ -35,6 +36,14 @@ for await (const event of events) {
   conn.write(JSON.stringify(event));
 }
 ```
+
+The `X-Accel-Buffering: no` header disables proxy buffering on Nginx-based infrastructure (including Vercel), ensuring SSE events are forwarded immediately instead of being batched.
+
+### Heartbeat
+
+`toSSEStream` automatically sends SSE comment lines (`: heartbeat`) every 15 seconds during idle periods. This prevents proxies and load balancers from closing the connection due to inactivity — particularly important during multi-step executions where the stream may be silent while waiting for tool processing or LLM responses.
+
+Heartbeat comments are ignored by all SSE parsers per the spec. No client-side handling is needed.
 
 ## Event Types
 
