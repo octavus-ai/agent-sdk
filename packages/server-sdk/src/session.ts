@@ -51,6 +51,8 @@ export interface SocketMessageHandlers {
   onFinish?: () => void | Promise<void>;
 }
 
+const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
+
 /**
  * Converts an async iterable of stream events to an SSE-formatted ReadableStream.
  * Use this when you need to return an SSE response (e.g., HTTP endpoints).
@@ -65,9 +67,18 @@ export interface SocketMessageHandlers {
  */
 export function toSSEStream(events: AsyncIterable<StreamEvent>): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
+  const heartbeatBytes = encoder.encode(': heartbeat\n\n');
 
   return new ReadableStream({
     async start(controller) {
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(heartbeatBytes);
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, SSE_HEARTBEAT_INTERVAL_MS);
+
       try {
         for await (const event of events) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
@@ -80,6 +91,8 @@ export function toSSEStream(events: AsyncIterable<StreamEvent>): ReadableStream<
         );
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`));
         controller.close();
+      } finally {
+        clearInterval(heartbeat);
       }
     },
   });
