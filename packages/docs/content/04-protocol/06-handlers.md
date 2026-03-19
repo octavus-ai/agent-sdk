@@ -144,6 +144,7 @@ Start summary thread:
   block: start-thread
   thread: summary # Thread name
   model: anthropic/claude-sonnet-4-5 # Optional: different model
+  backupModel: openai/gpt-4o # Failover on provider errors
   thinking: low # Extended reasoning level
   maxSteps: 1 # Tool call limit
   system: escalation-summary # System prompt
@@ -153,7 +154,7 @@ Start summary thread:
   imageModel: google/gemini-2.5-flash-image # Image generation model
 ```
 
-The `model` field can also reference a variable for dynamic model selection:
+The `model` field can also reference a variable for dynamic model selection. The `backupModel` field follows the same format and supports variable references.
 
 ```yaml
 Start summary thread:
