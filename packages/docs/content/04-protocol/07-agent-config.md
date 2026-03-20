@@ -23,6 +23,7 @@ agent:
 | Field            | Required | Description                                               |
 | ---------------- | -------- | --------------------------------------------------------- |
 | `model`          | Yes      | Model identifier or variable reference                    |
+| `backupModel`    | No       | Backup model for automatic failover on provider errors    |
 | `system`         | Yes      | System prompt filename (without .md)                      |
 | `input`          | No       | Variables to pass to the system prompt                    |
 | `tools`          | No       | List of tools the LLM can call                            |
@@ -103,6 +104,41 @@ This enables:
 The model value is validated at runtime to ensure it's in the correct `provider/model-id` format.
 
 > **Note**: When using dynamic models, provider-specific options (like `anthropic:`) may not apply if the model resolves to a different provider.
+
+## Backup Model
+
+Configure a fallback model that activates automatically when the primary model encounters a transient provider error (rate limits, outages, timeouts):
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  backupModel: openai/gpt-4o
+  system: system
+```
+
+When a provider error occurs, the system retries once with the backup model. If the backup also fails, the original error is returned.
+
+**Key behaviors:**
+
+- Only transient provider errors trigger fallback — authentication and validation errors are not retried
+- Provider-specific options (like `anthropic:`) are only forwarded to the backup model if it uses the same provider
+- For streaming responses, fallback only occurs if no content has been sent to the client yet
+
+Like `model`, `backupModel` supports variable references:
+
+```yaml
+input:
+  BACKUP_MODEL:
+    type: string
+    description: Fallback model for provider errors
+
+agent:
+  model: anthropic/claude-sonnet-4-5
+  backupModel: BACKUP_MODEL
+  system: system
+```
+
+> **Tip**: Use a different provider for your backup model (e.g., primary on Anthropic, backup on OpenAI) to maximize resilience against single-provider outages.
 
 ## System Prompt
 
@@ -358,6 +394,7 @@ handlers:
       block: start-thread
       thread: summary
       model: anthropic/claude-sonnet-4-5 # Different model
+      backupModel: openai/gpt-4o # Failover model
       thinking: low # Different thinking
       maxSteps: 1 # Limit tool calls
       system: escalation-summary # Different prompt
@@ -367,7 +404,7 @@ handlers:
       webSearch: true # Thread-specific web search
 ```
 
-Each thread can have its own skills, references, image model, and web search setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
+Each thread can have its own model, backup model, skills, references, image model, and web search setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
 
 ## Full Example
 
@@ -406,6 +443,7 @@ skills:
 
 agent:
   model: anthropic/claude-sonnet-4-5
+  backupModel: openai/gpt-4o
   system: system
   input:
     - COMPANY_NAME
