@@ -55,6 +55,7 @@ PACKAGES=(
   "packages/client-sdk"
   "packages/react"
   "packages/server-sdk"
+  "packages/computer"
   "packages/cli"
   "packages/docs"
 )
@@ -93,6 +94,7 @@ else
   echo "  https://www.npmjs.com/package/@octavus/client-sdk"
   echo "  https://www.npmjs.com/package/@octavus/react"
   echo "  https://www.npmjs.com/package/@octavus/server-sdk"
+  echo "  https://www.npmjs.com/package/@octavus/computer"
   echo "  https://www.npmjs.com/package/@octavus/cli"
   echo "  https://www.npmjs.com/package/@octavus/docs"
 fi

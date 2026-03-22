@@ -1,0 +1,59 @@
+{
+  "name": "@octavus/computer",
+  "version": "2.16.0",
+  "description": "Computer capability layer for Octavus agents — browser, filesystem, and shell via MCP",
+  "license": "MIT",
+  "author": "Octavus AI <dev@octavus.ai>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/octavus-ai/agent-sdk.git",
+    "directory": "packages/computer"
+  },
+  "homepage": "https://octavus.ai",
+  "bugs": {
+    "url": "https://github.com/octavus-ai/agent-sdk/issues"
+  },
+  "keywords": [
+    "octavus",
+    "ai",
+    "agents",
+    "sdk",
+    "mcp",
+    "computer",
+    "browser",
+    "filesystem",
+    "shell"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src/ --max-warnings 0",
+    "lint:fix": "eslint src/ --max-warnings 0 --fix",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@octavus/core": "workspace:^"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  }
+}
