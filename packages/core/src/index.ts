@@ -49,7 +49,7 @@ export type {
   ToolHandler,
   ToolHandlers,
   ToolSchema,
-  ComputerProvider,
+  ToolProvider,
   ResourceUpdateHandler,
   FileReference,
   MessageRole,

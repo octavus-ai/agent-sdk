@@ -3,7 +3,7 @@ import {
   chatMessageSchema,
   uiMessageSchema,
   type ChatMessage,
-  type ComputerProvider,
+  type ToolProvider,
   type ToolHandlers,
   type UIMessage,
 } from '@octavus/core';
@@ -96,7 +96,7 @@ export interface SessionAttachOptions {
   tools?: ToolHandlers;
   resources?: Resource[];
   /** Computer capability provider (browser, filesystem, shell via MCP). */
-  computer?: ComputerProvider;
+  computer?: ToolProvider;
 }
 
 /** API for managing agent sessions */

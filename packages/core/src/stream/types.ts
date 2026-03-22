@@ -28,10 +28,11 @@ export interface ToolSchema {
 }
 
 /**
- * Interface for providing computer capabilities (browser, filesystem, shell) to a session.
- * Implemented by `@octavus/computer`; accepted by server-sdk's `SessionAttachOptions`.
+ * Interface for providing namespaced tools to a session.
+ * Implementors include `@octavus/computer` (browser, filesystem, shell)
+ * and custom consumer-defined tool providers.
  */
-export interface ComputerProvider {
+export interface ToolProvider {
   toolHandlers(): Record<string, ToolHandler>;
   toolSchemas(): ToolSchema[];
 }
