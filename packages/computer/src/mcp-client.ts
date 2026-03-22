@@ -54,7 +54,11 @@ function formatCallToolResult(result: CallToolResult): unknown {
     return textParts.map((p) => p.text).join('\n');
   }
 
-  return result.content;
+  if (result.content.length === 0) {
+    return { success: true };
+  }
+
+  return result.content.map((c) => `[${c.type} content]`).join('\n');
 }
 
 async function discoverTools(
