@@ -3,6 +3,7 @@ import {
   type StreamEvent,
   type ToolHandlers,
   type ToolResult,
+  type ToolSchema,
 } from '@octavus/core';
 import type { ApiClientConfig } from '@/base-api-client.js';
 import type { Resource } from '@/resource.js';
@@ -103,6 +104,8 @@ export interface SessionConfig {
   config: ApiClientConfig;
   tools?: ToolHandlers;
   resources?: Resource[];
+  /** Tool schemas to send to the platform on the first trigger (device MCP tools, etc.) */
+  additionalToolSchemas?: ToolSchema[];
 }
 
 /**
@@ -119,12 +122,15 @@ export class AgentSession {
   private config: ApiClientConfig;
   private toolHandlers: ToolHandlers;
   private resourceMap: Map<string, Resource>;
+  private additionalToolSchemas: ToolSchema[] | undefined;
+  private additionalToolSchemasSent = false;
   private socketAbortController: AbortController | null = null;
 
   constructor(sessionConfig: SessionConfig) {
     this.sessionId = sessionConfig.sessionId;
     this.config = sessionConfig.config;
     this.toolHandlers = sessionConfig.tools ?? {};
+    this.additionalToolSchemas = sessionConfig.additionalToolSchemas;
     this.resourceMap = new Map();
 
     for (const resource of sessionConfig.resources ?? []) {
@@ -253,6 +259,10 @@ export class AgentSession {
             body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
           if (executionId !== undefined) body.executionId = executionId;
           if (toolResults !== undefined) body.toolResults = toolResults;
+          if (!this.additionalToolSchemasSent && (this.additionalToolSchemas?.length ?? 0) > 0) {
+            body.additionalToolSchemas = this.additionalToolSchemas;
+            this.additionalToolSchemasSent = true;
+          }
           return body;
         },
         onResourceUpdate: (name, value) => this.handleResourceUpdate(name, value),

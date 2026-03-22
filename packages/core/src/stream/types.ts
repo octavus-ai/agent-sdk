@@ -20,6 +20,23 @@ export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream';
 export type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 export type ToolHandlers = Record<string, ToolHandler>;
 
+/** Schema for a tool provided via additionalToolSchemas (device MCP tools, etc.) */
+export interface ToolSchema {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+/**
+ * Interface for providing namespaced tools to a session.
+ * Implementors include `@octavus/computer` (browser, filesystem, shell)
+ * and custom consumer-defined tool providers.
+ */
+export interface ToolProvider {
+  toolHandlers(): Record<string, ToolHandler>;
+  toolSchemas(): ToolSchema[];
+}
+
 /**
  * Reference to an uploaded file.
  * Used in trigger input, user messages, and tool results for file attachments.

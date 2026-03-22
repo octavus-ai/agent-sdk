@@ -3,6 +3,7 @@ import {
   chatMessageSchema,
   uiMessageSchema,
   type ChatMessage,
+  type ToolProvider,
   type ToolHandlers,
   type UIMessage,
 } from '@octavus/core';
@@ -94,6 +95,8 @@ export interface ClearSessionResult {
 export interface SessionAttachOptions {
   tools?: ToolHandlers;
   resources?: Resource[];
+  /** Computer capability provider (browser, filesystem, shell via MCP). */
+  computer?: ToolProvider;
 }
 
 /** API for managing agent sessions */
@@ -199,11 +202,14 @@ export class AgentSessionsApi extends BaseApiClient {
 
   /** Attach to an existing session for triggering events */
   attach(sessionId: string, options: SessionAttachOptions = {}): AgentSession {
+    const computerHandlers = options.computer?.toolHandlers() ?? {};
+    const mergedTools = { ...computerHandlers, ...options.tools };
     return new AgentSession({
       sessionId,
       config: this.config,
-      tools: options.tools,
+      tools: mergedTools,
       resources: options.resources,
+      additionalToolSchemas: options.computer?.toolSchemas(),
     });
   }
 }
