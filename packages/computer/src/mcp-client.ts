@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { ToolHandler, ToolSchema } from '@octavus/core';
 import { NAMESPACE_SEPARATOR, type StdioConfig, type HttpConfig } from './entries';
 
@@ -31,6 +32,15 @@ interface CallToolResult {
   [key: string]: unknown;
 }
 
+function formatContentPart(part: ContentPart): unknown {
+  if (part.type === 'text' && typeof part.text === 'string') {
+    return part.text;
+  }
+  // Preserve non-text content (images, audio, resources) as structured data
+  // so downstream consumers can handle them appropriately.
+  return part;
+}
+
 function formatCallToolResult(result: CallToolResult): unknown {
   if (result.isError) {
     const errorText = result.content
@@ -40,25 +50,27 @@ function formatCallToolResult(result: CallToolResult): unknown {
     return { error: errorText || 'Tool execution failed' };
   }
 
-  const textParts = result.content.filter((c) => c.type === 'text' && typeof c.text === 'string');
-
-  if (textParts.length === 1) {
-    try {
-      return JSON.parse(textParts[0]!.text!);
-    } catch {
-      return textParts[0]!.text;
-    }
-  }
-
-  if (textParts.length > 1) {
-    return textParts.map((p) => p.text).join('\n');
-  }
-
   if (result.content.length === 0) {
     return { success: true };
   }
 
-  return result.content.map((c) => `[${c.type} content]`).join('\n');
+  const textParts = result.content.filter((c) => c.type === 'text' && typeof c.text === 'string');
+  const hasNonText = result.content.some((c) => c.type !== 'text');
+
+  // Pure text results: parse JSON or return as string
+  if (!hasNonText) {
+    if (textParts.length === 1) {
+      try {
+        return JSON.parse(textParts[0]!.text!);
+      } catch {
+        return textParts[0]!.text;
+      }
+    }
+    return textParts.map((p) => p.text).join('\n');
+  }
+
+  // Mixed or non-text content: return as structured content array
+  return result.content.map(formatContentPart);
 }
 
 async function discoverTools(
@@ -89,7 +101,14 @@ async function discoverTools(
   return { handlers, schemas };
 }
 
-export async function connectStdio(namespace: string, config: StdioConfig): Promise<McpConnection> {
+async function connect(namespace: string, transport: Transport): Promise<McpConnection> {
+  const client = new Client({ name: MCP_CLIENT_NAME, version: MCP_CLIENT_VERSION });
+  await client.connect(transport);
+  const { handlers, schemas } = await discoverTools(client, namespace);
+  return { client, namespace, handlers, schemas, close: () => client.close() };
+}
+
+export function connectStdio(namespace: string, config: StdioConfig): Promise<McpConnection> {
   const transport = new StdioClientTransport({
     command: config.command,
     args: config.args,
@@ -105,35 +124,13 @@ export async function connectStdio(namespace: string, config: StdioConfig): Prom
     stderr: 'pipe',
   });
 
-  const client = new Client({ name: MCP_CLIENT_NAME, version: MCP_CLIENT_VERSION });
-  await client.connect(transport);
-
-  const { handlers, schemas } = await discoverTools(client, namespace);
-
-  return {
-    client,
-    namespace,
-    handlers,
-    schemas,
-    close: () => client.close(),
-  };
+  return connect(namespace, transport);
 }
 
-export async function connectHttp(namespace: string, config: HttpConfig): Promise<McpConnection> {
+export function connectHttp(namespace: string, config: HttpConfig): Promise<McpConnection> {
   const transport = new StreamableHTTPClientTransport(new URL(config.url), {
     requestInit: config.headers ? { headers: config.headers } : undefined,
   });
 
-  const client = new Client({ name: MCP_CLIENT_NAME, version: MCP_CLIENT_VERSION });
-  await client.connect(transport);
-
-  const { handlers, schemas } = await discoverTools(client, namespace);
-
-  return {
-    client,
-    namespace,
-    handlers,
-    schemas,
-    close: () => client.close(),
-  };
+  return connect(namespace, transport);
 }
