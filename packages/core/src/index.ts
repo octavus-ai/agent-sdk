@@ -48,6 +48,8 @@ export type {
   DisplayMode,
   ToolHandler,
   ToolHandlers,
+  ToolSchema,
+  ComputerProvider,
   ResourceUpdateHandler,
   FileReference,
   MessageRole,

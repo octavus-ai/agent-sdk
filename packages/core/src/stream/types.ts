@@ -20,6 +20,22 @@ export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream';
 export type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 export type ToolHandlers = Record<string, ToolHandler>;
 
+/** Schema for a tool provided via additionalToolSchemas (device MCP tools, etc.) */
+export interface ToolSchema {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+/**
+ * Interface for providing computer capabilities (browser, filesystem, shell) to a session.
+ * Implemented by `@octavus/computer`; accepted by server-sdk's `SessionAttachOptions`.
+ */
+export interface ComputerProvider {
+  toolHandlers(): Record<string, ToolHandler>;
+  toolSchemas(): ToolSchema[];
+}
+
 /**
  * Reference to an uploaded file.
  * Used in trigger input, user messages, and tool results for file attachments.
