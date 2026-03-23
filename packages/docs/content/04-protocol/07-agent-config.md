@@ -14,29 +14,31 @@ agent:
   model: anthropic/claude-sonnet-4-5
   system: system # References prompts/system.md
   tools: [get-user-account] # Available tools
+  mcpServers: [figma, browser] # MCP server connections
   skills: [qr-code] # Available skills
   references: [api-guidelines] # On-demand context documents
 ```
 
 ## Configuration Options
 
-| Field            | Required | Description                                               |
-| ---------------- | -------- | --------------------------------------------------------- |
-| `model`          | Yes      | Model identifier or variable reference                    |
-| `backupModel`    | No       | Backup model for automatic failover on provider errors    |
-| `system`         | Yes      | System prompt filename (without .md)                      |
-| `input`          | No       | Variables to pass to the system prompt                    |
-| `tools`          | No       | List of tools the LLM can call                            |
-| `skills`         | No       | List of Octavus skills the LLM can use                    |
-| `references`     | No       | List of references the LLM can fetch on demand            |
-| `sandboxTimeout` | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour) |
-| `imageModel`     | No       | Image generation model (enables agentic image generation) |
-| `webSearch`      | No       | Enable built-in web search tool (provider-agnostic)       |
-| `agentic`        | No       | Allow multiple tool call cycles                           |
-| `maxSteps`       | No       | Maximum agentic steps (default: 10)                       |
-| `temperature`    | No       | Model temperature (0-2)                                   |
-| `thinking`       | No       | Extended reasoning level                                  |
-| `anthropic`      | No       | Anthropic-specific options (tools, skills)                |
+| Field            | Required | Description                                                                    |
+| ---------------- | -------- | ------------------------------------------------------------------------------ |
+| `model`          | Yes      | Model identifier or variable reference                                         |
+| `backupModel`    | No       | Backup model for automatic failover on provider errors                         |
+| `system`         | Yes      | System prompt filename (without .md)                                           |
+| `input`          | No       | Variables to pass to the system prompt                                         |
+| `tools`          | No       | List of tools the LLM can call                                                 |
+| `mcpServers`     | No       | List of MCP servers to connect (see [MCP Servers](/docs/protocol/mcp-servers)) |
+| `skills`         | No       | List of Octavus skills the LLM can use                                         |
+| `references`     | No       | List of references the LLM can fetch on demand                                 |
+| `sandboxTimeout` | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                      |
+| `imageModel`     | No       | Image generation model (enables agentic image generation)                      |
+| `webSearch`      | No       | Enable built-in web search tool (provider-agnostic)                            |
+| `agentic`        | No       | Allow multiple tool call cycles                                                |
+| `maxSteps`       | No       | Maximum agentic steps (default: 10)                                            |
+| `temperature`    | No       | Model temperature (0-2)                                                        |
+| `thinking`       | No       | Extended reasoning level                                                       |
+| `anthropic`      | No       | Anthropic-specific options (tools, skills)                                     |
 
 ## Models
 
@@ -398,13 +400,14 @@ handlers:
       thinking: low # Different thinking
       maxSteps: 1 # Limit tool calls
       system: escalation-summary # Different prompt
+      mcpServers: [figma, browser] # Thread-specific MCP servers
       skills: [data-analysis] # Thread-specific skills
       references: [escalation-policy] # Thread-specific references
       imageModel: google/gemini-2.5-flash-image # Thread-specific image model
       webSearch: true # Thread-specific web search
 ```
 
-Each thread can have its own model, backup model, skills, references, image model, and web search setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
+Each thread can have its own model, backup model, MCP servers, skills, references, image model, and web search setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
 
 ## Full Example
 
@@ -436,6 +439,12 @@ tools:
       summary: { type: string }
       priority: { type: string } # low, medium, high
 
+mcpServers:
+  figma:
+    description: Figma design tool integration
+    source: remote
+    display: description
+
 skills:
   qr-code:
     display: description
@@ -452,6 +461,7 @@ agent:
     - get-user-account
     - search-docs
     - create-support-ticket
+  mcpServers: [figma] # MCP server connections
   skills: [qr-code] # Octavus skills
   references: [support-policies] # On-demand context
   webSearch: true # Built-in web search

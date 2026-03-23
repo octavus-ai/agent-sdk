@@ -68,6 +68,13 @@ tools:
     parameters:
       userId: { type: string }
 
+# MCP servers (remote services and device capabilities)
+mcpServers:
+  figma:
+    description: Figma design tool integration
+    source: remote
+    display: description
+
 # Octavus skills (provider-agnostic code execution)
 skills:
   qr-code:
@@ -79,6 +86,7 @@ agent:
   model: anthropic/claude-sonnet-4-5
   system: system # References prompts/system.md
   tools: [get-user-account]
+  mcpServers: [figma] # Enable MCP servers
   skills: [qr-code] # Enable skills
   imageModel: google/gemini-2.5-flash-image # Enable image generation
   webSearch: true # Enable web search
@@ -187,6 +195,7 @@ The referenced prompt content is inserted before variable interpolation, so vari
 - [Input & Resources](/docs/protocol/input-resources) — Defining agent inputs
 - [Triggers](/docs/protocol/triggers) — How agents are invoked
 - [Tools](/docs/protocol/tools) — External capabilities
+- [MCP Servers](/docs/protocol/mcp-servers) — Remote services and device capabilities via MCP
 - [Skills](/docs/protocol/skills) — Code execution and knowledge packages
 - [References](/docs/protocol/references) — On-demand context documents
 - [Handlers](/docs/protocol/handlers) — Execution blocks

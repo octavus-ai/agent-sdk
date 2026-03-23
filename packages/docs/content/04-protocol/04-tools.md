@@ -8,11 +8,12 @@ description: Defining external tools implemented in your backend.
 Tools extend what agents can do. Octavus supports multiple types:
 
 1. **External Tools** — Defined in the protocol, implemented in your backend (this page)
-2. **Built-in Tools** — Provider-agnostic tools managed by Octavus (web search, image generation)
-3. **Provider Tools** — Provider-specific tools executed by the provider (e.g., Anthropic's code execution)
-4. **Skills** — Code execution and knowledge packages (see [Skills](/docs/protocol/skills))
+2. **MCP Tools** — Auto-discovered from MCP servers (see [MCP Servers](/docs/protocol/mcp-servers))
+3. **Built-in Tools** — Provider-agnostic tools managed by Octavus (web search, image generation)
+4. **Provider Tools** — Provider-specific tools executed by the provider (e.g., Anthropic's code execution)
+5. **Skills** — Code execution and knowledge packages (see [Skills](/docs/protocol/skills))
 
-This page covers external tools. Built-in tools are enabled via agent config — see [Web Search](/docs/protocol/agent-config#web-search) and [Image Generation](/docs/protocol/agent-config#image-generation). For provider-specific tools, see [Provider Options](/docs/protocol/provider-options). For code execution, see [Skills](/docs/protocol/skills).
+This page covers external tools. For MCP-based tools from services like Figma, Sentry, or device capabilities like browser and filesystem, see [MCP Servers](/docs/protocol/mcp-servers). Built-in tools are enabled via agent config — see [Web Search](/docs/protocol/agent-config#web-search) and [Image Generation](/docs/protocol/agent-config#image-generation). For provider-specific tools, see [Provider Options](/docs/protocol/provider-options). For code execution, see [Skills](/docs/protocol/skills).
 
 ## External Tools
 
