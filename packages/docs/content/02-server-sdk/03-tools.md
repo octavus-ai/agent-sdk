@@ -12,12 +12,15 @@ Tools extend what agents can do. In Octavus, tools can execute either on your se
 | Location   | Use Case                                          | Registration                            |
 | ---------- | ------------------------------------------------- | --------------------------------------- |
 | **Server** | Database queries, API calls, sensitive operations | Register handler in `attach()`          |
+| **MCP**    | Browser, filesystem, shell, external services     | Via `computer` option in `attach()`     |
 | **Client** | Browser APIs, interactive UIs, confirmations      | No server handler (forwarded to client) |
 
 When the Server SDK encounters a tool call:
 
-1. **Handler exists** → Execute on server, continue automatically
+1. **Handler exists** (server or MCP) → Execute on server, continue automatically
 2. **No handler** → Forward to client via `client-tool-request` event
+
+MCP tool handlers from `@octavus/computer` are merged with your manual handlers — they work identically from the platform's perspective. See [Computer](/docs/server-sdk/computer) for MCP tool integration.
 
 For client-side tool handling, see [Client Tools](/docs/client-sdk/client-tools).
 

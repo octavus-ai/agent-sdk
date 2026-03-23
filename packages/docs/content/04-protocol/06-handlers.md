@@ -149,6 +149,7 @@ Start summary thread:
   maxSteps: 1 # Tool call limit
   system: escalation-summary # System prompt
   input: [COMPANY_NAME] # Variables for prompt
+  mcpServers: [figma, browser] # MCP servers for this thread
   skills: [qr-code] # Octavus skills for this thread
   sandboxTimeout: 600000 # Skill sandbox timeout (default: 5 min, max: 1 hour)
   imageModel: google/gemini-2.5-flash-image # Image generation model

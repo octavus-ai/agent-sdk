@@ -96,6 +96,31 @@ return new Response(toSSEStream(events), {
 });
 ```
 
+### Computer Capabilities
+
+Give agents access to browser, filesystem, and shell via MCP:
+
+```typescript
+import { Computer } from '@octavus/computer';
+
+const computer = new Computer({
+  mcpServers: {
+    browser: Computer.stdio('chrome-devtools-mcp', ['--browser-url=...']),
+    filesystem: Computer.stdio('@modelcontextprotocol/server-filesystem', [dir]),
+    shell: Computer.shell({ cwd: dir, mode: 'unrestricted' }),
+  },
+});
+
+await computer.start();
+
+const session = client.agentSessions.attach(sessionId, {
+  tools: {
+    'set-chat-title': async (args) => ({ title: args.title }),
+  },
+  computer,
+});
+```
+
 ### Workers
 
 Execute worker agents for task-based processing:
@@ -239,3 +264,4 @@ The client uploads files directly to S3 using the presigned upload URL. See [Fil
 - [Streaming](/docs/server-sdk/streaming) — Understanding stream events
 - [Workers](/docs/server-sdk/workers) — Executing worker agents
 - [Debugging](/docs/server-sdk/debugging) — Model request tracing and debugging
+- [Computer](/docs/server-sdk/computer) — Browser, filesystem, and shell via MCP
