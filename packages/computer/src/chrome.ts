@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { platform } from 'node:os';
 import { existsSync } from 'node:fs';
@@ -13,6 +13,8 @@ export interface ChromeLaunchOptions {
   profileDir: string;
   debuggingPort?: number;
   flags?: string[];
+  /** Max time (ms) to wait for the Chrome debugging port to become ready. Default: 30000. */
+  debuggingPortTimeoutMs?: number;
 }
 
 const CHROME_PATHS: Record<string, string[]> = {
@@ -36,7 +38,7 @@ function findChromePath(): string {
     const isAbsolute = candidate.startsWith('/') || candidate.startsWith('C:\\');
     if (isAbsolute) {
       if (existsSync(candidate)) return candidate;
-    } else {
+    } else if (isInPath(candidate)) {
       return candidate;
     }
   }
@@ -45,6 +47,15 @@ function findChromePath(): string {
     `Chrome not found. Searched: ${candidates.join(', ')}. ` +
       'Install Google Chrome or set the path explicitly.',
   );
+}
+
+function isInPath(binary: string): boolean {
+  try {
+    const result = spawnSync('which', [binary], { stdio: 'ignore' });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
 }
 
 function findFreePort(): Promise<number> {
@@ -63,7 +74,7 @@ function findFreePort(): Promise<number> {
   });
 }
 
-function waitForDebuggingPort(port: number, timeoutMs = 10_000): Promise<void> {
+function waitForDebuggingPort(port: number, timeoutMs = 30_000): Promise<void> {
   const start = Date.now();
   return new Promise((resolve, reject) => {
     function attempt() {
@@ -110,7 +121,7 @@ export async function launchChrome(options: ChromeLaunchOptions): Promise<Chrome
     // Chrome process errors are handled by the caller via the process reference
   });
 
-  await waitForDebuggingPort(port);
+  await waitForDebuggingPort(port, options.debuggingPortTimeoutMs);
 
   return { port, process: child, pid: child.pid };
 }
