@@ -1,6 +1,6 @@
 {
   "name": "@octavus/computer",
-  "version": "2.17.0",
+  "version": "2.18.0",
   "description": "Computer capability layer for Octavus agents — browser, filesystem, and shell via MCP",
   "license": "MIT",
   "author": "Octavus AI <dev@octavus.ai>",
