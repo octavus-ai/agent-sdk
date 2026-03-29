@@ -5,6 +5,7 @@ import {
   type ChatMessage,
   type ToolProvider,
   type ToolHandlers,
+  type ToolResult,
   type UIMessage,
 } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
@@ -97,6 +98,8 @@ export interface SessionAttachOptions {
   resources?: Resource[];
   /** Computer capability provider (browser, filesystem, shell via MCP). */
   computer?: ToolProvider;
+  /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
+  onToolResults?: (results: ToolResult[]) => Promise<void>;
 }
 
 /** API for managing agent sessions */
@@ -210,6 +213,7 @@ export class AgentSessionsApi extends BaseApiClient {
       tools: mergedTools,
       resources: options.resources,
       additionalToolSchemas: options.computer?.toolSchemas(),
+      onToolResults: options.onToolResults,
     });
   }
 }
