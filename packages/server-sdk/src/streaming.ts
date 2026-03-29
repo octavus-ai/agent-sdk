@@ -28,6 +28,8 @@ export interface StreamExecutionConfig {
   }) => Record<string, unknown>;
   /** Called when a resource-update event is received (optional) */
   onResourceUpdate?: (name: string, value: unknown) => void;
+  /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
+  onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** Error message prefix for API errors */
   errorContext?: string;
 }
@@ -210,6 +212,10 @@ export async function* executeStream(
           }
         }),
       );
+
+      if (config.onToolResults && serverResults.length > 0) {
+        await config.onToolResults(serverResults);
+      }
 
       for (const tr of serverResults) {
         if (tr.error) {

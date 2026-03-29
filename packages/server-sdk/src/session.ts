@@ -106,6 +106,8 @@ export interface SessionConfig {
   resources?: Resource[];
   /** Tool schemas to send to the platform on the first trigger (device MCP tools, etc.) */
   additionalToolSchemas?: ToolSchema[];
+  /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
+  onToolResults?: (results: ToolResult[]) => Promise<void>;
 }
 
 /**
@@ -125,12 +127,14 @@ export class AgentSession {
   private additionalToolSchemas: ToolSchema[] | undefined;
   private additionalToolSchemasSent = false;
   private socketAbortController: AbortController | null = null;
+  private onToolResults?: (results: ToolResult[]) => Promise<void>;
 
   constructor(sessionConfig: SessionConfig) {
     this.sessionId = sessionConfig.sessionId;
     this.config = sessionConfig.config;
     this.toolHandlers = sessionConfig.tools ?? {};
     this.additionalToolSchemas = sessionConfig.additionalToolSchemas;
+    this.onToolResults = sessionConfig.onToolResults;
     this.resourceMap = new Map();
 
     for (const resource of sessionConfig.resources ?? []) {
@@ -266,6 +270,7 @@ export class AgentSession {
           return body;
         },
         onResourceUpdate: (name, value) => this.handleResourceUpdate(name, value),
+        onToolResults: this.onToolResults,
         errorContext: 'Failed to trigger',
       },
       { executionId: payload.executionId, toolResults: payload.toolResults },
