@@ -260,26 +260,7 @@ export class CliApi {
       body: formData,
     });
 
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType?.includes('application/json');
-
-    if (!response.ok) {
-      if (isJson) {
-        const errorData = (await response.json()) as { error?: string; code?: string };
-        throw new ApiError(
-          errorData.error ?? `Request failed with status ${response.status}`,
-          response.status,
-          errorData.code,
-        );
-      }
-      throw new ApiError(`Request failed with status ${response.status}`, response.status);
-    }
-
-    if (!isJson) {
-      throw new ApiError('Expected JSON response', response.status);
-    }
-
-    return await response.json();
+    return await this.handleResponse(response);
   }
 
   private async request(method: string, path: string, body?: unknown): Promise<unknown> {
@@ -299,6 +280,10 @@ export class CliApi {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
+    return await this.handleResponse(response);
+  }
+
+  private async handleResponse(response: Response): Promise<unknown> {
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
 

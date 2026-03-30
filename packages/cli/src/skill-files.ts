@@ -8,6 +8,7 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import JSZip from 'jszip';
 import { parse as parseYaml } from 'yaml';
+import { z } from 'zod';
 
 export class SkillFileError extends Error {
   constructor(
@@ -29,6 +30,18 @@ export interface SkillFrontmatter {
 }
 
 const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---/;
+
+const secretsSchema = z.array(
+  z.object({
+    name: z.string(),
+    description: z.string().optional(),
+    required: z.boolean().optional(),
+  }),
+);
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
 
 const EXCLUDED_PATTERNS = ['.env', '.env.', '.git', 'node_modules', '.DS_Store'];
 
@@ -66,13 +79,15 @@ export async function parseSkillFrontmatter(skillPath: string): Promise<SkillFro
     throw new SkillFileError('SKILL.md frontmatter must have a "name" field', skillMdPath);
   }
 
+  const parsedSecrets = secretsSchema.safeParse(frontmatter.secrets);
+
   return {
     name: frontmatter.name,
-    description: frontmatter.description as string | undefined,
-    version: frontmatter.version as string | undefined,
-    license: frontmatter.license as string | undefined,
-    author: frontmatter.author as string | undefined,
-    secrets: frontmatter.secrets as SkillFrontmatter['secrets'],
+    description: optionalString(frontmatter.description),
+    version: optionalString(frontmatter.version),
+    license: optionalString(frontmatter.license),
+    author: optionalString(frontmatter.author),
+    secrets: parsedSecrets.success ? parsedSecrets.data : undefined,
   };
 }
 
