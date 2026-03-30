@@ -135,6 +135,28 @@ const archiveResponseSchema = z.object({
   message: z.string(),
 });
 
+/** Skill sync result from POST /api/skills */
+export interface SkillSyncResult {
+  skillId: string;
+  slug: string;
+  created: boolean;
+}
+
+/** Skill secrets upsert result from PUT /api/skills/:id/secrets */
+export interface SkillSecretsResult {
+  updated: string[];
+}
+
+const skillSyncResultSchema = z.object({
+  skillId: z.string(),
+  slug: z.string(),
+  created: z.boolean(),
+});
+
+const skillSecretsResultSchema = z.object({
+  updated: z.array(z.string()),
+});
+
 export class CliApi {
   constructor(private readonly config: CliConfig) {}
 
@@ -192,6 +214,26 @@ export class CliApi {
     return archiveResponseSchema.parse(response);
   }
 
+  /** Upload a skill bundle (create or update) */
+  async syncSkill(bundle: Buffer, visibility?: string): Promise<SkillSyncResult> {
+    const formData = new FormData();
+    formData.append('file', new Blob([bundle]), 'skill.zip');
+    if (visibility) {
+      formData.append('visibility', visibility);
+    }
+    const response = await this.requestMultipart('POST', '/api/skills', formData);
+    return skillSyncResultSchema.parse(response);
+  }
+
+  /** Bulk upsert skill secrets */
+  async upsertSkillSecrets(
+    skillId: string,
+    secrets: Record<string, string>,
+  ): Promise<SkillSecretsResult> {
+    const response = await this.request('PUT', `/api/skills/${skillId}/secrets`, { secrets });
+    return skillSecretsResultSchema.parse(response);
+  }
+
   /** Sync agent (create or update) */
   async syncAgent(definition: AgentDefinition): Promise<SyncResult> {
     const existing = await this.getAgent(definition.settings.slug);
@@ -203,6 +245,41 @@ export class CliApi {
 
     const agentId = await this.createAgent(definition);
     return { agentId, created: true };
+  }
+
+  private async requestMultipart(
+    method: string,
+    path: string,
+    formData: FormData,
+  ): Promise<unknown> {
+    const url = `${this.config.baseUrl}${path}`;
+
+    const response = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${this.config.apiKey}` },
+      body: formData,
+    });
+
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType?.includes('application/json');
+
+    if (!response.ok) {
+      if (isJson) {
+        const errorData = (await response.json()) as { error?: string; code?: string };
+        throw new ApiError(
+          errorData.error ?? `Request failed with status ${response.status}`,
+          response.status,
+          errorData.code,
+        );
+      }
+      throw new ApiError(`Request failed with status ${response.status}`, response.status);
+    }
+
+    if (!isJson) {
+      throw new ApiError('Expected JSON response', response.status);
+    }
+
+    return await response.json();
   }
 
   private async request(method: string, path: string, body?: unknown): Promise<unknown> {

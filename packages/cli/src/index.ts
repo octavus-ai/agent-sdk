@@ -24,6 +24,7 @@ import { registerSyncCommand } from '@/commands/sync.js';
 import { registerListCommand } from '@/commands/list.js';
 import { registerGetCommand } from '@/commands/get.js';
 import { registerArchiveCommand } from '@/commands/archive.js';
+import { registerSkillSyncCommand } from '@/commands/skills/sync.js';
 
 // Pre-parse to extract --env option before loading environment
 const envIndex = process.argv.indexOf('--env');
@@ -40,12 +41,16 @@ program
   .version('0.1.0')
   .option('--env <file>', 'Load environment from a specific file', '.env');
 
-// Register commands
+// Register agent commands
 registerValidateCommand(program);
 registerSyncCommand(program);
 registerListCommand(program);
 registerGetCommand(program);
 registerArchiveCommand(program);
+
+// Register skills command group
+const skillsCommand = program.command('skills').description('Manage skills');
+registerSkillSyncCommand(skillsCommand);
 
 // Parse and run
 program.parse();
