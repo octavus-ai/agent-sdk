@@ -308,21 +308,39 @@ skills:
 
 ## Uploading Custom Skills
 
-You can upload custom skills to your organization:
+You can upload custom skills to your organization using the CLI or the platform UI.
 
-1. Create a skill following the [Agent Skills](https://agentskills.io) format
-2. Package it as a `.skill` bundle (ZIP file)
-3. Upload via the platform UI
-4. Reference by slug in your protocol
+### Via CLI (Recommended)
+
+Use [`octavus skills sync`](/docs/server-sdk/cli#octavus-skills-sync-path) to package and upload a skill directory. If the skill has a `.env` file, secrets are pushed alongside the bundle:
+
+```bash
+octavus skills sync ./skills/my-skill
+```
+
+### Skill Directory Structure
+
+```
+my-skill/
+├── SKILL.md          # Required: Skill documentation with frontmatter
+├── scripts/          # Optional: Executable scripts
+│   ├── run.py
+│   └── requirements.txt
+├── references/       # Optional: Additional documentation
+├── assets/           # Optional: Templates, images
+└── .env              # Optional: Secrets (not included in bundle)
+```
+
+Once uploaded, reference the skill by slug in your protocol:
 
 ```yaml
 skills:
-  custom-analysis:
+  my-skill:
     display: description
     description: Custom analysis tool
 
 agent:
-  skills: [custom-analysis]
+  skills: [my-skill]
 ```
 
 ## Sandbox Timeout

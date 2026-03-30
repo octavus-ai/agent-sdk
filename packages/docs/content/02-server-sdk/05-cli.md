@@ -161,6 +161,44 @@ octavus archive support-chat
   Agent ID: clxyz123abc456
 ```
 
+### `octavus skills sync <path>`
+
+Sync a skill to the platform. Packages the skill directory into a bundle (excluding `.env` files, `.git`, and `node_modules`), uploads it, and optionally pushes secrets from the skill's `.env` file.
+
+```bash
+octavus skills sync ./skills/github
+```
+
+**Options:**
+
+- `--json` — Output as JSON (for CI/CD parsing)
+- `--quiet` — Suppress non-essential output
+
+**Example output:**
+
+```
+ℹ Reading skill from ./skills/github...
+ℹ Packaging github...
+✓ Created: github
+  Skill ID: clxyz789def012
+ℹ Pushing 2 secret(s)...
+✓ 2 secret(s) updated
+```
+
+**Secret handling:**
+
+If the skill directory contains a `.env` file, secrets are pushed alongside the bundle. Secrets are cross-validated against the `secrets` declarations in `SKILL.md` — warnings are shown for undeclared or missing required secrets.
+
+```
+my-skill/
+├── SKILL.md
+├── scripts/
+│   └── run.py
+└── .env              # Secrets (not included in bundle)
+```
+
+See [Skills](/docs/protocol/skills) for details on skill format, secrets, and secure mode.
+
 ## Agent Directory Structure
 
 The CLI expects agent definitions in a specific directory structure:
