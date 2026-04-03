@@ -112,14 +112,7 @@ export function connectStdio(namespace: string, config: StdioConfig): Promise<Mc
   const transport = new StdioClientTransport({
     command: config.command,
     args: config.args,
-    env: config.env
-      ? {
-          ...Object.fromEntries(
-            Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined),
-          ),
-          ...config.env,
-        }
-      : undefined,
+    env: config.env,
     cwd: config.cwd,
     stderr: 'pipe',
   });
