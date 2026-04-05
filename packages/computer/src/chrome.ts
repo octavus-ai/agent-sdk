@@ -11,6 +11,8 @@ export interface ChromeInstance {
 
 export interface ChromeLaunchOptions {
   profileDir: string;
+  /** Absolute path to the Chrome binary. Skips auto-detection when provided. */
+  chromePath?: string;
   debuggingPort?: number;
   flags?: string[];
   /** Max time (ms) to wait for the Chrome debugging port to become ready. Default: 30000. */
@@ -97,7 +99,7 @@ function waitForDebuggingPort(port: number, timeoutMs = 30_000): Promise<void> {
 }
 
 export async function launchChrome(options: ChromeLaunchOptions): Promise<ChromeInstance> {
-  const chromePath = findChromePath();
+  const chromePath = options.chromePath ?? findChromePath();
   const port = options.debuggingPort ?? (await findFreePort());
 
   const args = [
