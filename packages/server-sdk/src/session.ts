@@ -108,6 +108,8 @@ export interface SessionConfig {
   additionalToolSchemas?: ToolSchema[];
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
   onToolResults?: (results: ToolResult[]) => Promise<void>;
+  /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
+  rejectClientToolCalls?: boolean;
 }
 
 /**
@@ -128,6 +130,7 @@ export class AgentSession {
   private additionalToolSchemasSent = false;
   private socketAbortController: AbortController | null = null;
   private onToolResults?: (results: ToolResult[]) => Promise<void>;
+  private rejectClientToolCalls: boolean;
 
   constructor(sessionConfig: SessionConfig) {
     this.sessionId = sessionConfig.sessionId;
@@ -135,6 +138,7 @@ export class AgentSession {
     this.toolHandlers = sessionConfig.tools ?? {};
     this.additionalToolSchemas = sessionConfig.additionalToolSchemas;
     this.onToolResults = sessionConfig.onToolResults;
+    this.rejectClientToolCalls = sessionConfig.rejectClientToolCalls ?? false;
     this.resourceMap = new Map();
 
     for (const resource of sessionConfig.resources ?? []) {
@@ -271,6 +275,7 @@ export class AgentSession {
         },
         onResourceUpdate: (name, value) => this.handleResourceUpdate(name, value),
         onToolResults: this.onToolResults,
+        rejectClientToolCalls: this.rejectClientToolCalls,
         errorContext: 'Failed to trigger',
       },
       { executionId: payload.executionId, toolResults: payload.toolResults },

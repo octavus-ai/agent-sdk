@@ -100,6 +100,8 @@ export interface SessionAttachOptions {
   computer?: ToolProvider;
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
   onToolResults?: (results: ToolResult[]) => Promise<void>;
+  /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
+  rejectClientToolCalls?: boolean;
 }
 
 /** API for managing agent sessions */
@@ -214,6 +216,7 @@ export class AgentSessionsApi extends BaseApiClient {
       resources: options.resources,
       additionalToolSchemas: options.computer?.toolSchemas(),
       onToolResults: options.onToolResults,
+      rejectClientToolCalls: options.rejectClientToolCalls,
     });
   }
 }

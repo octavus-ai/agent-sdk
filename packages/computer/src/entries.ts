@@ -26,6 +26,11 @@ export interface ShellConfig {
 
 export type McpEntry = StdioConfig | HttpConfig | ShellConfig;
 
+export interface McpDiagnostics {
+  prerequisites: string[];
+  suggestedFixes: string[];
+}
+
 export const NAMESPACE_SEPARATOR = '__';
 
 export function createStdioConfig(
