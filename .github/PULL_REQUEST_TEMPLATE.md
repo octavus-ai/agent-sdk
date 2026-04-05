@@ -17,6 +17,7 @@ Brief description of the changes.
 - [ ] `@octavus/server-sdk`
 - [ ] `@octavus/client-sdk`
 - [ ] `@octavus/react`
+- [ ] `@octavus/computer`
 - [ ] `@octavus/cli`
 - [ ] `@octavus/docs`
 
