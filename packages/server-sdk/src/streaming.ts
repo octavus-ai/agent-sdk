@@ -32,6 +32,13 @@ export interface StreamExecutionConfig {
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** Error message prefix for API errors */
   errorContext?: string;
+  /**
+   * When true, tool calls without a registered handler return an error result
+   * instead of being emitted as client-tool-request events.
+   * Use for server-only execution environments (e.g., OctoAgents) that have
+   * no client-side tool executor.
+   */
+  rejectClientToolCalls?: boolean;
 }
 
 /**
@@ -226,18 +233,34 @@ export async function* executeStream(
       }
 
       if (clientTools.length > 0) {
-        if (!executionId) {
-          yield createInternalErrorEvent('Missing executionId for client-tool-request');
-          return;
+        if (config.rejectClientToolCalls) {
+          const rejectedResults: ToolResult[] = clientTools.map((tc) => ({
+            toolCallId: tc.toolCallId,
+            toolName: tc.toolName,
+            error: `Tool "${tc.toolName}" is not available. No handler is registered for this tool.`,
+            outputVariable: tc.outputVariable,
+            blockIndex: tc.blockIndex,
+            thread: tc.thread,
+            workerId: tc.workerId,
+          }));
+          for (const tr of rejectedResults) {
+            yield { type: 'tool-output-error', toolCallId: tr.toolCallId, error: tr.error! };
+          }
+          toolResults = [...serverResults, ...rejectedResults];
+        } else {
+          if (!executionId) {
+            yield createInternalErrorEvent('Missing executionId for client-tool-request');
+            return;
+          }
+          yield {
+            type: 'client-tool-request',
+            executionId,
+            toolCalls: clientTools,
+            serverToolResults: serverResults.length > 0 ? serverResults : undefined,
+          };
+          yield { type: 'finish', finishReason: 'client-tool-calls', executionId };
+          continueLoop = false;
         }
-        yield {
-          type: 'client-tool-request',
-          executionId,
-          toolCalls: clientTools,
-          serverToolResults: serverResults.length > 0 ? serverResults : undefined,
-        };
-        yield { type: 'finish', finishReason: 'client-tool-calls', executionId };
-        continueLoop = false;
       } else {
         toolResults = serverResults;
       }

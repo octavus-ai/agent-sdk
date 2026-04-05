@@ -2,16 +2,19 @@ import type { ChildProcess } from 'node:child_process';
 import type { ToolHandler, ToolProvider, ToolSchema } from '@octavus/core';
 import {
   type McpEntry,
+  type McpDiagnostics,
   type StdioConfig,
   type HttpConfig,
   type ShellConfig,
   type ShellMode,
+  NAMESPACE_SEPARATOR,
   createStdioConfig,
   createHttpConfig,
   createShellConfig,
 } from './entries';
 import { connectStdio, connectHttp, type McpConnection } from './mcp-client';
 import { createShellTools } from './shell';
+import { createStatusTool, type EntryStatus } from './status-tool';
 import { launchChrome, type ChromeInstance, type ChromeLaunchOptions } from './chrome';
 
 export type { ChromeInstance, ChromeLaunchOptions };
@@ -23,6 +26,7 @@ interface ManagedProcess {
 export interface ComputerConfig {
   mcpServers: Record<string, McpEntry>;
   managedProcesses?: ManagedProcess[];
+  diagnostics?: Record<string, McpDiagnostics>;
 }
 
 interface EntryState {
@@ -30,6 +34,8 @@ interface EntryState {
   handlers: Record<string, ToolHandler>;
   schemas: ToolSchema[];
   connection?: McpConnection;
+  status: EntryStatus;
+  error?: string;
 }
 
 export class Computer implements ToolProvider {
@@ -82,9 +88,10 @@ export class Computer implements ToolProvider {
       const result = results[i]!;
       if (result.status === 'rejected') {
         const namespace = entries[i]![0];
-        errors.push(
-          `${namespace}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
-        );
+        const errorMessage =
+          result.reason instanceof Error ? result.reason.message : String(result.reason);
+        errors.push(`${namespace}: ${errorMessage}`);
+        this.setDegradedEntry(namespace, errorMessage);
       }
     }
 
@@ -126,6 +133,44 @@ export class Computer implements ToolProvider {
   }
 
   // ---------------------------------------------------------------------------
+  // Recovery
+  // ---------------------------------------------------------------------------
+
+  async retryDegraded(): Promise<{ recovered: string[]; stillDegraded: string[] }> {
+    const recovered: string[] = [];
+    const stillDegraded: string[] = [];
+
+    const degraded = [...this.entries.values()].filter((e) => e.status === 'degraded');
+    if (degraded.length === 0) return { recovered, stillDegraded };
+
+    const results = await Promise.allSettled(
+      degraded.map(async (entry) => {
+        if (entry.connection) {
+          await entry.connection.close().catch(() => {});
+        }
+        await this.connectEntry(entry.namespace, this.config.mcpServers[entry.namespace]!);
+        return entry.namespace;
+      }),
+    );
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]!;
+      const namespace = degraded[i]!.namespace;
+
+      if (result.status === 'fulfilled') {
+        recovered.push(namespace);
+      } else {
+        const errorMessage =
+          result.reason instanceof Error ? result.reason.message : String(result.reason);
+        this.setDegradedEntry(namespace, errorMessage);
+        stillDegraded.push(namespace);
+      }
+    }
+
+    return { recovered, stillDegraded };
+  }
+
+  // ---------------------------------------------------------------------------
   // ToolProvider
   // ---------------------------------------------------------------------------
 
@@ -149,13 +194,28 @@ export class Computer implements ToolProvider {
   // Internal
   // ---------------------------------------------------------------------------
 
+  private setDegradedEntry(namespace: string, error: string): void {
+    const diagnostics = this.config.diagnostics?.[namespace];
+    const statusTool = createStatusTool(namespace, 'degraded', [], error, diagnostics);
+    this.entries.set(namespace, {
+      namespace,
+      handlers: { [statusTool.schema.name]: statusTool.handler },
+      schemas: [statusTool.schema],
+      status: 'degraded',
+      error,
+    });
+  }
+
   private async connectEntry(namespace: string, entry: McpEntry): Promise<void> {
     if (entry.type === 'shell') {
       const shell = createShellTools(namespace, entry);
+      const toolNames = shell.schemas.map((s) => s.name.split(NAMESPACE_SEPARATOR)[1]!);
+      const statusTool = createStatusTool(namespace, 'connected', toolNames);
       this.entries.set(namespace, {
         namespace,
-        handlers: shell.handlers,
-        schemas: shell.schemas,
+        handlers: { ...shell.handlers, [statusTool.schema.name]: statusTool.handler },
+        schemas: [...shell.schemas, statusTool.schema],
+        status: 'connected',
       });
       return;
     }
@@ -165,11 +225,15 @@ export class Computer implements ToolProvider {
         ? await connectStdio(namespace, entry)
         : await connectHttp(namespace, entry);
 
+    const toolNames = connection.schemas.map((s) => s.name.split(NAMESPACE_SEPARATOR)[1]!);
+    const statusTool = createStatusTool(namespace, 'connected', toolNames);
+
     this.entries.set(namespace, {
       namespace,
-      handlers: connection.handlers,
-      schemas: connection.schemas,
+      handlers: { ...connection.handlers, [statusTool.schema.name]: statusTool.handler },
+      schemas: [...connection.schemas, statusTool.schema],
       connection,
+      status: 'connected',
     });
   }
 }
