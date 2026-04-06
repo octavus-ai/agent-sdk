@@ -170,6 +170,15 @@ export class Computer implements ToolProvider {
     return { recovered, stillDegraded };
   }
 
+  /** Stop a specific MCP entry, closing its connection and marking it as degraded. */
+  async stopEntry(namespace: string): Promise<void> {
+    const existing = this.entries.get(namespace);
+    if (existing?.connection) {
+      await existing.connection.close().catch(() => {});
+    }
+    this.setDegradedEntry(namespace, 'Entry stopped');
+  }
+
   /** Restart a specific MCP entry by closing its connection and reconnecting. */
   async restartEntry(namespace: string): Promise<void> {
     const config = this.config.mcpServers[namespace];
