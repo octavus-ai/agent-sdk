@@ -9,6 +9,8 @@ export {
   type InteractiveTool,
 } from './hooks/use-octavus-chat';
 
+export { useAutoScroll, type UseAutoScrollOptions } from './hooks/use-auto-scroll';
+
 export type * from '@octavus/client-sdk';
 export {
   // Chat

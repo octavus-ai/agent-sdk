@@ -214,6 +214,61 @@ When `stop()` is called:
 
 Partial content is preserved in the message, so users don't lose what was already generated.
 
+## Auto-Scroll
+
+Chat interfaces should scroll to the bottom as new content streams in, but pause if the user has scrolled up to read earlier messages. The `useAutoScroll` hook handles this:
+
+```tsx
+import { useEffect } from 'react';
+import { useOctavusChat, useAutoScroll, createHttpTransport } from '@octavus/react';
+
+function Chat({ sessionId }: { sessionId: string }) {
+  const transport = useMemo(/* ... */, [sessionId]);
+  const { messages, status, send } = useOctavusChat({ transport });
+  const { scrollRef, handleScroll, scrollOnUpdate, resetAutoScroll } = useAutoScroll();
+
+  // Scroll to bottom when messages change (only if user hasn't scrolled up)
+  useEffect(() => {
+    const id = requestAnimationFrame(scrollOnUpdate);
+    return () => cancelAnimationFrame(id);
+  }, [messages, scrollOnUpdate]);
+
+  const handleSend = async (text: string) => {
+    resetAutoScroll(); // Force scroll on next update
+    await send('user-message', { message: text }, { userMessage: { content: text } });
+  };
+
+  return (
+    <div className="flex flex-col h-screen">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+        {messages.map((msg) => (
+          <MessageBubble key={msg.id} message={msg} />
+        ))}
+      </div>
+      <ChatInput onSend={handleSend} disabled={status === 'streaming'} />
+    </div>
+  );
+}
+```
+
+The hook returns four values:
+
+| Return Value      | Purpose                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| `scrollRef`       | Attach to the scrollable container's `ref`                                                        |
+| `handleScroll`    | Attach to the container's `onScroll` — tracks whether the user is near the bottom                 |
+| `scrollOnUpdate`  | Call inside a `useEffect` when messages change — scrolls to bottom if the user hasn't scrolled up |
+| `resetAutoScroll` | Call when the user sends a message — forces the next update to scroll to bottom                   |
+
+You can customize the hook with options:
+
+```tsx
+const { scrollRef, handleScroll, scrollOnUpdate, resetAutoScroll } = useAutoScroll({
+  threshold: 120, // Distance from bottom (px) to keep auto-scroll active (default: 80)
+  scrollRef: myRef, // Bring your own ref if sharing the container with other logic
+});
+```
+
 ## Named Thread Content
 
 Content from named threads (like "summary") streams separately and is identified by the `thread` property:
