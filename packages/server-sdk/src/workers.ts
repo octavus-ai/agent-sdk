@@ -11,6 +11,8 @@ import { WorkerError } from '@/worker-error.js';
 export interface WorkerStartRequest {
   type: 'start';
   input: Record<string, unknown>;
+  /** Tool schemas from device MCPs (browser, filesystem, shell, etc.) */
+  additionalToolSchemas?: ToolSchema[];
 }
 
 /** Continue execution after client-side tool handling */
