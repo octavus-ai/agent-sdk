@@ -92,6 +92,8 @@ interface WorkerExecuteOptions {
   tools?: ToolHandlers;
   /** Abort signal to cancel the execution */
   signal?: AbortSignal;
+  /** Tool schemas from device MCPs (browser, filesystem, shell, etc.) */
+  additionalToolSchemas?: ToolSchema[];
 }
 ```
 
@@ -102,6 +104,8 @@ interface WorkerExecuteOptions {
 | `agentId` | `string`                  | The worker agent ID         |
 | `input`   | `Record<string, unknown>` | Input values for the worker |
 | `options` | `WorkerExecuteOptions`    | Optional configuration      |
+
+The `additionalToolSchemas` option enables device MCP support for workers executed via the SDK. Pass tool schemas from `@octavus/computer` (or any `ToolProvider`) so the worker can use device MCP tools. Schemas are sent on the first request and cached for continuation rounds.
 
 ## Tool Handlers
 

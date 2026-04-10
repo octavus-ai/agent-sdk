@@ -1,4 +1,4 @@
-import type { StreamEvent, ToolHandlers, ToolResult } from '@octavus/core';
+import type { StreamEvent, ToolHandlers, ToolResult, ToolSchema } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
 import { executeStream } from '@/streaming.js';
 import { WorkerError } from '@/worker-error.js';
@@ -33,6 +33,8 @@ export interface WorkerExecuteOptions {
   tools?: ToolHandlers;
   /** Abort signal to cancel the execution */
   signal?: AbortSignal;
+  /** Tool schemas from device MCPs (browser, filesystem, shell, etc.) */
+  additionalToolSchemas?: ToolSchema[];
 }
 
 /** Result from a non-streaming worker execution via `generate()` */
@@ -103,7 +105,15 @@ export class WorkersApi extends BaseApiClient {
         toolHandlers: options.tools ?? {},
         url: `${this.config.baseUrl}/api/agents/${agentId}/execute`,
         buildBody: ({ executionId, toolResults }) =>
-          !executionId ? { type: 'start', input } : { type: 'continue', executionId, toolResults },
+          !executionId
+            ? {
+                type: 'start',
+                input,
+                ...(options.additionalToolSchemas && {
+                  additionalToolSchemas: options.additionalToolSchemas,
+                }),
+              }
+            : { type: 'continue', executionId, toolResults },
         errorContext: 'Failed to execute worker',
       },
       {},
