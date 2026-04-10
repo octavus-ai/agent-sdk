@@ -227,6 +227,7 @@ All LLM configuration goes here:
 | `input`       | Variables for system prompt                       |
 | `tools`       | Tools available in this thread                    |
 | `skills`      | Octavus skills available in this thread           |
+| `mcpServers`  | MCP servers available in this thread              |
 | `imageModel`  | Image generation model                            |
 | `webSearch`   | Enable built-in web search tool                   |
 | `thinking`    | Extended reasoning level                          |
@@ -362,6 +363,35 @@ steps:
 
 output: CONVERSATION_SUMMARY
 ```
+
+## MCP Servers
+
+Workers can declare and use MCP servers, just like interactive agents. Define them in `mcpServers:` and reference them in `start-thread`:
+
+```yaml
+mcpServers:
+  sentry:
+    description: Error tracking and debugging
+    source: remote
+    display: name
+  browser:
+    description: Chrome DevTools browser automation
+    source: device
+    display: name
+
+steps:
+  Start research:
+    block: start-thread
+    thread: research
+    model: anthropic/claude-sonnet-4-5
+    system: system
+    mcpServers: [sentry, browser]
+    maxSteps: 10
+```
+
+Workers resolve their own MCP connections independently — they don't inherit MCP servers from a parent interactive agent. Remote MCP connections are project-scoped, so a worker in the same project automatically has access to the same OAuth connections.
+
+See [MCP Servers](/docs/protocol/mcp-servers) for full documentation.
 
 ## Skills, Image Generation, and Web Search
 

@@ -201,6 +201,36 @@ handlers:
 
 This thread can use Figma and browser tools, but not sentry or filesystem — even if those are available on the main agent.
 
+## Workers
+
+Workers can declare and use MCP servers using the same `mcpServers:` syntax. Workers resolve their own MCP connections independently — they don't inherit from a parent interactive agent.
+
+```yaml
+# Worker protocol
+mcpServers:
+  sentry:
+    description: Error tracking and debugging
+    source: remote
+    display: name
+  browser:
+    description: Chrome DevTools browser automation
+    source: device
+    display: name
+
+steps:
+  Start research:
+    block: start-thread
+    thread: research
+    model: anthropic/claude-sonnet-4-5
+    system: system
+    mcpServers: [sentry, browser]
+    maxSteps: 10
+```
+
+Since workers don't have a global `agent:` section, MCP servers are scoped per-thread via `start-thread` — the same way tools and skills work in workers. Remote MCP connections are project-scoped, so workers in the same project share the same OAuth connections.
+
+See [Workers](/docs/protocol/workers) for the full worker protocol reference.
+
 ## Full Example
 
 ```yaml
