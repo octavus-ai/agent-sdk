@@ -87,19 +87,19 @@ const session = client.agentSessions.attach(sessionId, {
   resources: [
     // Resource watchers (optional)
   ],
-  computer: computer, // Computer capabilities (optional, see Computer documentation)
 });
 ```
 
 ### Attach Options
 
-| Option      | Type           | Description                                                |
-| ----------- | -------------- | ---------------------------------------------------------- |
-| `tools`     | `ToolHandlers` | Server-side tool handler functions                         |
-| `resources` | `Resource[]`   | Resource watchers for real-time updates                    |
-| `computer`  | `ToolProvider` | Computer capabilities — browser, filesystem, shell via MCP |
+| Option                  | Type                              | Description                                                                     |
+| ----------------------- | --------------------------------- | ------------------------------------------------------------------------------- |
+| `tools`                 | `ToolHandlers`                    | Server-side tool handler functions                                              |
+| `resources`             | `Resource[]`                      | Resource watchers for real-time updates                                         |
+| `onToolResults`         | `(results: ToolResult[]) => void` | Callback invoked after server-side tool results are produced                    |
+| `rejectClientToolCalls` | `boolean`                         | If `true`, reject tool calls that have no server handler (no client forwarding) |
 
-When `computer` is provided, its tool handlers are merged with `tools` (manual handlers take priority on conflict), and its tool schemas are sent to the platform. See [Computer](/docs/server-sdk/computer) for details.
+For MCP tool integration (browser, filesystem, shell via `@octavus/computer`), register dynamic tools after attaching with `session.setDynamicTools()`. See [Computer](/docs/server-sdk/computer) for details.
 
 ## Executing Requests
 

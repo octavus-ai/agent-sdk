@@ -40,11 +40,12 @@ const session = client.agentSessions.attach(sessionId, {
   tools: {
     'set-chat-title': async (args) => ({ title: args.title }),
   },
-  computer,
 });
+
+session.setDynamicTools(computer);
 ```
 
-The `computer` is passed to `attach()` — the server-sdk handles the rest. Tool schemas are sent to the platform, and tool calls flow back through the existing execution loop.
+Dynamic tools are registered after attaching via `session.setDynamicTools()`. Pass the `computer` directly — the session extracts schemas and handlers from the `ToolProvider`. Tool schemas are sent to the platform on the next `execute()` call, and tool calls flow back through the existing execution loop.
 
 ## How It Works
 
@@ -227,7 +228,13 @@ interface ToolProvider {
 }
 ```
 
-The server-sdk accepts any `ToolProvider` on the `computer` option — you can implement your own if `@octavus/computer` doesn't fit your use case:
+`setDynamicTools()` accepts any `ToolProvider` directly — the session extracts schemas and handlers automatically:
+
+```typescript
+session.setDynamicTools(computer);
+```
+
+You can also pass a custom `ToolProvider`:
 
 ```typescript
 const customProvider: ToolProvider = {
@@ -257,8 +264,18 @@ const customProvider: ToolProvider = {
 
 const session = client.agentSessions.attach(sessionId, {
   tools: { 'set-chat-title': titleHandler },
-  computer: customProvider,
 });
+
+session.setDynamicTools(customProvider);
+```
+
+For cases where you need explicit control, `setDynamicTools()` also accepts a `DynamicTool[]` array:
+
+```typescript
+interface DynamicTool {
+  schema: ToolSchema;
+  handler: ToolHandler;
+}
 ```
 
 ## Complete Example
@@ -300,7 +317,7 @@ async function startSession(sessionId: string) {
     console.warn('Failed to connect:', errors);
   }
 
-  // 4. Attach to session with computer
+  // 4. Attach to session and register dynamic tools
   const client = new OctavusClient({
     baseUrl: process.env.OCTAVUS_API_URL!,
     apiKey: process.env.OCTAVUS_API_KEY!,
@@ -313,8 +330,9 @@ async function startSession(sessionId: string) {
         return { success: true };
       },
     },
-    computer,
   });
+
+  session.setDynamicTools(computer);
 
   // 5. Execute and stream
   const events = session.execute({

@@ -20,11 +20,17 @@ export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream';
 export type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 export type ToolHandlers = Record<string, ToolHandler>;
 
-/** Schema for a tool provided via additionalToolSchemas (device MCP tools, etc.) */
+/** Schema for a runtime-discovered tool (device MCP tools, etc.) */
 export interface ToolSchema {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+}
+
+/** A runtime-discovered tool pairing a schema with an execution handler. */
+export interface DynamicTool {
+  schema: ToolSchema;
+  handler: ToolHandler;
 }
 
 /**

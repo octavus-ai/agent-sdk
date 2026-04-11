@@ -3,7 +3,6 @@ import {
   chatMessageSchema,
   uiMessageSchema,
   type ChatMessage,
-  type ToolProvider,
   type ToolHandlers,
   type ToolResult,
   type UIMessage,
@@ -96,8 +95,6 @@ export interface ClearSessionResult {
 export interface SessionAttachOptions {
   tools?: ToolHandlers;
   resources?: Resource[];
-  /** Computer capability provider (browser, filesystem, shell via MCP). */
-  computer?: ToolProvider;
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
@@ -207,14 +204,11 @@ export class AgentSessionsApi extends BaseApiClient {
 
   /** Attach to an existing session for triggering events */
   attach(sessionId: string, options: SessionAttachOptions = {}): AgentSession {
-    const computerHandlers = options.computer?.toolHandlers() ?? {};
-    const mergedTools = { ...computerHandlers, ...options.tools };
     return new AgentSession({
       sessionId,
       config: this.config,
-      tools: mergedTools,
+      tools: options.tools,
       resources: options.resources,
-      additionalToolSchemas: options.computer?.toolSchemas(),
       onToolResults: options.onToolResults,
       rejectClientToolCalls: options.rejectClientToolCalls,
     });

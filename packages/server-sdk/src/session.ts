@@ -1,7 +1,9 @@
 import {
   createInternalErrorEvent,
+  type DynamicTool,
   type StreamEvent,
   type ToolHandlers,
+  type ToolProvider,
   type ToolResult,
   type ToolSchema,
 } from '@octavus/core';
@@ -99,13 +101,19 @@ export function toSSEStream(events: AsyncIterable<StreamEvent>): ReadableStream<
   });
 }
 
+function resolveDynamicTools(provider: ToolProvider): DynamicTool[] {
+  const handlers = provider.toolHandlers();
+  return provider
+    .toolSchemas()
+    .filter((s) => handlers[s.name])
+    .map((s) => ({ schema: s, handler: handlers[s.name]! }));
+}
+
 export interface SessionConfig {
   sessionId: string;
   config: ApiClientConfig;
   tools?: ToolHandlers;
   resources?: Resource[];
-  /** Tool schemas to send to the platform on the first trigger (device MCP tools, etc.) */
-  additionalToolSchemas?: ToolSchema[];
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
@@ -126,8 +134,8 @@ export class AgentSession {
   private config: ApiClientConfig;
   private toolHandlers: ToolHandlers;
   private resourceMap: Map<string, Resource>;
-  private additionalToolSchemas: ToolSchema[] | undefined;
-  private additionalToolSchemasSent = false;
+  private dynamicToolSchemas: ToolSchema[] | undefined;
+  private dynamicToolNames = new Set<string>();
   private socketAbortController: AbortController | null = null;
   private onToolResults?: (results: ToolResult[]) => Promise<void>;
   private rejectClientToolCalls: boolean;
@@ -136,7 +144,6 @@ export class AgentSession {
     this.sessionId = sessionConfig.sessionId;
     this.config = sessionConfig.config;
     this.toolHandlers = sessionConfig.tools ?? {};
-    this.additionalToolSchemas = sessionConfig.additionalToolSchemas;
     this.onToolResults = sessionConfig.onToolResults;
     this.rejectClientToolCalls = sessionConfig.rejectClientToolCalls ?? false;
     this.resourceMap = new Map();
@@ -193,10 +200,37 @@ export class AgentSession {
     return this.sessionId;
   }
 
-  /** Update additional tool schemas and resend on the next HTTP round-trip. */
-  setAdditionalToolSchemas(schemas: ToolSchema[]): void {
-    this.additionalToolSchemas = schemas;
-    this.additionalToolSchemasSent = false;
+  /**
+   * Set the full list of dynamic tools (schemas + handlers).
+   * Replaces any previously set dynamic tools — removed tools are
+   * unregistered, new ones are added, and updated schemas are sent
+   * to the platform on the next request.
+   *
+   * Accepts either a `ToolProvider` (e.g. `Computer`) or an explicit
+   * `DynamicTool[]` array.
+   *
+   * Safe to call mid-session: executeStream resolves toolHandlers via
+   * a getter on each continuation loop, so new handlers are visible
+   * immediately.
+   */
+  setDynamicTools(source: ToolProvider | DynamicTool[]): void {
+    const tools = Array.isArray(source) ? source : resolveDynamicTools(source);
+    const newNames = new Set(tools.map((t) => t.schema.name));
+
+    const cleaned: ToolHandlers = {};
+    for (const [name, handler] of Object.entries(this.toolHandlers)) {
+      if (!this.dynamicToolNames.has(name)) {
+        cleaned[name] = handler;
+      }
+    }
+
+    for (const tool of tools) {
+      cleaned[tool.schema.name] = tool.handler;
+    }
+
+    this.toolHandlers = cleaned;
+    this.dynamicToolNames = newNames;
+    this.dynamicToolSchemas = tools.map((t) => t.schema);
   }
 
   /**
@@ -263,7 +297,7 @@ export class AgentSession {
     yield* executeStream(
       {
         config: this.config,
-        toolHandlers: this.toolHandlers,
+        getToolHandlers: () => this.toolHandlers,
         url: `${this.config.baseUrl}/api/agent-sessions/${this.sessionId}/trigger`,
         buildBody: ({ executionId, toolResults }) => {
           const body: Record<string, unknown> = {};
@@ -273,9 +307,8 @@ export class AgentSession {
             body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
           if (executionId !== undefined) body.executionId = executionId;
           if (toolResults !== undefined) body.toolResults = toolResults;
-          if (!this.additionalToolSchemasSent && (this.additionalToolSchemas?.length ?? 0) > 0) {
-            body.additionalToolSchemas = this.additionalToolSchemas;
-            this.additionalToolSchemasSent = true;
+          if (this.dynamicToolSchemas !== undefined) {
+            body.dynamicToolSchemas = this.dynamicToolSchemas;
           }
           return body;
         },
