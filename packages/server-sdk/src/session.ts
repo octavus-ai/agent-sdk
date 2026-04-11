@@ -193,6 +193,12 @@ export class AgentSession {
     return this.sessionId;
   }
 
+  /** Update additional tool schemas and resend on the next HTTP round-trip. */
+  setAdditionalToolSchemas(schemas: ToolSchema[]): void {
+    this.additionalToolSchemas = schemas;
+    this.additionalToolSchemasSent = false;
+  }
+
   /**
    * Handle a WebSocket protocol message (trigger, continue, or stop).
    * Manages abort controller lifecycle internally.
