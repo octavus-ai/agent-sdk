@@ -11,8 +11,8 @@ import { WorkerError } from '@/worker-error.js';
 export interface WorkerStartRequest {
   type: 'start';
   input: Record<string, unknown>;
-  /** Tool schemas from device MCPs (browser, filesystem, shell, etc.) */
-  additionalToolSchemas?: ToolSchema[];
+  /** Tool schemas for runtime-discovered tools (device MCPs, etc.) */
+  dynamicToolSchemas?: ToolSchema[];
 }
 
 /** Continue execution after client-side tool handling */
@@ -35,8 +35,8 @@ export interface WorkerExecuteOptions {
   tools?: ToolHandlers;
   /** Abort signal to cancel the execution */
   signal?: AbortSignal;
-  /** Tool schemas from device MCPs (browser, filesystem, shell, etc.) */
-  additionalToolSchemas?: ToolSchema[];
+  /** Tool schemas for runtime-discovered tools (device MCPs, etc.) */
+  dynamicToolSchemas?: ToolSchema[];
 }
 
 /** Result from a non-streaming worker execution via `generate()` */
@@ -101,18 +101,19 @@ export class WorkersApi extends BaseApiClient {
     input: Record<string, unknown>,
     options: WorkerExecuteOptions = {},
   ): AsyncGenerator<StreamEvent> {
+    const tools = options.tools ?? {};
     yield* executeStream(
       {
         config: this.config,
-        toolHandlers: options.tools ?? {},
+        getToolHandlers: () => tools,
         url: `${this.config.baseUrl}/api/agents/${agentId}/execute`,
         buildBody: ({ executionId, toolResults }) =>
           !executionId
             ? {
                 type: 'start',
                 input,
-                ...(options.additionalToolSchemas && {
-                  additionalToolSchemas: options.additionalToolSchemas,
+                ...(options.dynamicToolSchemas && {
+                  dynamicToolSchemas: options.dynamicToolSchemas,
                 }),
               }
             : { type: 'continue', executionId, toolResults },
@@ -212,10 +213,11 @@ export class WorkersApi extends BaseApiClient {
     toolResults: ToolResult[],
     options: WorkerExecuteOptions = {},
   ): AsyncGenerator<StreamEvent> {
+    const tools = options.tools ?? {};
     yield* executeStream(
       {
         config: this.config,
-        toolHandlers: options.tools ?? {},
+        getToolHandlers: () => tools,
         url: `${this.config.baseUrl}/api/agents/${agentId}/execute`,
         buildBody: ({ executionId: execId, toolResults: results }) => ({
           type: 'continue',

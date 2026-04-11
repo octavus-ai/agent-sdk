@@ -17,8 +17,8 @@ import type { ApiClientConfig } from '@/base-api-client.js';
 export interface StreamExecutionConfig {
   /** API client config with baseUrl and headers */
   config: ApiClientConfig;
-  /** Tool handlers for server-side execution */
-  toolHandlers: ToolHandlers;
+  /** Tool handlers for server-side execution. Resolved on each continuation loop. */
+  getToolHandlers: () => ToolHandlers;
   /** Full URL to make the request to */
   url: string;
   /** Build the request body for this execution */
@@ -189,12 +189,13 @@ export async function* executeStream(
     }
 
     if (pendingToolCalls && pendingToolCalls.length > 0) {
-      const serverTools = pendingToolCalls.filter((tc) => config.toolHandlers[tc.toolName]);
-      const clientTools = pendingToolCalls.filter((tc) => !config.toolHandlers[tc.toolName]);
+      const toolHandlers = config.getToolHandlers();
+      const serverTools = pendingToolCalls.filter((tc) => toolHandlers[tc.toolName]);
+      const clientTools = pendingToolCalls.filter((tc) => !toolHandlers[tc.toolName]);
 
       const serverResults = await Promise.all(
         serverTools.map(async (tc): Promise<ToolResult> => {
-          const handler = config.toolHandlers[tc.toolName]!;
+          const handler = toolHandlers[tc.toolName]!;
           try {
             const result = await handler(tc.args);
             return {
