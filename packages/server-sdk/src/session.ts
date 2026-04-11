@@ -131,7 +131,7 @@ export class AgentSession {
   private config: ApiClientConfig;
   private toolHandlers: ToolHandlers;
   private resourceMap: Map<string, Resource>;
-  private dynamicToolSchemas: ToolSchema[] = [];
+  private dynamicToolSchemas: ToolSchema[] | undefined;
   private dynamicToolNames = new Set<string>();
   private socketAbortController: AbortController | null = null;
   private onToolResults?: (results: ToolResult[]) => Promise<void>;
@@ -300,7 +300,7 @@ export class AgentSession {
             body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
           if (executionId !== undefined) body.executionId = executionId;
           if (toolResults !== undefined) body.toolResults = toolResults;
-          if (this.dynamicToolSchemas.length > 0) {
+          if (this.dynamicToolSchemas !== undefined) {
             body.dynamicToolSchemas = this.dynamicToolSchemas;
           }
           return body;

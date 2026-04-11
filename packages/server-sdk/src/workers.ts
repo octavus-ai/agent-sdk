@@ -112,7 +112,7 @@ export class WorkersApi extends BaseApiClient {
             ? {
                 type: 'start',
                 input,
-                ...(options.dynamicToolSchemas && {
+                ...(options.dynamicToolSchemas !== undefined && {
                   dynamicToolSchemas: options.dynamicToolSchemas,
                 }),
               }
