@@ -92,8 +92,8 @@ interface WorkerExecuteOptions {
   tools?: ToolHandlers;
   /** Abort signal to cancel the execution */
   signal?: AbortSignal;
-  /** Tool schemas from device MCPs (browser, filesystem, shell, etc.) */
-  additionalToolSchemas?: ToolSchema[];
+  /** Dynamic tool schemas (e.g., from MCP servers — browser, filesystem, shell) */
+  dynamicToolSchemas?: ToolSchema[];
 }
 ```
 
@@ -105,7 +105,7 @@ interface WorkerExecuteOptions {
 | `input`   | `Record<string, unknown>` | Input values for the worker |
 | `options` | `WorkerExecuteOptions`    | Optional configuration      |
 
-The `additionalToolSchemas` option enables device MCP support for workers executed via the SDK. Pass tool schemas from `@octavus/computer` (or any `ToolProvider`) so the worker can use device MCP tools. Schemas are sent on the first request and cached for continuation rounds.
+The `dynamicToolSchemas` option enables MCP tool support for workers executed via the SDK. Pass tool schemas from `@octavus/computer` (or any `ToolProvider`) so the worker can use MCP tools like browser, filesystem, and shell. Schemas are sent on the first request and cached for continuation rounds.
 
 ## Tool Handlers
 

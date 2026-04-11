@@ -50,6 +50,7 @@ export type {
   ToolHandlers,
   ToolSchema,
   ToolProvider,
+  DynamicTool,
   ResourceUpdateHandler,
   FileReference,
   MessageRole,

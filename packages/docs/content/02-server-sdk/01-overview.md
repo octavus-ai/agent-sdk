@@ -117,8 +117,9 @@ const session = client.agentSessions.attach(sessionId, {
   tools: {
     'set-chat-title': async (args) => ({ title: args.title }),
   },
-  computer,
 });
+
+session.setDynamicTools(computer);
 ```
 
 ### Workers
@@ -210,6 +211,9 @@ class AgentSession {
 
   // Get the session ID
   getSessionId(): string;
+
+  // Register dynamic tools (e.g., pass a Computer or explicit DynamicTool[])
+  setDynamicTools(source: ToolProvider | DynamicTool[]): void;
 }
 
 type SessionRequest = TriggerRequest | ContinueRequest;

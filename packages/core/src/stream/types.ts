@@ -27,6 +27,12 @@ export interface ToolSchema {
   inputSchema: Record<string, unknown>;
 }
 
+/** A runtime-discovered tool pairing a schema with an execution handler. */
+export interface DynamicTool {
+  schema: ToolSchema;
+  handler: ToolHandler;
+}
+
 /**
  * Interface for providing namespaced tools to a session.
  * Implementors include `@octavus/computer` (browser, filesystem, shell)

@@ -19,7 +19,6 @@ export {
 export {
   AgentSession,
   toSSEStream,
-  type DynamicTool,
   type SessionConfig,
   type TriggerOptions,
   type SessionRequest,

@@ -1,8 +1,9 @@
 import {
   createInternalErrorEvent,
-  type ToolHandler,
+  type DynamicTool,
   type StreamEvent,
   type ToolHandlers,
+  type ToolProvider,
   type ToolResult,
   type ToolSchema,
 } from '@octavus/core';
@@ -100,10 +101,12 @@ export function toSSEStream(events: AsyncIterable<StreamEvent>): ReadableStream<
   });
 }
 
-/** A runtime-discovered tool with its schema and execution handler. */
-export interface DynamicTool {
-  schema: ToolSchema;
-  handler: ToolHandler;
+function resolveDynamicTools(provider: ToolProvider): DynamicTool[] {
+  const handlers = provider.toolHandlers();
+  return provider
+    .toolSchemas()
+    .filter((s) => handlers[s.name])
+    .map((s) => ({ schema: s, handler: handlers[s.name]! }));
 }
 
 export interface SessionConfig {
@@ -201,13 +204,17 @@ export class AgentSession {
    * Set the full list of dynamic tools (schemas + handlers).
    * Replaces any previously set dynamic tools — removed tools are
    * unregistered, new ones are added, and updated schemas are sent
-   * to the platform on each request.
+   * to the platform on the next request.
+   *
+   * Accepts either a `ToolProvider` (e.g. `Computer`) or an explicit
+   * `DynamicTool[]` array.
    *
    * Safe to call mid-session: executeStream resolves toolHandlers via
    * a getter on each continuation loop, so new handlers are visible
    * immediately.
    */
-  setDynamicTools(tools: DynamicTool[]): void {
+  setDynamicTools(source: ToolProvider | DynamicTool[]): void {
+    const tools = Array.isArray(source) ? source : resolveDynamicTools(source);
     const newNames = new Set(tools.map((t) => t.schema.name));
 
     const cleaned: ToolHandlers = {};
