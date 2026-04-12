@@ -310,6 +310,7 @@ export const workerStartEventSchema = z.object({
   workerId: z.string(),
   workerSlug: z.string(),
   description: z.string().optional(),
+  input: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const workerResultEventSchema = z.object({
