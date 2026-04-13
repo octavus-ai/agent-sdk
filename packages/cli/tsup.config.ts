@@ -1,11 +1,11 @@
 import path from 'node:path';
 import { defineConfig } from 'tsup';
 
-export default defineConfig({
+export default defineConfig((overrideOptions) => ({
   entry: ['src/index.ts'],
   format: ['esm'],
-  dts: false, // CLI doesn't need type declarations
-  clean: true,
+  dts: false,
+  clean: !overrideOptions.watch,
   sourcemap: true,
   banner: {
     js: '#!/usr/bin/env node',
@@ -15,4 +15,4 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     };
   },
-});
+}));
