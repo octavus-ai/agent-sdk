@@ -17,7 +17,7 @@ This guide will walk you through integrating Octavus into your application in un
 
 Before integrating with SDKs, use **Agent Preview** to test your agent directly in the platform:
 
-1. Open your agent in the platform at `octavus.ai/platform/agents/[agentId]`
+1. Open your agent in the platform (navigate to your project, then select the agent)
 2. Click the **Preview** tab
 3. Configure session inputs and tool mock responses
 4. Start a conversation to test agent behavior
@@ -81,7 +81,7 @@ There are two ways to create and manage agents:
 **Option 1: Platform UI (Recommended for getting started)**
 
 1. Go to [octavus.ai](https://octavus.ai) and create an agent in the web editor
-2. Copy the agent ID from the URL (e.g., `octavus.ai/platform/agents/clxyz123abc456`)
+2. Copy the agent ID from the URL (e.g., `octavus.ai/projects/.../agents/clxyz123abc456`)
 3. Add it to your `.env.local`: `OCTAVUS_SUPPORT_AGENT_ID=clxyz123abc456`
 
 **Option 2: Local Development with CLI**

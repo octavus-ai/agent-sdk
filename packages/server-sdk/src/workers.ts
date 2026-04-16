@@ -143,7 +143,7 @@ export class WorkersApi extends BaseApiClient {
    *   TOPIC: 'AI safety',
    * });
    * console.log(output);
-   * console.log(`Debug: ${client.baseUrl}/platform/sessions/${sessionId}`);
+   * console.log(`Debug: ${client.baseUrl}/sessions/${sessionId}`);
    * ```
    *
    * @example With timeout
