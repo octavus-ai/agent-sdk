@@ -146,6 +146,7 @@ Start summary thread:
   model: anthropic/claude-sonnet-4-5 # Optional: different model
   backupModel: openai/gpt-4o # Failover on provider errors
   thinking: low # Extended reasoning level
+  cache: auto # auto (default) | extended | off
   maxSteps: 1 # Tool call limit
   system: escalation-summary # System prompt
   input: [COMPANY_NAME] # Variables for prompt
@@ -154,6 +155,8 @@ Start summary thread:
   sandboxTimeout: 600000 # Skill sandbox timeout (default: 5 min, max: 1 hour)
   imageModel: google/gemini-2.5-flash-image # Image generation model
 ```
+
+The `cache` field controls prompt caching for this thread and defaults to `auto` when omitted. Threads do not inherit the agent's `cache` value — see [Prompt Caching](/docs/protocol/agent-config#prompt-caching).
 
 The `model` field can also reference a variable for dynamic model selection. The `backupModel` field follows the same format and supports variable references.
 
