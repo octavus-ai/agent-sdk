@@ -219,20 +219,21 @@ steps:
 
 All LLM configuration goes here:
 
-| Field         | Description                                       |
-| ------------- | ------------------------------------------------- |
-| `thread`      | Thread name (defaults to block name)              |
-| `model`       | LLM model to use                                  |
-| `system`      | System prompt filename (required)                 |
-| `input`       | Variables for system prompt                       |
-| `tools`       | Tools available in this thread                    |
-| `skills`      | Octavus skills available in this thread           |
-| `mcpServers`  | MCP servers available in this thread              |
-| `imageModel`  | Image generation model                            |
-| `webSearch`   | Enable built-in web search tool                   |
-| `thinking`    | Extended reasoning level                          |
-| `temperature` | Model temperature                                 |
-| `maxSteps`    | Maximum tool call cycles (enables agentic if > 1) |
+| Field         | Description                                                 |
+| ------------- | ----------------------------------------------------------- |
+| `thread`      | Thread name (defaults to block name)                        |
+| `model`       | LLM model to use                                            |
+| `system`      | System prompt filename (required)                           |
+| `input`       | Variables for system prompt                                 |
+| `tools`       | Tools available in this thread                              |
+| `skills`      | Octavus skills available in this thread                     |
+| `mcpServers`  | MCP servers available in this thread                        |
+| `imageModel`  | Image generation model                                      |
+| `webSearch`   | Enable built-in web search tool                             |
+| `thinking`    | Extended reasoning level                                    |
+| `cache`       | Prompt caching mode: `auto` (default), `extended`, or `off` |
+| `temperature` | Model temperature                                           |
+| `maxSteps`    | Maximum tool call cycles (enables agentic if > 1)           |
 
 ## Simple Example
 

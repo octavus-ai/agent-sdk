@@ -38,6 +38,7 @@ agent:
 | `maxSteps`       | No       | Maximum agentic steps (default: 10)                                            |
 | `temperature`    | No       | Model temperature (0-2)                                                        |
 | `thinking`       | No       | Extended reasoning level                                                       |
+| `cache`          | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                    |
 | `anthropic`      | No       | Anthropic-specific options (tools, skills)                                     |
 
 ## Models
@@ -232,6 +233,59 @@ agent:
 
 Thinking content streams to the UI and can be displayed to users.
 
+## Prompt Caching
+
+Providers charge less for tokens served from their prompt cache (often 10% of the uncached rate). Octavus exposes a single `cache` field that picks the right retention policy per provider, so the stable prefix of your agent — tools, system prompt, and historical messages — gets billed at the cache-read rate on repeat requests.
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  cache: auto # auto (default) | extended | off
+```
+
+| Mode       | Behavior                                                                      | When to use                                                                                             |
+| ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `auto`     | Short-TTL caching. Default when omitted.                                      | Most agents. Free on all supported providers and pays for itself within the same session.               |
+| `extended` | Long-TTL caching. Trades a higher cache-write cost for much longer residency. | Agents triggered with gaps (daily reports, on-call assistants) where the prefix is reused across hours. |
+| `off`      | No opt-in caching emitted.                                                    | When you explicitly want to skip caching — e.g. debugging a non-deterministic prefix.                   |
+
+### Per-provider behavior
+
+The `cache` field is provider-agnostic at the protocol level — each provider translates it into its own cache retention policy:
+
+| Provider  | `auto` TTL                | `extended` TTL |
+| --------- | ------------------------- | -------------- |
+| Anthropic | 5 minutes                 | 1 hour         |
+| OpenAI    | in-memory (~5–10 minutes) | 24 hours       |
+| Google    | Implicit (Gemini 2.5+)    | Implicit       |
+
+On `off`, Octavus emits no explicit cache options. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently — `off` just disables Octavus's opt-in behavior.
+
+### Threads don't inherit
+
+Named threads (created with `start-thread`) read their own `cache` field independently — they **do not** inherit the agent's cache value:
+
+```yaml
+agent:
+  cache: extended # 1-hour TTL on the main thread
+
+handlers:
+  summarize:
+    Start summary:
+      block: start-thread
+      thread: summary
+      # No cache field → defaults to 'auto' (5-minute TTL), NOT 'extended'
+      system: summary-system
+```
+
+This is intentional: named threads are often used for short, one-shot work (summarization, classification) where the long TTL would be wasted. Set `cache` explicitly on `start-thread` when you do want it.
+
+### Cost trade-offs
+
+- **Cache reads** are always much cheaper than uncached input on any provider — caching is effectively free if your prefix is stable.
+- **Cache writes** on Anthropic cost ~1.25× input for `auto` and 2× input for `extended`. OpenAI and Google don't charge separately for cache writes.
+- Use `extended` only when the same prefix is genuinely reused across sessions that span hours; otherwise the higher write cost dominates the savings.
+
 ## Skills
 
 Enable Octavus skills for code execution and file generation:
@@ -398,6 +452,7 @@ handlers:
       model: anthropic/claude-sonnet-4-5 # Different model
       backupModel: openai/gpt-4o # Failover model
       thinking: low # Different thinking
+      cache: off # Different cache mode (does not inherit from agent)
       maxSteps: 1 # Limit tool calls
       system: escalation-summary # Different prompt
       mcpServers: [figma, browser] # Thread-specific MCP servers
@@ -407,7 +462,7 @@ handlers:
       webSearch: true # Thread-specific web search
 ```
 
-Each thread can have its own model, backup model, MCP servers, skills, references, image model, and web search setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
+Each thread can have its own model, backup model, cache mode, MCP servers, skills, references, image model, and web search setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
 
 ## Full Example
 
