@@ -43,6 +43,8 @@ export {
   uiWorkerStatusSchema,
 } from './stream/schemas';
 
+export { isDeviceProvider } from './stream/types';
+
 export type {
   // Common
   DisplayMode,
@@ -51,6 +53,10 @@ export type {
   ToolSchema,
   ToolProvider,
   DynamicTool,
+  EntryHealth,
+  ComputerHealth,
+  EnsureReadyResult,
+  DeviceProvider,
   ResourceUpdateHandler,
   FileReference,
   MessageRole,

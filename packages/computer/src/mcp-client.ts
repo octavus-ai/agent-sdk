@@ -14,6 +14,7 @@ export interface McpConnection {
   handlers: Record<string, ToolHandler>;
   schemas: ToolSchema[];
   close: () => Promise<void>;
+  ping: () => Promise<void>;
 }
 
 function namespaceTool(namespace: string, toolName: string): string {
@@ -105,7 +106,16 @@ async function connect(namespace: string, transport: Transport): Promise<McpConn
   const client = new Client({ name: MCP_CLIENT_NAME, version: MCP_CLIENT_VERSION });
   await client.connect(transport);
   const { handlers, schemas } = await discoverTools(client, namespace);
-  return { client, namespace, handlers, schemas, close: () => client.close() };
+  return {
+    client,
+    namespace,
+    handlers,
+    schemas,
+    close: () => client.close(),
+    ping: async () => {
+      await client.ping();
+    },
+  };
 }
 
 export function connectStdio(namespace: string, config: StdioConfig): Promise<McpConnection> {
