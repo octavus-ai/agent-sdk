@@ -1,5 +1,12 @@
 import type { ChildProcess } from 'node:child_process';
-import type { ToolHandler, ToolProvider, ToolSchema } from '@octavus/core';
+import type {
+  ToolHandler,
+  ToolSchema,
+  DeviceProvider,
+  ComputerHealth,
+  EnsureReadyResult,
+  EntryHealth,
+} from '@octavus/core';
 import {
   type McpEntry,
   type McpDiagnostics,
@@ -18,6 +25,9 @@ import { createStatusTool, type EntryStatus } from './status-tool';
 import { launchChrome, type ChromeInstance, type ChromeLaunchOptions } from './chrome';
 
 export type { ChromeInstance, ChromeLaunchOptions };
+export type { ComputerHealth, EnsureReadyResult, EntryHealth };
+
+const HEALTH_PROBE_TIMEOUT_MS = 3_000;
 
 interface ManagedProcess {
   process: ChildProcess;
@@ -40,7 +50,7 @@ interface EntryState {
   error?: string;
 }
 
-export class Computer implements ToolProvider {
+export class Computer implements DeviceProvider {
   private config: ComputerConfig;
   private entries = new Map<string, EntryState>();
   private started = false;
@@ -207,6 +217,40 @@ export class Computer implements ToolProvider {
   }
 
   // ---------------------------------------------------------------------------
+  // Health
+  // ---------------------------------------------------------------------------
+
+  async getHealth(): Promise<ComputerHealth> {
+    const probes = [...this.entries.values()].map((entry) => this.probeEntry(entry));
+    const entries = await Promise.all(probes);
+    const healthy = entries.length > 0 && entries.every((e) => e.healthy);
+    return { healthy, entries, totalTools: this.toolSchemas().length };
+  }
+
+  async ensureReady(): Promise<EnsureReadyResult> {
+    const health = await this.getHealth();
+    if (health.healthy) return health;
+
+    const unhealthy = health.entries.filter((e) => !e.healthy);
+    await Promise.allSettled(unhealthy.map((entry) => this.restartEntry(entry.name)));
+
+    const newHealth = await this.getHealth();
+    const recovered: string[] = [];
+    const failedEntries: string[] = [];
+
+    for (const entry of unhealthy) {
+      const updated = newHealth.entries.find((e) => e.name === entry.name);
+      if (updated?.healthy) {
+        recovered.push(entry.name);
+      } else {
+        failedEntries.push(entry.name);
+      }
+    }
+
+    return { ...newHealth, recovered, failedEntries };
+  }
+
+  // ---------------------------------------------------------------------------
   // ToolProvider
   // ---------------------------------------------------------------------------
 
@@ -229,6 +273,29 @@ export class Computer implements ToolProvider {
   // ---------------------------------------------------------------------------
   // Internal
   // ---------------------------------------------------------------------------
+
+  private async probeEntry(entry: EntryState): Promise<EntryHealth> {
+    if (entry.status === 'degraded') {
+      return { name: entry.namespace, healthy: false, error: entry.error };
+    }
+
+    if (!entry.connection) {
+      return { name: entry.namespace, healthy: true };
+    }
+
+    try {
+      await Promise.race([
+        entry.connection.ping(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Health probe timed out')), HEALTH_PROBE_TIMEOUT_MS);
+        }),
+      ]);
+      return { name: entry.namespace, healthy: true };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      return { name: entry.namespace, healthy: false, error };
+    }
+  }
 
   private setDegradedEntry(namespace: string, error: string): void {
     const diagnostics = this.config.diagnostics?.[namespace];

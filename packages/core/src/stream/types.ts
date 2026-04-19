@@ -43,6 +43,39 @@ export interface ToolProvider {
   toolSchemas(): ToolSchema[];
 }
 
+/** Health status for a single MCP entry (namespace). */
+export interface EntryHealth {
+  name: string;
+  healthy: boolean;
+  error?: string;
+}
+
+/** Aggregate health status for all entries managed by a device. */
+export interface ComputerHealth {
+  healthy: boolean;
+  entries: EntryHealth[];
+  totalTools: number;
+}
+
+/** Result of an ensureReady call, including recovery details. */
+export interface EnsureReadyResult extends ComputerHealth {
+  recovered?: string[];
+  failedEntries?: string[];
+}
+
+/**
+ * Extended ToolProvider for device-backed tool surfaces.
+ * Adds health checking and recovery on top of basic tool provision.
+ */
+export interface DeviceProvider extends ToolProvider {
+  getHealth(): Promise<ComputerHealth>;
+  ensureReady(): Promise<EnsureReadyResult>;
+}
+
+export function isDeviceProvider(provider: ToolProvider): provider is DeviceProvider {
+  return 'getHealth' in provider && 'ensureReady' in provider;
+}
+
 /**
  * Reference to an uploaded file.
  * Used in trigger input, user messages, and tool results for file attachments.

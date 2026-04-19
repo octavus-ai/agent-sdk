@@ -83,6 +83,7 @@ export {
   // Type guards
   isFileReference,
   isFileReferenceArray,
+  isDeviceProvider,
   // Safe parse helpers
   safeParseStreamEvent,
   safeParseUIMessage,
