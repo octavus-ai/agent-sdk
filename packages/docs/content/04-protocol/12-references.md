@@ -11,9 +11,9 @@ References are markdown documents that agents can fetch on demand. Instead of lo
 
 References are useful for:
 
-- **Large context** — Documents too long to include in every system prompt
-- **Selective loading** — Let the agent decide which context is relevant
-- **Shared knowledge** — Reusable documents across threads
+- **Large context** - Documents too long to include in every system prompt
+- **Selective loading** - Let the agent decide which context is relevant
+- **Shared knowledge** - Reusable documents across threads
 
 ### How References Work
 
@@ -165,10 +165,10 @@ When a user asks the agent to review code, the agent will:
 
 The CLI and platform validate references during sync and deployment:
 
-- **Undefined references** — Referencing a name that doesn't have a matching file in `references/`
-- **Unused references** — A reference file exists but isn't listed in any `agent.references` or `start-thread.references`
-- **Invalid names** — Names that don't follow the `lowercase-with-dashes` convention
-- **Missing description** — Reference files without the required `description` in frontmatter
+- **Undefined references** - Referencing a name that doesn't have a matching file in `references/`
+- **Unused references** - A reference file exists but isn't listed in any `agent.references` or `start-thread.references`
+- **Invalid names** - Names that don't follow the `lowercase-with-dashes` convention
+- **Missing description** - Reference files without the required `description` in frontmatter
 
 ## References vs Skills
 
@@ -184,6 +184,6 @@ Use **references** when the agent needs access to text-based knowledge. Use **sk
 
 ## Next Steps
 
-- [Agent Config](/docs/protocol/agent-config) — Configuring references in agent settings
-- [Skills](/docs/protocol/skills) — Code execution and knowledge packages
-- [Workers](/docs/protocol/workers) — Using references in worker agents
+- [Agent Config](/docs/protocol/agent-config) - Configuring references in agent settings
+- [Skills](/docs/protocol/skills) - Code execution and knowledge packages
+- [Workers](/docs/protocol/workers) - Using references in worker agents

@@ -11,7 +11,7 @@ Triggers define how an agent can be invoked. Each trigger has a name, optional i
 
 ### User Message
 
-The most common trigger — when a user sends a chat message:
+The most common trigger - when a user sends a chat message:
 
 ```yaml
 triggers:

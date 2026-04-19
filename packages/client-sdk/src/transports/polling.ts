@@ -25,7 +25,7 @@ export interface PollingTransportOptions {
   /**
    * Poll for execution events.
    * Called repeatedly during streaming at `pollIntervalMs` intervals.
-   * The cursor tracks read position — pass 0 on first call.
+   * The cursor tracks read position - pass 0 on first call.
    */
   onPoll: (cursor: number) => Promise<PollResult>;
 

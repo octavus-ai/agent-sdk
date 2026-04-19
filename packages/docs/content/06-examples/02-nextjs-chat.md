@@ -354,6 +354,6 @@ Tool handlers receive the parameters as `args`:
 
 ## Next Steps
 
-- [Protocol Overview](/docs/protocol/overview) — Define agent behavior
-- [Messages](/docs/client-sdk/messages) — Rich message rendering
-- [Streaming](/docs/client-sdk/streaming) — Advanced streaming UI
+- [Protocol Overview](/docs/protocol/overview) - Define agent behavior
+- [Messages](/docs/client-sdk/messages) - Rich message rendering
+- [Streaming](/docs/client-sdk/streaming) - Advanced streaming UI

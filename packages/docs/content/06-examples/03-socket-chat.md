@@ -404,6 +404,6 @@ const SockJS: typeof import('sockjs-client') = require('sockjs-client');
 
 ## Next Steps
 
-- [Socket Transport](/docs/client-sdk/socket-transport) — Advanced socket patterns
-- [Protocol Overview](/docs/protocol/overview) — Define agent behavior
-- [Tools](/docs/protocol/tools) — Building tool handlers
+- [Socket Transport](/docs/client-sdk/socket-transport) - Advanced socket patterns
+- [Protocol Overview](/docs/protocol/overview) - Define agent behavior
+- [Tools](/docs/protocol/tools) - Building tool handlers

@@ -10,7 +10,7 @@ npm install @octavus/core
 
 ## Overview
 
-This package provides the foundational types and utilities shared between `@octavus/server-sdk` and `@octavus/client-sdk`. Most users won't need to install this package directly—it's automatically included as a dependency of the SDK packages.
+This package provides the foundational types and utilities shared between `@octavus/server-sdk` and `@octavus/client-sdk`. Most users won't need to install this package directly - it's automatically included as a dependency of the SDK packages.
 
 ## What's Included
 

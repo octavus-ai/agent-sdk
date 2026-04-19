@@ -7,9 +7,9 @@ description: Handling tool calls on the client side for interactive UI and brows
 
 By default, tools execute on your server where you have access to databases and APIs. However, some tools are better suited for client-side execution:
 
-- **Browser-only operations** — Geolocation, clipboard, local storage
-- **Interactive UIs** — Confirmation dialogs, form inputs, selections
-- **Real-time feedback** — Progress indicators, approval workflows
+- **Browser-only operations** - Geolocation, clipboard, local storage
+- **Interactive UIs** - Confirmation dialogs, form inputs, selections
+- **Real-time feedback** - Progress indicators, approval workflows
 
 ## How Client Tools Work
 

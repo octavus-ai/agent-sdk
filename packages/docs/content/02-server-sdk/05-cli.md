@@ -88,8 +88,8 @@ octavus sync ./agents/my-agent
 
 **Options:**
 
-- `--json` — Output as JSON (for CI/CD parsing)
-- `--quiet` — Suppress non-essential output
+- `--json` - Output as JSON (for CI/CD parsing)
+- `--quiet` - Suppress non-essential output
 
 **Example output:**
 
@@ -110,9 +110,9 @@ octavus validate ./agents/my-agent
 
 **Exit codes:**
 
-- `0` — Validation passed
-- `1` — Validation errors
-- `2` — Configuration errors (missing API key, etc.)
+- `0` - Validation passed
+- `1` - Validation errors
+- `2` - Configuration errors (missing API key, etc.)
 
 ### `octavus list`
 
@@ -150,8 +150,8 @@ octavus archive support-chat
 
 **Options:**
 
-- `--json` — Output as JSON (for CI/CD parsing)
-- `--quiet` — Suppress non-essential output
+- `--json` - Output as JSON (for CI/CD parsing)
+- `--quiet` - Suppress non-essential output
 
 **Example output:**
 
@@ -171,8 +171,8 @@ octavus skills sync ./skills/github
 
 **Options:**
 
-- `--json` — Output as JSON (for CI/CD parsing)
-- `--quiet` — Suppress non-essential output
+- `--json` - Output as JSON (for CI/CD parsing)
+- `--quiet` - Suppress non-essential output
 
 **Example output:**
 
@@ -187,7 +187,7 @@ octavus skills sync ./skills/github
 
 **Secret handling:**
 
-If the skill directory contains a `.env` file, secrets are pushed alongside the bundle. Secrets are cross-validated against the `secrets` declarations in `SKILL.md` — warnings are shown for undeclared or missing required secrets.
+If the skill directory contains a `.env` file, secrets are pushed alongside the bundle. Secrets are cross-validated against the `secrets` declarations in `SKILL.md` - warnings are shown for undeclared or missing required secrets.
 
 ```
 my-skill/
@@ -289,11 +289,11 @@ Add sync scripts to your `package.json`:
 
 The recommended workflow for managing agents:
 
-1. **Define agent locally** — Create `settings.json`, `protocol.yaml`, and prompts
-2. **Validate** — Run `octavus validate ./my-agent` to check for errors
-3. **Sync** — Run `octavus sync ./my-agent` to push to platform
-4. **Store agent ID** — Save the output ID in an environment variable
-5. **Use in app** — Read the ID from env and pass to `client.agentSessions.create()`
+1. **Define agent locally** - Create `settings.json`, `protocol.yaml`, and prompts
+2. **Validate** - Run `octavus validate ./my-agent` to check for errors
+3. **Sync** - Run `octavus sync ./my-agent` to push to platform
+4. **Store agent ID** - Save the output ID in an environment variable
+5. **Use in app** - Read the ID from env and pass to `client.agentSessions.create()`
 
 ```bash
 # After syncing: octavus sync ./agents/support-chat

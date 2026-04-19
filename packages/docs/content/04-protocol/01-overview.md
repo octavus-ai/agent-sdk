@@ -11,11 +11,11 @@ Agent protocols define how an AI agent behaves. They're written in YAML and spec
 
 Protocols provide:
 
-- **Declarative definition** — Define behavior, not implementation
-- **Portable agents** — Move agents between projects
-- **Versioning** — Track changes with git
-- **Validation** — Catch errors before runtime
-- **Visualization** — Debug execution flows
+- **Declarative definition** - Define behavior, not implementation
+- **Portable agents** - Move agents between projects
+- **Versioning** - Track changes with git
+- **Validation** - Catch errors before runtime
+- **Visualization** - Debug execution flows
 
 ## Agent Formats
 
@@ -26,9 +26,9 @@ Octavus supports two agent formats:
 | `interactive` | Chat and multi-turn dialogue   | `triggers` + `handlers` + `agent` |
 | `worker`      | Background tasks and pipelines | `steps` + `output`                |
 
-**Interactive agents** handle conversations — they respond to triggers (like user messages) and maintain session state across interactions.
+**Interactive agents** handle conversations - they respond to triggers (like user messages) and maintain session state across interactions.
 
-**Worker agents** execute tasks — they run steps sequentially and return an output value. Workers can be called independently or composed into interactive agents.
+**Worker agents** execute tasks - they run steps sequentially and return an output value. Workers can be called independently or composed into interactive agents.
 
 See [Workers](/docs/protocol/workers) for the worker protocol reference.
 
@@ -192,14 +192,14 @@ The referenced prompt content is inserted before variable interpolation, so vari
 
 ## Next Steps
 
-- [Input & Resources](/docs/protocol/input-resources) — Defining agent inputs
-- [Triggers](/docs/protocol/triggers) — How agents are invoked
-- [Tools](/docs/protocol/tools) — External capabilities
-- [MCP Servers](/docs/protocol/mcp-servers) — Remote services and device capabilities via MCP
-- [Skills](/docs/protocol/skills) — Code execution and knowledge packages
-- [References](/docs/protocol/references) — On-demand context documents
-- [Handlers](/docs/protocol/handlers) — Execution blocks
-- [Agent Config](/docs/protocol/agent-config) — Model and settings
-- [Workers](/docs/protocol/workers) — Worker agent format
-- [Provider Options](/docs/protocol/provider-options) — Provider-specific features
-- [Types](/docs/protocol/types) — Custom type definitions
+- [Input & Resources](/docs/protocol/input-resources) - Defining agent inputs
+- [Triggers](/docs/protocol/triggers) - How agents are invoked
+- [Tools](/docs/protocol/tools) - External capabilities
+- [MCP Servers](/docs/protocol/mcp-servers) - Remote services and device capabilities via MCP
+- [Skills](/docs/protocol/skills) - Code execution and knowledge packages
+- [References](/docs/protocol/references) - On-demand context documents
+- [Handlers](/docs/protocol/handlers) - Execution blocks
+- [Agent Config](/docs/protocol/agent-config) - Model and settings
+- [Workers](/docs/protocol/workers) - Worker agent format
+- [Provider Options](/docs/protocol/provider-options) - Provider-specific features
+- [Types](/docs/protocol/types) - Custom type definitions

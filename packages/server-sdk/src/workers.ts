@@ -127,7 +127,7 @@ export class WorkersApi extends BaseApiClient {
   /**
    * Execute a worker agent and return the final output.
    *
-   * Non-streaming equivalent of `execute()` — runs the worker to completion
+   * Non-streaming equivalent of `execute()` - runs the worker to completion
    * and returns the output value directly. Use this when you don't need to
    * observe intermediate streaming events.
    *

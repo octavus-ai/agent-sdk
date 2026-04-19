@@ -137,7 +137,7 @@ if (canRetry) {
 }
 ```
 
-`retry()` also works after stopping (cancellation) or when the result is unsatisfactory — not just errors.
+`retry()` also works after stopping (cancellation) or when the result is unsatisfactory - not just errors.
 
 ## Building Error UI
 
@@ -281,7 +281,7 @@ interface ErrorEvent {
 
 ## Tool Errors
 
-Tool errors are handled differently—they appear inline on the tool call:
+Tool errors are handled differently - they appear inline on the tool call:
 
 ```tsx
 function ToolCallPart({ part }: { part: UIToolCallPart }) {
@@ -295,4 +295,4 @@ function ToolCallPart({ part }: { part: UIToolCallPart }) {
 }
 ```
 
-Tool errors don't trigger `onError`—they're captured on the tool call part itself.
+Tool errors don't trigger `onError` - they're captured on the tool call part itself.

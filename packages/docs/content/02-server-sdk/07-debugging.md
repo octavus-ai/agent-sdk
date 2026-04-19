@@ -7,7 +7,7 @@ description: Model request tracing and debugging tools for Octavus agents.
 
 ## Model Request Tracing
 
-Model request tracing captures the full payload sent to model providers (LLM and image) during agent execution. This helps you understand exactly what was sent — system prompts, messages, tool definitions, and provider options — making it easier to debug agent behavior.
+Model request tracing captures the full payload sent to model providers (LLM and image) during agent execution. This helps you understand exactly what was sent - system prompts, messages, tool definitions, and provider options - making it easier to debug agent behavior.
 
 ### Enabling Tracing
 
@@ -57,8 +57,8 @@ Traces appear as **Model Request** entries in the execution log timeline, alongs
 
 In the Octavus dashboard:
 
-- **Session debug view** — Full execution log with expandable model request entries
-- **Agent preview** — Activity panel shows model requests in the execution steps
+- **Session debug view** - Full execution log with expandable model request entries
+- **Agent preview** - Activity panel shows model requests in the execution steps
 
 Each entry shows the raw JSON payload with a copy button for easy inspection.
 
@@ -70,10 +70,10 @@ Traces are stored in Redis alongside other execution log entries with a 24-hour 
 
 | Environment | Recommendation                                             |
 | ----------- | ---------------------------------------------------------- |
-| Development | Enable — helps debug agent behavior during development     |
-| Staging     | Enable — useful for pre-production testing                 |
-| Production  | Disable (default) — saves storage for high-volume sessions |
+| Development | Enable - helps debug agent behavior during development     |
+| Staging     | Enable - useful for pre-production testing                 |
+| Production  | Disable (default) - saves storage for high-volume sessions |
 
 ### Preview Sessions
 
-Model request tracing is always enabled for preview sessions in the Octavus dashboard. No configuration needed — the platform automatically traces all model requests when using the agent preview.
+Model request tracing is always enabled for preview sessions in the Octavus dashboard. No configuration needed - the platform automatically traces all model requests when using the agent preview.

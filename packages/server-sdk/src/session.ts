@@ -202,7 +202,7 @@ export class AgentSession {
 
   /**
    * Set the full list of dynamic tools (schemas + handlers).
-   * Replaces any previously set dynamic tools — removed tools are
+   * Replaces any previously set dynamic tools - removed tools are
    * unregistered, new ones are added, and updated schemas are sent
    * to the platform on the next request.
    *

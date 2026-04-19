@@ -100,9 +100,9 @@ const sessionId = await client.agentSessions.create('my-agent', {
 
 This enables:
 
-- **Multi-provider support** — Same agent works with different providers
-- **A/B testing** — Test different models without protocol changes
-- **User preferences** — Let users choose their preferred model
+- **Multi-provider support** - Same agent works with different providers
+- **A/B testing** - Test different models without protocol changes
+- **User preferences** - Let users choose their preferred model
 
 The model value is validated at runtime to ensure it's in the correct `provider/model-id` format.
 
@@ -123,7 +123,7 @@ When a provider error occurs, the system retries once with the backup model. If 
 
 **Key behaviors:**
 
-- Only transient provider errors trigger fallback — authentication and validation errors are not retried
+- Only transient provider errors trigger fallback - authentication and validation errors are not retried
 - Provider-specific options (like `anthropic:`) are only forwarded to the backup model if it uses the same provider
 - For streaming responses, fallback only occurs if no content has been sent to the client yet
 
@@ -145,7 +145,7 @@ agent:
 
 ## System Prompt
 
-The system prompt sets the agent's persona and instructions. The `input` field controls which variables are available to the prompt — only variables listed in `input` are interpolated.
+The system prompt sets the agent's persona and instructions. The `input` field controls which variables are available to the prompt - only variables listed in `input` are interpolated.
 
 ```yaml
 agent:
@@ -235,7 +235,7 @@ Thinking content streams to the UI and can be displayed to users.
 
 ## Prompt Caching
 
-Providers charge less for tokens served from their prompt cache (often 10% of the uncached rate). Octavus exposes a single `cache` field that picks the right retention policy per provider, so the stable prefix of your agent — tools, system prompt, and historical messages — gets billed at the cache-read rate on repeat requests.
+Providers charge less for tokens served from their prompt cache (often 10% of the uncached rate). Octavus exposes a single `cache` field that picks the right retention policy per provider, so the stable prefix of your agent - tools, system prompt, and historical messages - gets billed at the cache-read rate on repeat requests.
 
 ```yaml
 agent:
@@ -247,11 +247,11 @@ agent:
 | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `auto`     | Short-TTL caching. Default when omitted.                                      | Most agents. Free on all supported providers and pays for itself within the same session.               |
 | `extended` | Long-TTL caching. Trades a higher cache-write cost for much longer residency. | Agents triggered with gaps (daily reports, on-call assistants) where the prefix is reused across hours. |
-| `off`      | No opt-in caching emitted.                                                    | When you explicitly want to skip caching — e.g. debugging a non-deterministic prefix.                   |
+| `off`      | No opt-in caching emitted.                                                    | When you explicitly want to skip caching - e.g. debugging a non-deterministic prefix.                   |
 
 ### Per-provider behavior
 
-The `cache` field is provider-agnostic at the protocol level — each provider translates it into its own cache retention policy:
+The `cache` field is provider-agnostic at the protocol level - each provider translates it into its own cache retention policy:
 
 | Provider  | `auto` TTL                | `extended` TTL |
 | --------- | ------------------------- | -------------- |
@@ -259,11 +259,11 @@ The `cache` field is provider-agnostic at the protocol level — each provider t
 | OpenAI    | in-memory (~5–10 minutes) | 24 hours       |
 | Google    | Implicit (Gemini 2.5+)    | Implicit       |
 
-On `off`, Octavus emits no explicit cache options. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently — `off` just disables Octavus's opt-in behavior.
+On `off`, Octavus emits no explicit cache options. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently - `off` just disables Octavus's opt-in behavior.
 
 ### Threads don't inherit
 
-Named threads (created with `start-thread`) read their own `cache` field independently — they **do not** inherit the agent's cache value:
+Named threads (created with `start-thread`) read their own `cache` field independently - they **do not** inherit the agent's cache value:
 
 ```yaml
 agent:
@@ -282,7 +282,7 @@ This is intentional: named threads are often used for short, one-shot work (summ
 
 ### Cost trade-offs
 
-- **Cache reads** are always much cheaper than uncached input on any provider — caching is effectively free if your prefix is stable.
+- **Cache reads** are always much cheaper than uncached input on any provider - caching is effectively free if your prefix is stable.
 - **Cache writes** on Anthropic cost ~1.25× input for `auto` and 2× input for `extended`. OpenAI and Google don't charge separately for cache writes.
 - Use `extended` only when the same prefix is genuinely reused across sessions that span hours; otherwise the higher write cost dominates the savings.
 
@@ -351,9 +351,9 @@ When `imageModel` is configured, the `octavus_generate_image` tool becomes avail
 
 The tool supports three image sizes:
 
-- `1024x1024` (default) — Square
-- `1792x1024` — Landscape (16:9)
-- `1024x1792` — Portrait (9:16)
+- `1024x1024` (default) - Square
+- `1792x1024` - Landscape (16:9)
+- `1024x1792` - Portrait (9:16)
 
 ### Image Editing with Reference Images
 
@@ -392,7 +392,7 @@ agent:
 
 When `webSearch` is enabled, the `octavus_web_search` tool becomes available. The LLM can decide when to search the web based on the conversation. Search results include source URLs that are emitted as citations in the UI.
 
-This is a **provider-agnostic** built-in tool — it works with any LLM provider (Anthropic, Google, OpenAI, etc.). For Anthropic's own web search implementation, see [Provider Options](/docs/protocol/provider-options).
+This is a **provider-agnostic** built-in tool - it works with any LLM provider (Anthropic, Google, OpenAI, etc.). For Anthropic's own web search implementation, see [Provider Options](/docs/protocol/provider-options).
 
 Use cases:
 
@@ -435,7 +435,7 @@ agent:
         description: Processing PDF
 ```
 
-Provider options are validated against the model—using `anthropic:` with a non-Anthropic model will fail validation.
+Provider options are validated against the model - using `anthropic:` with a non-Anthropic model will fail validation.
 
 See [Provider Options](/docs/protocol/provider-options) for full documentation.
 

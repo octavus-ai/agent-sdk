@@ -28,10 +28,10 @@ For client-side tool handling, see [Client Tools](/docs/client-sdk/client-tools)
 
 Server-side tools give you full control:
 
-- ✅ **Full data access** — Query your database directly
-- ✅ **Your authentication** — Use your existing auth context
-- ✅ **No data exposure** — Sensitive data never leaves your infrastructure
-- ✅ **Custom logic** — Any complexity you need
+- ✅ **Full data access** - Query your database directly
+- ✅ **Your authentication** - Use your existing auth context
+- ✅ **No data exposure** - Sensitive data never leaves your infrastructure
+- ✅ **Custom logic** - Any complexity you need
 
 ## Defining Tool Handlers
 

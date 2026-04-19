@@ -28,7 +28,7 @@ Use external tools instead when:
 
 Define all skills in the `skills:` section, then reference which skills are available where they're used:
 
-**Interactive agents** — reference in `agent.skills`:
+**Interactive agents** - reference in `agent.skills`:
 
 ```yaml
 skills:
@@ -45,7 +45,7 @@ agent:
   skills: [qr-code]
 ```
 
-**Workers and named threads** — reference per-thread in `start-thread.skills`:
+**Workers and named threads** - reference per-thread in `start-thread.skills`:
 
 ```yaml
 skills:
@@ -348,8 +348,8 @@ print(result.stdout)
 Key patterns:
 
 - **Read stdin**: `json.load(sys.stdin)` to get the `input` object from the `octavus_skill_run` call
-- **Access secrets**: `os.environ["SECRET_NAME"]` — secrets are injected as env vars
-- **Print output**: Write results to stdout — the LLM sees the (redacted) stdout
+- **Access secrets**: `os.environ["SECRET_NAME"]` - secrets are injected as env vars
+- **Print output**: Write results to stdout - the LLM sees the (redacted) stdout
 - **Error handling**: Write errors to stderr and exit with non-zero code
 
 ### Declaring Secrets in SKILL.md
@@ -447,10 +447,10 @@ The LLM sees these errors and can retry or explain to users.
 
 For skills with configured secrets:
 
-- **Isolated sandbox** — each secure skill gets its own sandbox, preventing cross-skill secret leakage
-- **No arbitrary code** — `octavus_code_run`, `octavus_file_write`, and `octavus_file_read` are blocked for secure skills, so only pre-built scripts can execute
-- **Output redaction** — all stdout and stderr are scanned for secret values before being returned to the LLM
-- **Encrypted at rest** — secrets are encrypted using AES-256-GCM and only decrypted at execution time
+- **Isolated sandbox** - each secure skill gets its own sandbox, preventing cross-skill secret leakage
+- **No arbitrary code** - `octavus_code_run`, `octavus_file_write`, and `octavus_file_read` are blocked for secure skills, so only pre-built scripts can execute
+- **Output redaction** - all stdout and stderr are scanned for secret values before being returned to the LLM
+- **Encrypted at rest** - secrets are encrypted using AES-256-GCM and only decrypted at execution time
 
 ### Input Validation
 
@@ -534,16 +534,16 @@ Check execution logs in the platform debug view:
 
 ## Best Practices Summary
 
-1. **Enable only needed skills** — Don't overwhelm the LLM
-2. **Choose appropriate display modes** — Match user experience needs
-3. **Write clear skill descriptions** — Help LLM understand when to use
-4. **Handle errors gracefully** — Provide helpful error messages
-5. **Test skills locally** — Verify before uploading
-6. **Monitor execution** — Check logs for issues
-7. **Combine with tools** — Use tools for data, skills for processing
-8. **Consider performance** — Be aware of timeouts and limits
-9. **Use secrets for credentials** — Declare secrets in frontmatter instead of hardcoding tokens
-10. **Design scripts for stdin input** — Secure skills receive JSON via stdin, so plan for both input methods if the skill might be used in either mode
+1. **Enable only needed skills** - Don't overwhelm the LLM
+2. **Choose appropriate display modes** - Match user experience needs
+3. **Write clear skill descriptions** - Help LLM understand when to use
+4. **Handle errors gracefully** - Provide helpful error messages
+5. **Test skills locally** - Verify before uploading
+6. **Monitor execution** - Check logs for issues
+7. **Combine with tools** - Use tools for data, skills for processing
+8. **Consider performance** - Be aware of timeouts and limits
+9. **Use secrets for credentials** - Declare secrets in frontmatter instead of hardcoding tokens
+10. **Design scripts for stdin input** - Secure skills receive JSON via stdin, so plan for both input methods if the skill might be used in either mode
 
 ## Next Steps
 

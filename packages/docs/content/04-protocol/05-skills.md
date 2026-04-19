@@ -413,7 +413,7 @@ When a skill has secrets configured for the organization, it automatically runs 
 
 - The skill gets its own **isolated sandbox** (separate from other skills)
 - Secrets are injected as **environment variables** available to all scripts
-- Only `octavus_skill_read`, `octavus_skill_list`, and `octavus_skill_run` are available — `octavus_code_run`, `octavus_file_write`, and `octavus_file_read` are blocked
+- Only `octavus_skill_read`, `octavus_skill_list`, and `octavus_skill_run` are available - `octavus_code_run`, `octavus_file_write`, and `octavus_file_read` are blocked
 - Scripts receive input as **JSON via stdin** (using the `input` parameter on `octavus_skill_run`) instead of CLI args
 - All output (stdout/stderr) is **automatically redacted** for secret values before being returned to the LLM
 
@@ -442,10 +442,10 @@ Skills run in isolated sandbox environments:
 - **No persistent storage** (sandbox destroyed after each `next-message` execution)
 - **File output only** via `/output/` directory
 - **Time limits** enforced (5-minute default, configurable via `sandboxTimeout`)
-- **Secret redaction** — output from secure skills is automatically scanned for secret values
+- **Secret redaction** - output from secure skills is automatically scanned for secret values
 
 ## Next Steps
 
-- [Agent Config](/docs/protocol/agent-config) — Configuring skills in agent settings
-- [Provider Options](/docs/protocol/provider-options) — Anthropic's built-in skills
-- [Skills Advanced Guide](/docs/protocol/skills-advanced) — Best practices and advanced patterns
+- [Agent Config](/docs/protocol/agent-config) - Configuring skills in agent settings
+- [Provider Options](/docs/protocol/provider-options) - Anthropic's built-in skills
+- [Skills Advanced Guide](/docs/protocol/skills-advanced) - Best practices and advanced patterns

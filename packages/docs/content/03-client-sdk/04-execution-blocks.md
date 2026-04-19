@@ -111,7 +111,7 @@ function EscalationProgress({ message }: { message: UIMessage }) {
 
 Operations are only sent to the client if their protocol block has a visible display mode (`name`, `description`, or `stream`). Hidden operations (`display: hidden`) are filtered out by the platform before reaching the client.
 
-This means you can safely render all operations without checking display mode — hidden ones won't be in the message parts.
+This means you can safely render all operations without checking display mode - hidden ones won't be in the message parts.
 
 ## Named Thread Operations
 
