@@ -49,6 +49,11 @@ function truncateOutput(output: string): string {
   );
 }
 
+// Resolves when the spawned shell *exits* (not when all inherited pipes close).
+// This matters for commands like `A && nohup B & echo $!` where bash forks a
+// subshell that inherits our stdout/stderr. Waiting on `close` would block for
+// the full lifetime of B. We resolve on `exit` and destroy the read streams so
+// grandchildren's writes no longer hold us open.
 function executeCommand(
   command: string,
   cwd: string | undefined,
@@ -60,11 +65,45 @@ function executeCommand(
       cwd,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout,
+      detached: true,
     });
 
     let stdout = '';
     let stderr = '';
+    let settled = false;
+
+    // Wrapped in an object so `settle` can reference it via closure and
+    // setTimeout can assign it after `settle` is defined. A bare `let timer`
+    // trips prefer-const (it's only assigned once); a `const timer` defined
+    // after `settle` trips no-use-before-define.
+    const timerRef: { handle?: ReturnType<typeof setTimeout> } = {};
+
+    const settle = (result: { exitCode: number; stdout: string; stderr: string }): void => {
+      if (settled) return;
+      settled = true;
+      if (timerRef.handle !== undefined) clearTimeout(timerRef.handle);
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      resolve(result);
+    };
+
+    timerRef.handle = setTimeout(() => {
+      // Kill the whole process group so grandchildren (subshells, nohup'd jobs
+      // sharing the pgroup) die too. The built-in spawn `timeout` only reaches
+      // bash itself, which is why we manage it here.
+      if (child.pid !== undefined) {
+        try {
+          process.kill(-child.pid, 'SIGKILL');
+        } catch {
+          // Group may already be gone.
+        }
+      }
+      settle({
+        exitCode: 124,
+        stdout: truncateOutput(stdout),
+        stderr: truncateOutput(stderr + '\n[command timed out]'),
+      });
+    }, timeout);
 
     child.stdout.on('data', (data: Buffer) => {
       stdout += data.toString();
@@ -75,16 +114,16 @@ function executeCommand(
     });
 
     child.on('error', (error) => {
-      resolve({
+      settle({
         exitCode: 1,
         stdout: truncateOutput(stdout),
         stderr: truncateOutput(error.message),
       });
     });
 
-    child.on('close', (code) => {
-      resolve({
-        exitCode: code ?? 1,
+    child.on('exit', (code, signal) => {
+      settle({
+        exitCode: code ?? (signal ? 1 : -1),
         stdout: truncateOutput(stdout),
         stderr: truncateOutput(stderr),
       });
