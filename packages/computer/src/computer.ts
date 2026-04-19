@@ -236,18 +236,18 @@ export class Computer implements DeviceProvider {
 
     const newHealth = await this.getHealth();
     const recovered: string[] = [];
-    const errors: string[] = [];
+    const failedEntries: string[] = [];
 
     for (const entry of unhealthy) {
       const updated = newHealth.entries.find((e) => e.name === entry.name);
       if (updated?.healthy) {
         recovered.push(entry.name);
       } else {
-        errors.push(entry.name);
+        failedEntries.push(entry.name);
       }
     }
 
-    return { ...newHealth, recovered, errors };
+    return { ...newHealth, recovered, failedEntries };
   }
 
   // ---------------------------------------------------------------------------

@@ -60,7 +60,7 @@ export interface ComputerHealth {
 /** Result of an ensureReady call, including recovery details. */
 export interface EnsureReadyResult extends ComputerHealth {
   recovered?: string[];
-  errors?: string[];
+  failedEntries?: string[];
 }
 
 /**
