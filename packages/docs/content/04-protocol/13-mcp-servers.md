@@ -201,6 +201,63 @@ handlers:
 
 This thread can use Figma and browser tools, but not sentry or filesystem - even if those are available on the main agent.
 
+## On-Demand MCP Servers
+
+By default, an agent can only call MCP tools whose namespace is listed in `mcpServers`. With `onDemandMcpServers`, a scope can opt into **every connected MCP of a given source** at runtime, without enumerating each one in the protocol.
+
+Remote MCPs are connected at the project level from the Octavus dashboard. Normally, each connected MCP that the agent should be able to use has to be declared in the protocol - connecting a new MCP means editing the protocol and redeploying. `onDemandMcpServers` removes that round-trip: once a source is opted in, any MCP connected to the project under that source becomes available to the agent immediately.
+
+Currently supported for `source: remote`.
+
+### Protocol-level declaration
+
+Add an `onDemandMcpServers:` section alongside `mcpServers:`, keyed by source. Each entry configures how the matched MCPs appear in tool lists:
+
+```yaml
+mcpServers:
+  figma:
+    description: Figma design tool integration
+    source: remote
+    display: description
+
+onDemandMcpServers:
+  remote:
+    description: Additional connected integrations
+    display: name
+    contextRetention:
+      toolResults: { retainLast: 5 }
+```
+
+### Scope-level opt-in
+
+The agent and individual `start-thread` blocks each choose whether to pick up on-demand MCPs, by listing the sources they want:
+
+```yaml
+agent:
+  mcpServers: [figma]
+  onDemandMcpServers: [remote]
+
+handlers:
+  user-message:
+    focused:
+      block: start-thread
+      mcpServers: [figma]
+      # no onDemandMcpServers - this thread does NOT see on-demand MCPs
+    broad:
+      block: start-thread
+      mcpServers: [figma]
+      onDemandMcpServers: [remote]
+```
+
+### Rules
+
+- A scope's tool list includes every **connected** MCP of any referenced source, whether or not any protocol declares that slug.
+- Undeclared namespaces inherit `description`, `display`, and `contextRetention` from the per-source entry in `onDemandMcpServers`.
+- Scopes decide independently - threads do not inherit `onDemandMcpServers` from their parent, the same rule as `mcpServers:`.
+- Tool namespaces are always the connector's slug (for example `notion__search`, `linear__create_issue`). Source keys are never namespaces.
+
+Workers opt into on-demand MCPs the same way: through `start-thread` blocks inside `steps`. A worker without a `start-thread` that lists a source won't see on-demand MCPs of that source.
+
 ## Workers
 
 Workers can declare and use MCP servers using the same `mcpServers:` syntax. Workers resolve their own MCP connections independently - they don't inherit from a parent interactive agent.
