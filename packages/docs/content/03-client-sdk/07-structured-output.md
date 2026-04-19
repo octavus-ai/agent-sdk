@@ -373,9 +373,9 @@ The `responseType` in your protocol must be an **object type** (regular custom t
 
 The following cannot be used directly as `responseType`:
 
-- **Discriminated unions** — LLM providers don't allow `anyOf` at the schema root
-- **Array types** — Must be wrapped in an object
-- **Primitives** — `string`, `number`, etc. are not valid
+- **Discriminated unions** - LLM providers don't allow `anyOf` at the schema root
+- **Array types** - Must be wrapped in an object
+- **Primitives** - `string`, `number`, etc. are not valid
 
 If you need variant responses, wrap the discriminated union in an object:
 

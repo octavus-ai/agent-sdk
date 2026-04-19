@@ -45,7 +45,7 @@ const session = client.agentSessions.attach(sessionId, {
 session.setDynamicTools(computer);
 ```
 
-Dynamic tools are registered after attaching via `session.setDynamicTools()`. Pass the `computer` directly — the session extracts schemas and handlers from the `ToolProvider`. Tool schemas are sent to the platform on the next `execute()` call, and tool calls flow back through the existing execution loop.
+Dynamic tools are registered after attaching via `session.setDynamicTools()`. Pass the `computer` directly - the session extracts schemas and handlers from the `ToolProvider`. Tool schemas are sent to the platform on the next `execute()` call, and tool calls flow back through the existing execution loop.
 
 ## How It Works
 
@@ -54,7 +54,7 @@ Dynamic tools are registered after attaching via `session.setDynamicTools()`. Pa
 3. Each tool is namespaced with `__` (e.g., `browser__navigate_page`, `filesystem__read_file`)
 4. The server-sdk sends tool schemas to the platform and handles tool call execution
 
-The agent's protocol must declare matching `mcpServers` with `source: device` — see [MCP Servers](/docs/protocol/mcp-servers).
+The agent's protocol must declare matching `mcpServers` with `source: device` - see [MCP Servers](/docs/protocol/mcp-servers).
 
 ## Entry Types
 
@@ -160,7 +160,7 @@ When `allowedPatterns` is set, only matching commands are permitted. When `block
 
 ### Starting
 
-`computer.start()` connects to all configured MCP servers in parallel. If some servers fail to connect, the computer still starts with the remaining servers — only if _all_ connections fail does it throw an error.
+`computer.start()` connects to all configured MCP servers in parallel. If some servers fail to connect, the computer still starts with the remaining servers - only if _all_ connections fail does it throw an error.
 
 ```typescript
 const { errors } = await computer.start();
@@ -228,7 +228,7 @@ interface ToolProvider {
 }
 ```
 
-`setDynamicTools()` accepts any `ToolProvider` directly — the session extracts schemas and handlers automatically:
+`setDynamicTools()` accepts any `ToolProvider` directly - the session extracts schemas and handlers automatically:
 
 ```typescript
 session.setDynamicTools(computer);

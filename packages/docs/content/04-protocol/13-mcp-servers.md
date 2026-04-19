@@ -97,7 +97,7 @@ A server defined as `figma:` that exposes `get_design_context` produces:
 
 - `figma__get_design_context`
 
-The namespace is stripped before calling the MCP server — the server receives the original tool name. This convention matches Anthropic's MCP integration in Claude Desktop and ensures tool names stay unique across servers.
+The namespace is stripped before calling the MCP server - the server receives the original tool name. This convention matches Anthropic's MCP integration in Claude Desktop and ensures tool names stay unique across servers.
 
 ### What the LLM Sees
 
@@ -122,7 +122,7 @@ Device MCP tools (auto-discovered):
   filesystem__list_directory
 ```
 
-You don't define individual MCP tool schemas in the protocol — they're auto-discovered from each MCP server at runtime.
+You don't define individual MCP tool schemas in the protocol - they're auto-discovered from each MCP server at runtime.
 
 ## Remote MCP Servers
 
@@ -145,7 +145,7 @@ Remote MCP servers support multiple authentication methods:
 | Bearer    | Bearer token authentication     |
 | None      | No authentication required      |
 
-Authentication is configured per-project — different projects can connect to the same MCP server with different credentials.
+Authentication is configured per-project - different projects can connect to the same MCP server with different credentials.
 
 ## Device MCP Servers
 
@@ -199,11 +199,11 @@ handlers:
       system: research-prompt
 ```
 
-This thread can use Figma and browser tools, but not sentry or filesystem — even if those are available on the main agent.
+This thread can use Figma and browser tools, but not sentry or filesystem - even if those are available on the main agent.
 
 ## Workers
 
-Workers can declare and use MCP servers using the same `mcpServers:` syntax. Workers resolve their own MCP connections independently — they don't inherit from a parent interactive agent.
+Workers can declare and use MCP servers using the same `mcpServers:` syntax. Workers resolve their own MCP connections independently - they don't inherit from a parent interactive agent.
 
 ```yaml
 # Worker protocol
@@ -227,7 +227,7 @@ steps:
     maxSteps: 10
 ```
 
-Since workers don't have a global `agent:` section, MCP servers are scoped per-thread via `start-thread` — the same way tools and skills work in workers. Remote MCP connections are project-scoped, so workers in the same project share the same OAuth connections.
+Since workers don't have a global `agent:` section, MCP servers are scoped per-thread via `start-thread` - the same way tools and skills work in workers. Remote MCP connections are project-scoped, so workers in the same project share the same OAuth connections.
 
 See [Workers](/docs/protocol/workers) for the full worker protocol reference.
 

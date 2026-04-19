@@ -139,7 +139,7 @@ function delay(ms: number): Promise<void> {
 
 /**
  * Upload a single file with automatic retries on transient failures.
- * Only the S3 PUT is retried — the presigned URL stays valid for 15 minutes.
+ * Only the S3 PUT is retried - the presigned URL stays valid for 15 minutes.
  */
 async function uploadFileWithRetry(
   url: string,

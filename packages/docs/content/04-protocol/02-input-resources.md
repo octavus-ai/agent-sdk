@@ -77,7 +77,7 @@ In prompts, reference variables with `{{VARIABLE_NAME}}`:
 You are a support agent for {{COMPANY_NAME}}.
 ```
 
-To use a variable in a prompt, pass it through the `input` mapping on the [agent config](/docs/protocol/agent-config#system-prompt) or [block](/docs/protocol/handlers#block-input-mapping). Variables not listed in the `input` mapping won't be interpolated — the `{{VARIABLE}}` placeholder will be preserved as-is.
+To use a variable in a prompt, pass it through the `input` mapping on the [agent config](/docs/protocol/agent-config#system-prompt) or [block](/docs/protocol/handlers#block-input-mapping). Variables not listed in the `input` mapping won't be interpolated - the `{{VARIABLE}}` placeholder will be preserved as-is.
 
 > **Note:** Variables must be `UPPER_SNAKE_CASE`. Nested properties (dot notation like `{{VAR.property}}`) are not supported. Objects are serialized as JSON when interpolated.
 

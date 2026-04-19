@@ -92,7 +92,7 @@ interface WorkerExecuteOptions {
   tools?: ToolHandlers;
   /** Abort signal to cancel the execution */
   signal?: AbortSignal;
-  /** Dynamic tool schemas (e.g., from MCP servers — browser, filesystem, shell) */
+  /** Dynamic tool schemas (e.g., from MCP servers - browser, filesystem, shell) */
   dynamicToolSchemas?: ToolSchema[];
 }
 ```
@@ -128,7 +128,7 @@ const { output } = await client.workers.generate(
 );
 ```
 
-Tools defined in the worker protocol but not provided as handlers become client tools — the execution pauses and emits a `client-tool-request` event.
+Tools defined in the worker protocol but not provided as handlers become client tools - the execution pauses and emits a `client-tool-request` event.
 
 ## Error Handling
 
@@ -211,7 +211,7 @@ try {
 
 ## Streaming
 
-When you need real-time visibility into the worker's execution — text generation, tool calls, or progress — use `execute()` instead of `generate()`.
+When you need real-time visibility into the worker's execution - text generation, tool calls, or progress - use `execute()` instead of `generate()`.
 
 ### Basic Streaming
 
@@ -434,6 +434,6 @@ console.log('Result:', result);
 
 ## Next Steps
 
-- [Workers Protocol](/docs/protocol/workers) — Worker protocol reference
-- [Streaming](/docs/server-sdk/streaming) — Understanding stream events
-- [Tools](/docs/server-sdk/tools) — Tool handler patterns
+- [Workers Protocol](/docs/protocol/workers) - Worker protocol reference
+- [Streaming](/docs/server-sdk/streaming) - Understanding stream events
+- [Tools](/docs/server-sdk/tools) - Tool handler patterns

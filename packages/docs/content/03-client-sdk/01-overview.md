@@ -12,7 +12,7 @@ Octavus provides two packages for frontend integration:
 | `@octavus/react`      | React hooks and bindings | Building React applications                           |
 | `@octavus/client-sdk` | Framework-agnostic core  | Using Vue, Svelte, vanilla JS, or custom integrations |
 
-**Most users should install `@octavus/react`** — it includes everything from `@octavus/client-sdk` plus React-specific hooks.
+**Most users should install `@octavus/react`** - it includes everything from `@octavus/client-sdk` plus React-specific hooks.
 
 ## Installation
 
@@ -271,7 +271,7 @@ interface UserMessageInput {
 
 ### useAutoScroll
 
-Smart auto-scroll for chat containers. Scrolls to bottom when content updates, but pauses if the user has scrolled up. See [Streaming — Auto-Scroll](/docs/client-sdk/streaming#auto-scroll) for full usage.
+Smart auto-scroll for chat containers. Scrolls to bottom when content updates, but pauses if the user has scrolled up. See [Streaming - Auto-Scroll](/docs/client-sdk/streaming#auto-scroll) for full usage.
 
 ```typescript
 function useAutoScroll(options?: UseAutoScrollOptions): {
@@ -373,12 +373,12 @@ class OctavusChat {
 
 ## Next Steps
 
-- [HTTP Transport](/docs/client-sdk/http-transport) — HTTP/SSE integration (recommended)
-- [Socket Transport](/docs/client-sdk/socket-transport) — WebSocket and SockJS integration
-- [Messages](/docs/client-sdk/messages) — Working with message state
-- [Streaming](/docs/client-sdk/streaming) — Building streaming UIs
-- [Client Tools](/docs/client-sdk/client-tools) — Interactive browser-side tool handling
-- [Operations](/docs/client-sdk/execution-blocks) — Showing agent progress
-- [Error Handling](/docs/client-sdk/error-handling) — Handling errors with type guards
-- [File Uploads](/docs/client-sdk/file-uploads) — Uploading images and documents
-- [Examples](/docs/examples/overview) — Complete working examples
+- [HTTP Transport](/docs/client-sdk/http-transport) - HTTP/SSE integration (recommended)
+- [Socket Transport](/docs/client-sdk/socket-transport) - WebSocket and SockJS integration
+- [Messages](/docs/client-sdk/messages) - Working with message state
+- [Streaming](/docs/client-sdk/streaming) - Building streaming UIs
+- [Client Tools](/docs/client-sdk/client-tools) - Interactive browser-side tool handling
+- [Operations](/docs/client-sdk/execution-blocks) - Showing agent progress
+- [Error Handling](/docs/client-sdk/error-handling) - Handling errors with type guards
+- [File Uploads](/docs/client-sdk/file-uploads) - Uploading images and documents
+- [Examples](/docs/examples/overview) - Complete working examples

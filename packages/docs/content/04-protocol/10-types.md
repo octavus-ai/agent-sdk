@@ -9,11 +9,11 @@ Types let you define reusable data structures for your agent. Use them in inputs
 
 ## Why Types?
 
-- **Reusability** — Define once, use in multiple places
-- **Validation** — Catch errors at protocol validation time
-- **Documentation** — Clear data contracts for your agent
-- **Tool Parameters** — Use complex types in tool parameters
-- **Structured Output** — Get typed JSON responses from the LLM
+- **Reusability** - Define once, use in multiple places
+- **Validation** - Catch errors at protocol validation time
+- **Documentation** - Clear data contracts for your agent
+- **Tool Parameters** - Use complex types in tool parameters
+- **Structured Output** - Get typed JSON responses from the LLM
 
 ## Defining Types
 
@@ -504,9 +504,9 @@ The tool receives: `{ cartItems: [{ productId: "...", quantity: 1 }, ...] }`
 
 Named array types provide:
 
-- **Reusability** — Use the same array type in multiple tools
-- **Clear schema** — The array structure is validated
-- **Clean tool calls** — No unnecessary wrapper objects
+- **Reusability** - Use the same array type in multiple tools
+- **Clear schema** - The array structure is validated
+- **Clean tool calls** - No unnecessary wrapper objects
 
 ## Structured Output
 
@@ -602,9 +602,9 @@ The `responseType` must be an **object type** (regular custom type with properti
 
 The following cannot be used directly as `responseType`:
 
-- **Discriminated unions** — LLM providers don't allow `anyOf` at the schema root ([OpenAI docs](https://platform.openai.com/docs/guides/structured-outputs#root-objects-must-not-be-anyof-and-must-be-an-object))
-- **Array types** — Must be wrapped in an object
-- **Primitives** — `string`, `number`, etc. are not valid
+- **Discriminated unions** - LLM providers don't allow `anyOf` at the schema root ([OpenAI docs](https://platform.openai.com/docs/guides/structured-outputs#root-objects-must-not-be-anyof-and-must-be-an-object))
+- **Array types** - Must be wrapped in an object
+- **Primitives** - `string`, `number`, etc. are not valid
 
 ```yaml
 types:
@@ -695,23 +695,23 @@ Types are validated when the protocol is loaded:
 
 ### Type Definition Limits
 
-- **No standalone `array` or `object`** — Define a custom type instead, or use `unknown` for untyped data
-- **No recursive types** — A type cannot reference itself (directly or indirectly)
-- **No generic types** — Types are concrete, not parameterized
-- **String enums only** — `enum` values must be strings
-- **No array constraints** — `minItems` and `maxItems` are not supported (LLM providers don't enforce them)
+- **No standalone `array` or `object`** - Define a custom type instead, or use `unknown` for untyped data
+- **No recursive types** - A type cannot reference itself (directly or indirectly)
+- **No generic types** - Types are concrete, not parameterized
+- **String enums only** - `enum` values must be strings
+- **No array constraints** - `minItems` and `maxItems` are not supported (LLM providers don't enforce them)
 
 ### Tool Limitations
 
-- **Tool parameters are always objects** — Each tool call is `{ param1: value1, param2: value2, ... }`
-- **Array parameters need named types** — Use top-level array types for array parameters
+- **Tool parameters are always objects** - Each tool call is `{ param1: value1, param2: value2, ... }`
+- **Array parameters need named types** - Use top-level array types for array parameters
 
 ### Structured Output Limitations
 
-- **responseType must be an object type** — Only object types can be used as responseType
-- **Discriminated unions need object wrapper** — Unions (`anyOf`) are not allowed at the schema root
-- **Array types need object wrapper** — Arrays cannot be used directly as responseType
-- **Primitives are not allowed** — `string`, `number`, etc. cannot be used as responseType
+- **responseType must be an object type** - Only object types can be used as responseType
+- **Discriminated unions need object wrapper** - Unions (`anyOf`) are not allowed at the schema root
+- **Array types need object wrapper** - Arrays cannot be used directly as responseType
+- **Primitives are not allowed** - `string`, `number`, etc. cannot be used as responseType
 
 These limitations exist because LLM providers (OpenAI, Anthropic) require the root schema to be an object:
 

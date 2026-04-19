@@ -27,7 +27,7 @@ export interface ComputerConfig {
   mcpServers: Record<string, McpEntry>;
   managedProcesses?: ManagedProcess[];
   diagnostics?: Record<string, McpDiagnostics>;
-  /** Namespaces to skip during start() — they begin as degraded and can be connected on demand via restartEntry(). */
+  /** Namespaces to skip during start() - they begin as degraded and can be connected on demand via restartEntry(). */
   deferredEntries?: string[];
 }
 
@@ -82,7 +82,7 @@ export class Computer implements ToolProvider {
 
     const deferred = new Set(this.config.deferredEntries ?? []);
     for (const namespace of deferred) {
-      this.setDegradedEntry(namespace, 'Deferred — connect via restartEntry()');
+      this.setDegradedEntry(namespace, 'Deferred - connect via restartEntry()');
     }
 
     const entries = Object.entries(this.config.mcpServers).filter(
@@ -119,7 +119,7 @@ export class Computer implements ToolProvider {
       if (state.connection) {
         closePromises.push(
           state.connection.close().catch(() => {
-            // Ignore close errors — the process may already be gone
+            // Ignore close errors - the process may already be gone
           }),
         );
       }

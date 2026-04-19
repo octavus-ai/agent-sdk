@@ -11,16 +11,16 @@ Workers are agents designed for task-based execution. Unlike interactive agents 
 
 Workers are ideal for:
 
-- **Background processing** — Long-running tasks that don't need conversation
-- **Composable tasks** — Reusable units of work called by other agents
-- **Pipelines** — Multi-step processing with structured output
-- **Parallel execution** — Tasks that can run independently
+- **Background processing** - Long-running tasks that don't need conversation
+- **Composable tasks** - Reusable units of work called by other agents
+- **Pipelines** - Multi-step processing with structured output
+- **Parallel execution** - Tasks that can run independently
 
 Use interactive agents instead when:
 
-- **Conversation is needed** — Multi-turn dialogue with users
-- **Persistence matters** — State should survive across interactions
-- **Session context** — User context needs to persist
+- **Conversation is needed** - Multi-turn dialogue with users
+- **Persistence matters** - State should survive across interactions
+- **Session context** - User context needs to persist
 
 ## Worker vs Interactive
 
@@ -124,7 +124,7 @@ Workers are identified by the `format` field:
 
 ### No Global Agent Config
 
-Interactive agents have a global `agent:` section that configures a main thread. Workers don't have this — every thread must be explicitly created via `start-thread`:
+Interactive agents have a global `agent:` section that configures a main thread. Workers don't have this - every thread must be explicitly created via `start-thread`:
 
 ```yaml
 # Interactive agent: Global config
@@ -390,7 +390,7 @@ steps:
     maxSteps: 10
 ```
 
-Workers resolve their own MCP connections independently — they don't inherit MCP servers from a parent interactive agent. Remote MCP connections are project-scoped, so a worker in the same project automatically has access to the same OAuth connections.
+Workers resolve their own MCP connections independently - they don't inherit MCP servers from a parent interactive agent. Remote MCP connections are project-scoped, so a worker in the same project automatically has access to the same OAuth connections.
 
 See [MCP Servers](/docs/protocol/mcp-servers) for full documentation.
 
@@ -424,8 +424,8 @@ See [Skills](/docs/protocol/skills) for full documentation.
 
 Workers support the same tool handling as interactive agents:
 
-- **Server tools** — Handled by tool handlers you provide
-- **Client tools** — Pause execution, return tool request to caller
+- **Server tools** - Handled by tool handlers you provide
+- **Client tools** - Pause execution, return tool request to caller
 
 ```typescript
 // Non-streaming: get the output directly
@@ -468,8 +468,8 @@ All standard events (text-delta, tool calls, etc.) are also emitted.
 
 Interactive agents can call workers in two ways:
 
-1. **Deterministically** — Using the `run-worker` block
-2. **Agentically** — LLM calls worker as a tool
+1. **Deterministically** - Using the `run-worker` block
+2. **Agentically** - LLM calls worker as a tool
 
 ### Worker Declaration
 
@@ -543,6 +543,6 @@ When the worker calls its `search` tool, your `web-search` handler executes.
 
 ## Next Steps
 
-- [Server SDK Workers](/docs/server-sdk/workers) — Executing workers from code
-- [Handlers](/docs/protocol/handlers) — Block reference for steps
-- [Agent Config](/docs/protocol/agent-config) — Model and settings
+- [Server SDK Workers](/docs/server-sdk/workers) - Executing workers from code
+- [Handlers](/docs/protocol/handlers) - Block reference for steps
+- [Agent Config](/docs/protocol/agent-config) - Model and settings

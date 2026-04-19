@@ -1,4 +1,4 @@
-/** Stdio transport — spawns an MCP server as a child process, communicates via stdin/stdout. */
+/** Stdio transport - spawns an MCP server as a child process, communicates via stdin/stdout. */
 export interface StdioConfig {
   type: 'stdio';
   command: string;
@@ -7,7 +7,7 @@ export interface StdioConfig {
   cwd?: string;
 }
 
-/** HTTP transport — connects to an MCP server over Streamable HTTP. */
+/** HTTP transport - connects to an MCP server over Streamable HTTP. */
 export interface HttpConfig {
   type: 'http';
   url: string;
@@ -16,7 +16,7 @@ export interface HttpConfig {
 
 export type ShellMode = 'unrestricted' | { allowedPatterns?: RegExp[]; blockedPatterns?: RegExp[] };
 
-/** Built-in shell — executes commands directly via child_process (no MCP subprocess). */
+/** Built-in shell - executes commands directly via child_process (no MCP subprocess). */
 export interface ShellConfig {
   type: 'shell';
   cwd?: string;

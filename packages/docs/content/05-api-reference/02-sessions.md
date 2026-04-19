@@ -216,7 +216,7 @@ curl -X POST https://octavus.ai/api/agent-sessions/:sessionId/restore \
 
 Clear session state, transitioning it to `expired` status. The session can be restored afterwards with the [Restore Session](#restore-session) endpoint.
 
-This is idempotent — clearing an already expired session succeeds without error.
+This is idempotent - clearing an already expired session succeeds without error.
 
 ```
 DELETE /api/agent-sessions/:sessionId

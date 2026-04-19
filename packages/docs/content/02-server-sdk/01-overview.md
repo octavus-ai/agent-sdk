@@ -263,9 +263,9 @@ The client uploads files directly to S3 using the presigned upload URL. See [Fil
 
 ## Next Steps
 
-- [Sessions](/docs/server-sdk/sessions) — Deep dive into session management
-- [Tools](/docs/server-sdk/tools) — Implementing tool handlers
-- [Streaming](/docs/server-sdk/streaming) — Understanding stream events
-- [Workers](/docs/server-sdk/workers) — Executing worker agents
-- [Debugging](/docs/server-sdk/debugging) — Model request tracing and debugging
-- [Computer](/docs/server-sdk/computer) — Browser, filesystem, and shell via MCP
+- [Sessions](/docs/server-sdk/sessions) - Deep dive into session management
+- [Tools](/docs/server-sdk/tools) - Implementing tool handlers
+- [Streaming](/docs/server-sdk/streaming) - Understanding stream events
+- [Workers](/docs/server-sdk/workers) - Executing worker agents
+- [Debugging](/docs/server-sdk/debugging) - Model request tracing and debugging
+- [Computer](/docs/server-sdk/computer) - Browser, filesystem, and shell via MCP

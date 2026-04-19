@@ -12,7 +12,7 @@ npm install @octavus/client-sdk
 
 This package provides a framework-agnostic client for streaming Octavus agent responses. It handles message state management, streaming events, and transport abstraction.
 
-For React applications, use [`@octavus/react`](https://www.npmjs.com/package/@octavus/react) instead—it provides React hooks that wrap this SDK.
+For React applications, use [`@octavus/react`](https://www.npmjs.com/package/@octavus/react) instead - it provides React hooks that wrap this SDK.
 
 ## Quick Start
 

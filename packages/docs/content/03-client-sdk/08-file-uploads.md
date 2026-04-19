@@ -188,12 +188,12 @@ Uploads include built-in timeout and retry logic for handling transient failures
 
 **Default behavior:**
 
-- **Timeout**: 60 seconds per file — prevents uploads from hanging on stalled connections
+- **Timeout**: 60 seconds per file - prevents uploads from hanging on stalled connections
 - **Retries**: 2 automatic retries on transient failures (network errors, 5xx, 429)
 - **Retry delay**: 1 second between retries
 - **Non-retryable errors** (4xx like 403, 404) fail immediately without retrying
 
-Only the S3 upload is retried — the presigned URL stays valid for 15 minutes. On retry, the progress callback resets to 0%.
+Only the S3 upload is retried - the presigned URL stays valid for 15 minutes. On retry, the progress callback resets to 0%.
 
 Configure via `uploadOptions`:
 

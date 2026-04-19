@@ -19,7 +19,7 @@ The socket transport enables real-time bidirectional communication using WebSock
 
 ## Connection Lifecycle
 
-By default, socket transport uses **lazy connection** — the socket connects only when you first call `send()`. This is efficient but can be surprising if you want to show connection status.
+By default, socket transport uses **lazy connection** - the socket connects only when you first call `send()`. This is efficient but can be surprising if you want to show connection status.
 
 For UI indicators, use **eager connection**:
 
@@ -86,7 +86,7 @@ There are two main patterns for socket-based integrations:
 
 ## Server-Managed Sessions (Recommended)
 
-The cleanest pattern is to have the server manage session lifecycle. The client never needs to know about `sessionId` — the server creates it lazily on first message.
+The cleanest pattern is to have the server manage session lifecycle. The client never needs to know about `sessionId` - the server creates it lazily on first message.
 
 ### Client Setup
 
@@ -104,7 +104,7 @@ function connectSocket(): Promise<SocketLike> {
 }
 
 function Chat() {
-  // Transport is stable — no dependencies on sessionId
+  // Transport is stable - no dependencies on sessionId
   const transport = useMemo(() => createSocketTransport({ connect: connectSocket }), []);
 
   const { messages, status, send, stop, connectionState, connect, disconnect } = useOctavusChat({
@@ -185,7 +185,7 @@ sockServer.installHandlers(httpServer);
 
 **Benefits of this pattern:**
 
-- Client code is simple — no sessionId management
+- Client code is simple - no sessionId management
 - No transport caching issues
 - Session is created only when needed
 - Server controls session configuration
@@ -300,7 +300,7 @@ function ChatPage() {
 }
 ```
 
-This is the cleanest approach — the `Chat` component always receives a valid `sessionId`.
+This is the cleanest approach - the `Chat` component always receives a valid `sessionId`.
 
 ### Option 2: Server-Managed Sessions
 

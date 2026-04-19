@@ -256,9 +256,9 @@ The hook returns four values:
 | Return Value      | Purpose                                                                                           |
 | ----------------- | ------------------------------------------------------------------------------------------------- |
 | `scrollRef`       | Attach to the scrollable container's `ref`                                                        |
-| `handleScroll`    | Attach to the container's `onScroll` — tracks whether the user is near the bottom                 |
-| `scrollOnUpdate`  | Call inside a `useEffect` when messages change — scrolls to bottom if the user hasn't scrolled up |
-| `resetAutoScroll` | Call when the user sends a message — forces the next update to scroll to bottom                   |
+| `handleScroll`    | Attach to the container's `onScroll` - tracks whether the user is near the bottom                 |
+| `scrollOnUpdate`  | Call inside a `useEffect` when messages change - scrolls to bottom if the user hasn't scrolled up |
+| `resetAutoScroll` | Call when the user sends a message - forces the next update to scroll to bottom                   |
 
 You can customize the hook with options:
 

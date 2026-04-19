@@ -416,7 +416,7 @@ interface ClearSessionResult {
 }
 ```
 
-This is idempotent — calling `clear()` on an already expired session succeeds without error.
+This is idempotent - calling `clear()` on an already expired session succeeds without error.
 
 ## Error Handling
 

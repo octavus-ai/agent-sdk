@@ -616,7 +616,7 @@ export class OctavusChat {
    * Use this to sync with server-authoritative state (e.g., after an execution
    * completes or when an observer detects new messages from another client).
    *
-   * Must NOT be called while streaming — only when status is `idle` or `error`.
+   * Must NOT be called while streaming - only when status is `idle` or `error`.
    */
   replaceMessages(messages: UIMessage[]): void {
     this._messages = messages;
@@ -805,11 +805,11 @@ export class OctavusChat {
    * Observe an already-active execution without triggering a new one.
    *
    * Only supported by transports that implement `observe()` (e.g., polling transport).
-   * Use this when the page loads and the session is already streaming — the transport
+   * Use this when the page loads and the session is already streaming - the transport
    * will start consuming events without dispatching a new trigger.
    *
    * When using with `initialMessages`, exclude any in-progress assistant message
-   * from the initial messages to avoid duplication — the event stream will rebuild it.
+   * from the initial messages to avoid duplication - the event stream will rebuild it.
    */
   async observe(): Promise<void> {
     if (!this.transport.observe) {
@@ -1032,7 +1032,7 @@ export class OctavusChat {
   // =========================================================================
 
   /**
-   * IMMUTABILITY RULES — all event handlers must follow these patterns:
+   * IMMUTABILITY RULES - all event handlers must follow these patterns:
    *
    * 1. Never mutate an existing part/message object. Some environments (e.g.
    *    React Native with Reanimated) freeze objects between renders, so
@@ -1063,7 +1063,7 @@ export class OctavusChat {
         // lastMessageId that reflects post-tool-call state, which would move
         // the rollback point forward into the execution and break retry.
         // When lastMessageId is undefined (empty session), the anchor from
-        // send() (null = truncate all) is already correct — just lock it.
+        // send() (null = truncate all) is already correct - just lock it.
         if (!this._rollbackSynced && this._lastTrigger) {
           if (event.lastMessageId !== undefined) {
             this._lastTrigger.rollbackAfterMessageId = event.lastMessageId;
@@ -1800,7 +1800,7 @@ export class OctavusChat {
           }
           this.setMessages(messages);
         } else if (lastMsg?.id === state.messageId) {
-          // No parts produced — remove the empty streaming message
+          // No parts produced - remove the empty streaming message
           messages.pop();
           this.setMessages(messages);
         }

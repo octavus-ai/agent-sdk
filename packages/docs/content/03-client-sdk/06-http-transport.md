@@ -364,8 +364,8 @@ See [Streaming Events](/docs/server-sdk/streaming#event-types) for the full list
 
 ## Next Steps
 
-- [Quick Start](/docs/getting-started/quickstart) — Complete Next.js integration guide
-- [Client Tools](/docs/client-sdk/client-tools) — Handling tools on the client side
-- [Messages](/docs/client-sdk/messages) — Working with message state
-- [Streaming](/docs/client-sdk/streaming) — Building streaming UIs
-- [Error Handling](/docs/client-sdk/error-handling) — Handling errors with type guards
+- [Quick Start](/docs/getting-started/quickstart) - Complete Next.js integration guide
+- [Client Tools](/docs/client-sdk/client-tools) - Handling tools on the client side
+- [Messages](/docs/client-sdk/messages) - Working with message state
+- [Streaming](/docs/client-sdk/streaming) - Building streaming UIs
+- [Error Handling](/docs/client-sdk/error-handling) - Handling errors with type guards
