@@ -1,0 +1,152 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    timeout-minutes: 15
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Validate package versions
+        id: version
+        run: |
+          PACKAGES=(
+            "packages/core"
+            "packages/client-sdk"
+            "packages/react"
+            "packages/server-sdk"
+            "packages/computer"
+            "packages/cli"
+            "packages/docs"
+          )
+
+          VERSION=$(node -p "require('./packages/core/package.json').version")
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: ${VERSION}"
+
+          for pkg in "${PACKAGES[@]}"; do
+            PKG_VERSION=$(node -p "require('./${pkg}/package.json').version")
+            PKG_NAME=$(node -p "require('./${pkg}/package.json').name")
+            if [[ "$PKG_VERSION" != "$VERSION" ]]; then
+              echo "::error::Version mismatch: ${PKG_NAME} is ${PKG_VERSION}, expected ${VERSION}"
+              exit 1
+            fi
+          done
+
+          echo "All packages at version ${VERSION}"
+
+      - name: Check version not already published
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PUBLISHED=$(npm view @octavus/core versions --json 2>/dev/null || echo "[]")
+
+          if echo "$PUBLISHED" | node -e "
+            const versions = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+            const list = Array.isArray(versions) ? versions : [versions];
+            if (list.includes('$VERSION')) {
+              console.error('Version $VERSION is already published on npm');
+              process.exit(1);
+            }
+          "; then
+            echo "Version ${VERSION} is not yet published - proceeding"
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Publish packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PACKAGES=(
+            "packages/core"
+            "packages/client-sdk"
+            "packages/react"
+            "packages/server-sdk"
+            "packages/computer"
+            "packages/cli"
+            "packages/docs"
+          )
+
+          for pkg in "${PACKAGES[@]}"; do
+            PKG_NAME=$(node -p "require('./${pkg}/package.json').name")
+            PKG_VERSION=$(node -p "require('./${pkg}/package.json').version")
+            echo "Publishing ${PKG_NAME}@${PKG_VERSION}..."
+            cd "$pkg"
+            pnpm publish --access public --provenance --no-git-checks
+            cd "$GITHUB_WORKSPACE"
+            echo "Published ${PKG_NAME}@${PKG_VERSION}"
+          done
+
+      - name: Create git tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v${VERSION}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "## Published @octavus packages v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Packages:**" >> $GITHUB_STEP_SUMMARY
+          echo "- [@octavus/core](https://www.npmjs.com/package/@octavus/core/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
+          echo "- [@octavus/client-sdk](https://www.npmjs.com/package/@octavus/client-sdk/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
+          echo "- [@octavus/react](https://www.npmjs.com/package/@octavus/react/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
+          echo "- [@octavus/server-sdk](https://www.npmjs.com/package/@octavus/server-sdk/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
+          echo "- [@octavus/computer](https://www.npmjs.com/package/@octavus/computer/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
+          echo "- [@octavus/cli](https://www.npmjs.com/package/@octavus/cli/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
+          echo "- [@octavus/docs](https://www.npmjs.com/package/@octavus/docs/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** \`v${VERSION}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** [v${VERSION}](https://github.com/${{ github.repository }}/releases/tag/v${VERSION})" >> $GITHUB_STEP_SUMMARY
