@@ -107,6 +107,8 @@ export interface ToolCallInfo {
   error?: string;
   /** Google Gemini 3 thought signature - required for tool call continuation */
   thoughtSignature?: string;
+  /** Raw provider metadata for generic passthrough (preferred over thoughtSignature when present) */
+  providerMetadata?: Record<string, Record<string, unknown>>;
   /** Display mode from tool definition - controls what data flows to UIMessage */
   display?: DisplayMode;
 }
@@ -411,6 +413,8 @@ export interface PendingToolCall {
   workerId?: string;
   /** Google Gemini 3 thought signature - required for tool call continuation */
   thoughtSignature?: string;
+  /** Raw provider metadata for generic passthrough (preferred over thoughtSignature when present) */
+  providerMetadata?: Record<string, Record<string, unknown>>;
 }
 
 /**
@@ -729,6 +733,8 @@ export interface ChatMessage {
   reasoning?: string;
   /** Required by Anthropic to verify reasoning blocks */
   reasoningSignature?: string;
+  /** Raw provider metadata for reasoning (preferred over reasoningSignature when present) */
+  reasoningProviderMetadata?: Record<string, Record<string, unknown>>;
   /**
    * Tool results for continuation messages.
    * When present, this message represents tool results being injected back
