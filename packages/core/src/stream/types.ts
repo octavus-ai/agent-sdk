@@ -97,6 +97,14 @@ export type ResourceUpdateHandler = (name: string, value: unknown) => Promise<vo
 export type MessageRole = 'user' | 'assistant' | 'system';
 export type ToolCallStatus = 'pending' | 'streaming' | 'available' | 'error';
 
+/**
+ * Raw provider metadata, namespaced by provider (e.g. `{ anthropic: { signature: "..." } }`,
+ * `{ google: { thoughtSignature: "..." } }`). Stored on reasoning blocks and tool calls
+ * so per-provider continuation hints round-trip through session storage. Inner values are
+ * `unknown` because the data may have round-tripped through JSON serialization.
+ */
+export type ProviderMetadata = Record<string, Record<string, unknown>>;
+
 export interface ToolCallInfo {
   id: string;
   name: string;
@@ -108,7 +116,7 @@ export interface ToolCallInfo {
   /** Google Gemini 3 thought signature - required for tool call continuation */
   thoughtSignature?: string;
   /** Raw provider metadata for generic passthrough (preferred over thoughtSignature when present) */
-  providerMetadata?: Record<string, Record<string, unknown>>;
+  providerMetadata?: ProviderMetadata;
   /** Display mode from tool definition - controls what data flows to UIMessage */
   display?: DisplayMode;
 }
@@ -414,7 +422,7 @@ export interface PendingToolCall {
   /** Google Gemini 3 thought signature - required for tool call continuation */
   thoughtSignature?: string;
   /** Raw provider metadata for generic passthrough (preferred over thoughtSignature when present) */
-  providerMetadata?: Record<string, Record<string, unknown>>;
+  providerMetadata?: ProviderMetadata;
 }
 
 /**
@@ -734,7 +742,7 @@ export interface ChatMessage {
   /** Required by Anthropic to verify reasoning blocks */
   reasoningSignature?: string;
   /** Raw provider metadata for reasoning (preferred over reasoningSignature when present) */
-  reasoningProviderMetadata?: Record<string, Record<string, unknown>>;
+  reasoningProviderMetadata?: ProviderMetadata;
   /**
    * Tool results for continuation messages.
    * When present, this message represents tool results being injected back

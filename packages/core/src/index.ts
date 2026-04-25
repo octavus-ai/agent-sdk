@@ -62,6 +62,7 @@ export type {
   MessageRole,
   ToolCallStatus,
   ToolCallInfo,
+  ProviderMetadata,
   FinishReason,
   // Lifecycle Events
   StartEvent,
