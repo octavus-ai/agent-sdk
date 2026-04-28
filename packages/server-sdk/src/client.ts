@@ -37,6 +37,16 @@ export class OctavusClient {
     this.workers = new WorkersApi(apiConfig);
   }
 
+  /** Returns the platform URL for viewing a session's activity. */
+  getSessionUrl(sessionId: string): string {
+    return `${this.baseUrl}/platform/sessions/${sessionId}`;
+  }
+
+  /** Returns the platform URL for viewing an agent's editor. */
+  getAgentUrl(agentId: string): string {
+    return `${this.baseUrl}/platform/agents/${agentId}`;
+  }
+
   getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
