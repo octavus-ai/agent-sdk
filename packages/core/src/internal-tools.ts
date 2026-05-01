@@ -51,6 +51,10 @@ export const OCTAVUS_INTERNAL_TOOLS = {
   // === Web Search ===
   /** Search the web for current information */
   WEB_SEARCH: 'octavus_web_search',
+
+  // === Todo List ===
+  /** Create and update a structured task list */
+  TODO_WRITE: 'octavus_todo_write',
 } as const;
 
 export type OctavusInternalToolName =
