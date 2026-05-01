@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { ToolHandler, ToolSchema } from '@octavus/core';
+import { normalizeToolInputSchema, type ToolHandler, type ToolSchema } from '@octavus/core';
 import { NAMESPACE_SEPARATOR, type StdioConfig, type HttpConfig } from './entries';
 
 const MCP_CLIENT_NAME = 'octavus-computer';
@@ -90,7 +90,7 @@ async function discoverTools(
     schemas.push({
       name: nsName,
       description: tool.description ?? originalName,
-      inputSchema: tool.inputSchema as Record<string, unknown>,
+      inputSchema: normalizeToolInputSchema(tool.inputSchema as Record<string, unknown>),
     });
 
     handlers[nsName] = async (args: Record<string, unknown>) => {

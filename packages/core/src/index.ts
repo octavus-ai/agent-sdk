@@ -28,7 +28,7 @@ export {
   createApiErrorEvent,
 } from './errors/helpers';
 
-export { generateId, isAbortError } from './utils';
+export { generateId, isAbortError, normalizeToolInputSchema } from './utils';
 export { MAIN_THREAD, resolveThread, isMainThread, threadForPart, isOtherThread } from './thread';
 
 export { isFileReference, isFileReferenceArray } from './stream/schemas';
