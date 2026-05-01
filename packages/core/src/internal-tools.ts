@@ -38,6 +38,12 @@ export const OCTAVUS_INTERNAL_TOOLS = {
   /** Read the full content of a specific reference */
   REFERENCE_READ: 'octavus_reference_read',
 
+  // === MCP Management Tools (dynamic remote MCP activation) ===
+  /** List available remote MCP integrations and their activation status */
+  MCP_LIST: 'octavus_mcp_list',
+  /** Activate a remote MCP integration, loading its tools for the current execution */
+  MCP_ACTIVATE: 'octavus_mcp_activate',
+
   // === Image Generation ===
   /** Generate images using AI models */
   GENERATE_IMAGE: 'octavus_generate_image',
@@ -99,6 +105,29 @@ export type OctavusSkillToolName = (typeof OCTAVUS_SKILL_TOOLS)[keyof typeof OCT
  */
 export function isOctavusSkillTool(toolName: string): toolName is OctavusSkillToolName {
   return Object.values(OCTAVUS_SKILL_TOOLS).includes(toolName as OctavusSkillToolName);
+}
+
+/**
+ * MCP management tool names (subset of internal tools).
+ *
+ * MCP tools let agents discover and activate remote MCP integrations
+ * at runtime, enabling dynamic tool loading without upfront connection.
+ */
+export const OCTAVUS_MCP_TOOLS = {
+  MCP_LIST: OCTAVUS_INTERNAL_TOOLS.MCP_LIST,
+  MCP_ACTIVATE: OCTAVUS_INTERNAL_TOOLS.MCP_ACTIVATE,
+} as const;
+
+export type OctavusMcpToolName = (typeof OCTAVUS_MCP_TOOLS)[keyof typeof OCTAVUS_MCP_TOOLS];
+
+/**
+ * Check if a tool name is an Octavus MCP management tool.
+ *
+ * MCP tools are a subset of internal tools that manage runtime activation
+ * of remote MCP integrations.
+ */
+export function isOctavusMcpTool(toolName: string): toolName is OctavusMcpToolName {
+  return Object.values(OCTAVUS_MCP_TOOLS).includes(toolName as OctavusMcpToolName);
 }
 
 /**

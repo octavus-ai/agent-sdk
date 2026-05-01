@@ -38,6 +38,7 @@ mcpServers:
 | `description` | Yes      | What the MCP server provides                                                          |
 | `source`      | Yes      | `remote` (platform-managed) or `device` (consumer-provided)                           |
 | `display`     | No       | How tool calls appear in UI: `hidden`, `name`, `description` (default: `description`) |
+| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). Remote only.                    |
 
 ### Display Modes
 
@@ -133,6 +134,34 @@ Configuration happens in the Octavus platform UI:
 1. Add an MCP server to your project (URL + authentication)
 2. The server's slug must match the namespace in your protocol
 3. The platform connects, discovers tools, and makes them available to the agent
+
+### Connection Modes
+
+The `connection` field controls when the platform connects to a remote MCP server:
+
+| Mode    | Behavior                                                                                                               |
+| ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `lazy`  | (default) The agent activates integrations on demand at runtime. The agent starts responding immediately.              |
+| `eager` | The platform connects and discovers tools before the first LLM request. Tools are guaranteed available from message 1. |
+
+```yaml
+mcpServers:
+  sentry:
+    source: remote
+    connection: eager # Always connected upfront
+    display: name
+
+  notion:
+    source: remote
+    # connection defaults to lazy - agent activates when needed
+    display: description
+```
+
+With **lazy connection** (the default), the agent receives two built-in tools - one for listing available integrations and one for activating them. The agent decides which integrations it needs based on the conversation and activates them on demand. This avoids paying connection latency for integrations the agent doesn't end up using.
+
+With **eager connection**, the platform connects to the MCP server before the first LLM request, exactly like a declared tool. Use this when the agent needs the MCP's tools from the very first message.
+
+The `connection` field is only valid on `source: remote` - device MCPs have their own connection mechanism through the server-sdk.
 
 ### Authentication
 
@@ -295,6 +324,7 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
+    connection: eager
     display: description
   sentry:
     description: Error tracking and debugging
@@ -355,10 +385,12 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
+    connection: eager # Need design tools from message 1
     display: description
   sentry:
     description: Error tracking and debugging
     source: remote
+    # Lazy (default) - agent activates when debugging is needed
     display: name
 
 tools:

@@ -145,10 +145,13 @@ export {
   isOctavusInternalTool,
   OCTAVUS_SKILL_TOOLS,
   isOctavusSkillTool,
+  OCTAVUS_MCP_TOOLS,
+  isOctavusMcpTool,
   OCTAVUS_REFERENCE_TOOLS,
   isOctavusReferenceTool,
   type OctavusInternalToolName,
   type OctavusSkillToolName,
+  type OctavusMcpToolName,
   type OctavusReferenceToolName,
 } from './internal-tools';
 
