@@ -226,10 +226,20 @@ export async function* executeStream(
       // shell commands, VM HTTP calls) to complete.
       let serverResults: ToolResult[];
       if (signal && !signal.aborted) {
+        let onAbort: (() => void) | undefined;
         const aborted = new Promise<'aborted'>((resolve) => {
-          signal.addEventListener('abort', () => resolve('aborted'), { once: true });
+          onAbort = () => resolve('aborted');
+          signal.addEventListener('abort', onAbort, { once: true });
         });
-        const raceResult = await Promise.race([toolExecution, aborted]);
+        let raceResult: ToolResult[] | 'aborted';
+        try {
+          raceResult = await Promise.race([toolExecution, aborted]);
+        } finally {
+          // Remove the listener if `toolExecution` won the race so a long
+          // session with many tool-call rounds doesn't accumulate one
+          // listener per round on the caller's signal.
+          if (onAbort) signal.removeEventListener('abort', onAbort);
+        }
         if (raceResult === 'aborted') {
           yield { type: 'finish', finishReason: 'stop' };
           return;
