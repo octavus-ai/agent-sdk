@@ -193,7 +193,7 @@ export async function* executeStream(
       const serverTools = pendingToolCalls.filter((tc) => toolHandlers[tc.toolName]);
       const clientTools = pendingToolCalls.filter((tc) => !toolHandlers[tc.toolName]);
 
-      const serverResults = await Promise.all(
+      const toolExecution = Promise.all(
         serverTools.map(async (tc): Promise<ToolResult> => {
           const handler = toolHandlers[tc.toolName]!;
           try {
@@ -221,8 +221,34 @@ export async function* executeStream(
         }),
       );
 
+      // Race tool execution against the abort signal so the stream can stop
+      // immediately rather than waiting for slow tools (browser navigation,
+      // shell commands, VM HTTP calls) to complete.
+      let serverResults: ToolResult[];
+      if (signal && !signal.aborted) {
+        const aborted = new Promise<'aborted'>((resolve) => {
+          signal.addEventListener('abort', () => resolve('aborted'), { once: true });
+        });
+        const raceResult = await Promise.race([toolExecution, aborted]);
+        if (raceResult === 'aborted') {
+          yield { type: 'finish', finishReason: 'stop' };
+          return;
+        }
+        serverResults = raceResult;
+      } else if (signal?.aborted) {
+        yield { type: 'finish', finishReason: 'stop' };
+        return;
+      } else {
+        serverResults = await toolExecution;
+      }
+
       if (config.onToolResults && serverResults.length > 0) {
         await config.onToolResults(serverResults);
+      }
+
+      if (signal?.aborted) {
+        yield { type: 'finish', finishReason: 'stop' };
+        return;
       }
 
       for (const tr of serverResults) {
