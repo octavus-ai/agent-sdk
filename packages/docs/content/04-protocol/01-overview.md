@@ -90,6 +90,7 @@ agent:
   skills: [qr-code] # Enable skills
   imageModel: google/gemini-2.5-flash-image # Enable image generation
   webSearch: true # Enable web search
+  todoList: true # Enable structured task tracking
   agentic: true # Allow multiple tool calls
   thinking: medium # Extended reasoning
 

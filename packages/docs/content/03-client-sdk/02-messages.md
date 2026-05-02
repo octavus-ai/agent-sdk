@@ -31,7 +31,9 @@ type UIMessagePart =
   | UIOperationPart
   | UISourcePart
   | UIFilePart
-  | UIObjectPart;
+  | UIObjectPart
+  | UITodoPart
+  | UIWorkerPart;
 
 // Text content
 interface UITextPart {
@@ -106,6 +108,31 @@ interface UIObjectPart {
   status: 'streaming' | 'done' | 'error';
   error?: string;
   thread?: string;
+}
+
+// Structured task list (when the agent uses octavus_todo_write)
+interface UITodoPart {
+  type: 'todo';
+  todos: {
+    id: string;
+    content: string;
+    status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  }[];
+  status: 'streaming' | 'done';
+  thread?: string;
+}
+
+// Sub-agent execution container (when an agent invokes a worker)
+interface UIWorkerPart {
+  type: 'worker';
+  workerId: string;
+  workerSlug: string;
+  description?: string;
+  input?: Record<string, unknown>;
+  parts: UIMessagePart[]; // Nested parts from the worker (excluding nested workers)
+  output?: unknown;
+  error?: string;
+  status: 'running' | 'done' | 'error';
 }
 ```
 

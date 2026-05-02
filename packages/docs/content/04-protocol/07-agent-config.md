@@ -400,6 +400,28 @@ Use cases:
 - Fact verification and documentation lookups
 - Any information that may have changed since the model's training
 
+## TODO List
+
+Enable the LLM to maintain a structured task list while it works:
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  system: system
+  todoList: true
+  agentic: true
+```
+
+When `todoList` is enabled, the `octavus_todo_write` tool becomes available. The LLM creates and updates a list of items - each with `id`, `content`, and `status` (`pending`, `in_progress`, `completed`, `cancelled`) - and the platform emits a `todo-update` stream event with the resolved snapshot. The Client SDK accumulates updates into a single `UITodoPart` per assistant message, so consumers render an evolving "Plan" card without managing state themselves.
+
+The list persists across messages: the LLM can use `merge=true` to update items by id (sending only the changed fields), or `merge=false` to replace the list entirely.
+
+Use cases:
+
+- Multi-step tasks where the user benefits from seeing progress
+- Long-running agentic loops that should communicate intent
+- Workflows where the agent plans before acting
+
 ## Temperature
 
 Control response randomness:
@@ -460,9 +482,10 @@ handlers:
       references: [escalation-policy] # Thread-specific references
       imageModel: google/gemini-2.5-flash-image # Thread-specific image model
       webSearch: true # Thread-specific web search
+      todoList: true # Thread-specific task list
 ```
 
-Each thread can have its own model, backup model, cache mode, MCP servers, skills, references, image model, and web search setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
+Each thread can have its own model, backup model, cache mode, MCP servers, skills, references, image model, web search setting, and task list setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
 
 ## Full Example
 
@@ -520,6 +543,7 @@ agent:
   skills: [qr-code] # Octavus skills
   references: [support-policies] # On-demand context
   webSearch: true # Built-in web search
+  todoList: true # Structured task tracking
   agentic: true
   maxSteps: 10
   thinking: medium
