@@ -84,6 +84,7 @@ export {
   isFileReference,
   isFileReferenceArray,
   isDeviceProvider,
+  isDynamicMcpProvider,
   // Safe parse helpers
   safeParseStreamEvent,
   safeParseUIMessage,
@@ -92,4 +93,7 @@ export {
   OCTAVUS_SKILL_TOOLS,
   isOctavusSkillTool,
   getSkillSlugFromToolCall,
+  // MCP management
+  OCTAVUS_MCP_TOOLS,
+  isOctavusMcpTool,
 } from '@octavus/core';

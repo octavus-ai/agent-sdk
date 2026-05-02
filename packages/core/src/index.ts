@@ -49,7 +49,7 @@ export {
   uiTodoPartSchema,
 } from './stream/schemas';
 
-export { isDeviceProvider } from './stream/types';
+export { isDeviceProvider, isDynamicMcpProvider } from './stream/types';
 
 export type {
   // Common
@@ -63,6 +63,8 @@ export type {
   ComputerHealth,
   EnsureReadyResult,
   DeviceProvider,
+  DynamicStdioEntry,
+  DynamicMcpProvider,
   ResourceUpdateHandler,
   FileReference,
   MessageRole,
