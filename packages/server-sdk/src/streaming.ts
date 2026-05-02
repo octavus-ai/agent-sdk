@@ -193,7 +193,7 @@ export async function* executeStream(
       const serverTools = pendingToolCalls.filter((tc) => toolHandlers[tc.toolName]);
       const clientTools = pendingToolCalls.filter((tc) => !toolHandlers[tc.toolName]);
 
-      const serverResults = await Promise.all(
+      const toolExecution = Promise.all(
         serverTools.map(async (tc): Promise<ToolResult> => {
           const handler = toolHandlers[tc.toolName]!;
           try {
@@ -221,8 +221,44 @@ export async function* executeStream(
         }),
       );
 
+      // Race tool execution against the abort signal so the stream can stop
+      // immediately rather than waiting for slow tools (browser navigation,
+      // shell commands, VM HTTP calls) to complete.
+      let serverResults: ToolResult[];
+      if (signal && !signal.aborted) {
+        let onAbort: (() => void) | undefined;
+        const aborted = new Promise<'aborted'>((resolve) => {
+          onAbort = () => resolve('aborted');
+          signal.addEventListener('abort', onAbort, { once: true });
+        });
+        let raceResult: ToolResult[] | 'aborted';
+        try {
+          raceResult = await Promise.race([toolExecution, aborted]);
+        } finally {
+          // Remove the listener if `toolExecution` won the race so a long
+          // session with many tool-call rounds doesn't accumulate one
+          // listener per round on the caller's signal.
+          if (onAbort) signal.removeEventListener('abort', onAbort);
+        }
+        if (raceResult === 'aborted') {
+          yield { type: 'finish', finishReason: 'stop' };
+          return;
+        }
+        serverResults = raceResult;
+      } else if (signal?.aborted) {
+        yield { type: 'finish', finishReason: 'stop' };
+        return;
+      } else {
+        serverResults = await toolExecution;
+      }
+
       if (config.onToolResults && serverResults.length > 0) {
         await config.onToolResults(serverResults);
+      }
+
+      if (signal?.aborted) {
+        yield { type: 'finish', finishReason: 'stop' };
+        return;
       }
 
       for (const tr of serverResults) {
