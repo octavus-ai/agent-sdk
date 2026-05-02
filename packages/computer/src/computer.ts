@@ -3,6 +3,7 @@ import type {
   ToolHandler,
   ToolSchema,
   DeviceProvider,
+  DynamicMcpProvider,
   ComputerHealth,
   EnsureReadyResult,
   EntryHealth,
@@ -50,7 +51,7 @@ interface EntryState {
   error?: string;
 }
 
-export class Computer implements DeviceProvider {
+export class Computer implements DeviceProvider, DynamicMcpProvider {
   private config: ComputerConfig;
   private entries = new Map<string, EntryState>();
   private started = false;
