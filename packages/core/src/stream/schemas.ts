@@ -303,6 +303,22 @@ export const fileAvailableEventSchema = z.object({
   workerId: z.string().optional(),
 });
 
+// ---------------------------------- Todo -------------------------------------
+
+export const todoItemStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'cancelled']);
+
+export const todoItemSchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  status: todoItemStatusSchema,
+});
+
+export const todoUpdateEventSchema = z.object({
+  type: z.literal('todo-update'),
+  todos: z.array(todoItemSchema),
+  workerId: z.string().optional(),
+});
+
 // --------------------------------- Worker ------------------------------------
 
 export const workerStartEventSchema = z.object({
@@ -348,6 +364,8 @@ export const streamEventSchema = z.union([
   toolOutputErrorEventSchema,
   // Source events
   sourceEventSchema,
+  // Todo events
+  todoUpdateEventSchema,
   // Octavus-specific events
   blockStartEventSchema,
   blockEndEventSchema,
@@ -373,6 +391,7 @@ export const messagePartTypeSchema = z.enum([
   'file',
   'object',
   'worker',
+  'todo',
 ]);
 
 export const sourceUrlInfoSchema = z.object({
@@ -416,9 +435,13 @@ export const operationInfoSchema = z.object({
   operationType: z.string(),
 });
 
+export const todoInfoSchema = z.object({
+  todos: z.array(todoItemSchema),
+});
+
 // Base message part schema (without worker, for non-recursive use in worker nested parts)
 const baseMessagePartSchema = z.object({
-  type: z.enum(['text', 'reasoning', 'tool-call', 'operation', 'source', 'file', 'object']),
+  type: z.enum(['text', 'reasoning', 'tool-call', 'operation', 'source', 'file', 'object', 'todo']),
   visible: z.boolean(),
   content: z.string().optional(),
   toolCall: toolCallInfoSchema.optional(),
@@ -426,6 +449,7 @@ const baseMessagePartSchema = z.object({
   source: sourceInfoSchema.optional(),
   file: fileInfoSchema.optional(),
   object: objectInfoSchema.optional(),
+  todo: todoInfoSchema.optional(),
   thread: z.string().optional(),
 });
 
@@ -451,6 +475,7 @@ export const messagePartSchema = z.object({
   file: fileInfoSchema.optional(),
   object: objectInfoSchema.optional(),
   worker: workerPartInfoSchema.optional(),
+  todo: todoInfoSchema.optional(),
   thread: z.string().optional(),
 });
 
@@ -561,6 +586,19 @@ export const uiObjectPartSchema = z.object({
   thread: z.string().optional(),
 });
 
+export const uiTodoItemSchema = z.object({
+  id: z.string(),
+  content: z.string(),
+  status: todoItemStatusSchema,
+});
+
+export const uiTodoPartSchema = z.object({
+  type: z.literal('todo'),
+  todos: z.array(uiTodoItemSchema),
+  status: uiPartStatusSchema,
+  thread: z.string().optional(),
+});
+
 export const uiWorkerStatusSchema = z.enum(['running', 'done', 'error']);
 
 // Note: We use z.union here because source parts share type: 'source' but
@@ -574,6 +612,7 @@ const baseUiMessagePartSchema = z.union([
   uiSourcePartSchema,
   uiFilePartSchema,
   uiObjectPartSchema,
+  uiTodoPartSchema,
 ]);
 
 // Worker part schema with nested parts (uses base schema to avoid infinite recursion)
@@ -599,6 +638,7 @@ export const uiMessagePartSchema = z.union([
   uiFilePartSchema,
   uiObjectPartSchema,
   uiWorkerPartSchema,
+  uiTodoPartSchema,
 ]);
 
 export const uiMessageSchema = z.object({

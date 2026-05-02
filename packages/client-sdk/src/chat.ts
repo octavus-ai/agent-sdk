@@ -13,6 +13,7 @@ import {
   type UIFilePart,
   type UIObjectPart,
   type UIWorkerPart,
+  type UITodoPart,
   type DisplayMode,
   type StreamEvent,
   type FileReference,
@@ -429,6 +430,9 @@ function finalizeParts(parts: UIMessagePart[], workerError?: string): UIMessageP
       }
     }
     if (part.type === 'object' && part.status === 'streaming') {
+      return { ...part, status: 'done' };
+    }
+    if (part.type === 'todo' && part.status === 'streaming') {
       return { ...part, status: 'done' };
     }
     if (part.type === 'tool-call') {
@@ -1692,6 +1696,40 @@ export class OctavusChat {
         this.options.onResourceUpdate?.(event.name, event.value);
         break;
 
+      case 'todo-update': {
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+        const thread = threadForPart(state.activeBlock?.thread);
+
+        const todoPart: UITodoPart = {
+          type: 'todo',
+          todos: event.todos.map((t) => ({ id: t.id, content: t.content, status: t.status })),
+          status: 'streaming',
+          thread,
+        };
+
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          const existingTodoIndex = workerPart.parts.findIndex((p) => p.type === 'todo');
+          const updatedParts = [...workerPart.parts];
+          if (existingTodoIndex !== -1) {
+            updatedParts[existingTodoIndex] = todoPart;
+          } else {
+            updatedParts.push(todoPart);
+          }
+          state.parts[workerState.partIndex] = { ...workerPart, parts: updatedParts };
+        } else {
+          const existingTodoIndex = state.parts.findIndex((p) => p.type === 'todo');
+          if (existingTodoIndex !== -1) {
+            state.parts[existingTodoIndex] = todoPart;
+          } else {
+            state.parts.push(todoPart);
+          }
+        }
+        this.updateStreamingMessage();
+        break;
+      }
+
       case 'worker-start': {
         // Check if worker with same workerId already exists (for continuations)
         const existingIndex = state.parts.findIndex(
@@ -1751,6 +1789,9 @@ export class OctavusChat {
               if (p.type === 'object' && p.status === 'streaming') {
                 return { ...p, status: 'done' };
               }
+              if (p.type === 'todo' && p.status === 'streaming') {
+                return { ...p, status: 'done' };
+              }
               return p;
             }),
           };
@@ -1784,6 +1825,9 @@ export class OctavusChat {
             return { ...part, status: 'done' as const };
           }
           if (part.type === 'object' && part.status === 'streaming') {
+            return { ...part, status: 'done' as const };
+          }
+          if (part.type === 'todo' && part.status === 'streaming') {
             return { ...part, status: 'done' as const };
           }
           return part;

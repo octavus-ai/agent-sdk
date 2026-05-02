@@ -41,6 +41,12 @@ export {
   uiMessagePartSchema,
   uiWorkerPartSchema,
   uiWorkerStatusSchema,
+  todoItemStatusSchema,
+  todoItemSchema,
+  todoInfoSchema,
+  todoUpdateEventSchema,
+  uiTodoItemSchema,
+  uiTodoPartSchema,
 } from './stream/schemas';
 
 export { isDeviceProvider } from './stream/types';
@@ -98,6 +104,10 @@ export type {
   // File Events (skill execution)
   GeneratedFile,
   FileAvailableEvent,
+  // Todo Events
+  TodoItemStatus,
+  TodoItem,
+  TodoUpdateEvent,
   // Worker Events
   WorkerStartEvent,
   WorkerResultEvent,
@@ -111,6 +121,7 @@ export type {
   FileInfo,
   ObjectInfo,
   OperationInfo,
+  TodoInfo,
   WorkerPartInfo,
   MessagePart,
   ToolResultEntry,
@@ -130,6 +141,8 @@ export type {
   UIFilePart,
   UIObjectStatus,
   UIObjectPart,
+  UITodoItem,
+  UITodoPart,
   UIWorkerStatus,
   UIWorkerPart,
   UIMessagePart,
