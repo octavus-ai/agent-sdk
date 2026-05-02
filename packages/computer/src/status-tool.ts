@@ -20,7 +20,7 @@ export function createStatusTool(
   const schema: ToolSchema = {
     name: toolName,
     description,
-    inputSchema: { type: 'object' },
+    inputSchema: { type: 'object', properties: {} },
   };
 
   const handler: ToolHandler = () => {
