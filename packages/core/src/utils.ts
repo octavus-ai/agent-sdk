@@ -7,11 +7,17 @@ export function generateId(): string {
 }
 
 /**
- * Recursively ensures all JSON Schema nodes with `type: "object"` include
- * a `properties` field. OpenAI rejects tool schemas that omit `properties`
- * on object types; Anthropic and Google are lenient. This normalizer acts
- * as a safety net for schemas coming from MCP servers or hand-crafted
- * definitions that may not satisfy OpenAI's stricter validation.
+ * Ensures a tool `inputSchema` has a `properties` field on its root object
+ * node and on any nested schema reachable through `properties`. OpenAI
+ * rejects tool schemas that declare `type: "object"` without `properties`;
+ * Anthropic and Google are lenient. This normalizer acts as a safety net
+ * for schemas coming from MCP servers or hand-crafted definitions that may
+ * not satisfy OpenAI's stricter validation.
+ *
+ * Scope: walks `type: "object"` nodes through the `properties` map. It does
+ * not descend into `items`, `additionalProperties`, `anyOf`/`oneOf`/`allOf`,
+ * or `$defs` - those are uncommon at the top level of tool inputs. Expand
+ * here if a real-world schema surfaces the gap.
  */
 export function normalizeToolInputSchema(schema: Record<string, unknown>): Record<string, unknown> {
   if (schema.type !== 'object') return schema;
