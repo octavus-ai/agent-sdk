@@ -225,13 +225,27 @@ agent:
   thinking: medium # low | medium | high
 ```
 
-| Level    | Token Budget | Use Case            |
-| -------- | ------------ | ------------------- |
-| `low`    | ~5,000       | Simple reasoning    |
-| `medium` | ~10,000      | Moderate complexity |
-| `high`   | ~20,000      | Complex analysis    |
+| Level    | Use Case            |
+| -------- | ------------------- |
+| `low`    | Simple reasoning    |
+| `medium` | Moderate complexity |
+| `high`   | Complex analysis    |
 
 Thinking content streams to the UI and can be displayed to users.
+
+### How levels are applied
+
+Each provider translates `thinking` into its own reasoning controls:
+
+| Provider                                                                   | Level mapping                                                                                     |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Anthropic 4.6+ (`claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`) | Adaptive thinking - the model decides how much to reason, guided by `effort: low / medium / high` |
+| Anthropic older (4.5 and earlier)                                          | Fixed token budgets: `low` ~5,000, `medium` ~10,000, `high` ~20,000                               |
+| OpenAI (GPT-5.x, o-series)                                                 | `reasoningEffort: low / medium / high`                                                            |
+| Google (Gemini 3.x)                                                        | `thinkingLevel: low / high` (`medium` rounds up to `high`)                                        |
+| Google (Gemini 1.x / 2.x)                                                  | Token budgets: `low` 1,024, `medium` 8,192, `high` 24,576                                         |
+| OpenRouter                                                                 | Unified `reasoning.max_tokens` (translated upstream)                                              |
+| Vercel AI Gateway                                                          | Forwards the underlying provider's options                                                        |
 
 ## Prompt Caching
 
