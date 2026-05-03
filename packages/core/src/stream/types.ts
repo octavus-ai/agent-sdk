@@ -102,12 +102,18 @@ export interface DynamicMcpProvider {
   ): Promise<void>;
   removeEntry(namespace: string): Promise<void>;
   restartEntry(namespace: string): Promise<void>;
+  hasEntry(namespace: string): boolean;
 }
 
 export function isDynamicMcpProvider(
   provider: ToolProvider,
 ): provider is ToolProvider & DynamicMcpProvider {
-  return 'addEntry' in provider && 'removeEntry' in provider && 'restartEntry' in provider;
+  return (
+    'addEntry' in provider &&
+    'removeEntry' in provider &&
+    'restartEntry' in provider &&
+    'hasEntry' in provider
+  );
 }
 
 /**
