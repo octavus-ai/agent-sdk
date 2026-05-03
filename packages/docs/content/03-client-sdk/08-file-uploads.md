@@ -285,11 +285,17 @@ The `file` type is a built-in type representing uploaded files. Use `file[]` for
 
 ## Supported File Types
 
-| Type      | Media Types                                                          |
-| --------- | -------------------------------------------------------------------- |
-| Images    | `image/jpeg`, `image/png`, `image/gif`, `image/webp`                 |
-| Video     | `video/mp4`, `video/webm`, `video/quicktime`, `video/mpeg`           |
-| Documents | `application/pdf`, `text/plain`, `text/markdown`, `application/json` |
+| Type             | Media Types                                                                                                                                                                                                                                                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Images           | `image/jpeg`, `image/png`, `image/gif`, `image/webp`                                                                                                                                                                                                                                                                                                                    |
+| Video            | `video/mp4`, `video/webm`, `video/quicktime`, `video/mpeg`                                                                                                                                                                                                                                                                                                              |
+| Documents        | `application/pdf`, `text/plain`, `text/markdown`, `text/csv`, `application/json`                                                                                                                                                                                                                                                                                        |
+| Office documents | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` (`.docx`), `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (`.xlsx`), `application/vnd.openxmlformats-officedocument.presentationml.presentation` (`.pptx`), `application/msword` (`.doc`), `application/vnd.ms-excel` (`.xls`), `application/vnd.ms-powerpoint` (`.ppt`) |
+
+Images, video, PDFs, and text-based formats are sent directly to the model as
+file parts. Office documents are not natively readable by LLM providers, so
+they are surfaced to the agent as presigned download URLs - the agent fetches
+and parses them with code or skills (e.g. via a sandboxed computer).
 
 ## File Limits
 
