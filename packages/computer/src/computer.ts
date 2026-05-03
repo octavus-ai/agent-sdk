@@ -199,6 +199,11 @@ export class Computer implements DeviceProvider, DynamicMcpProvider {
     this.setDegradedEntry(namespace, 'Entry stopped');
   }
 
+  /** Whether an MCP entry has been registered for the given namespace. */
+  hasEntry(namespace: string): boolean {
+    return this.config.mcpServers[namespace] !== undefined;
+  }
+
   /**
    * Add a new MCP entry to a running Computer.
    * When `deferred` is false (default), connects immediately.
