@@ -180,6 +180,68 @@ await computer.stop();
 
 Always call `stop()` when the session ends to clean up MCP subprocesses. For managed processes (like Chrome), pass them in the config for automatic cleanup.
 
+## Dynamic Entries
+
+You can add or remove MCP entries on a running `Computer` after `start()` has returned. This is useful when MCP configurations arrive after construction - for example, when a session-manager receives per-session entries from a dispatch payload and wants to wire them into the existing computer instead of rebuilding it.
+
+### `addEntry(namespace, entry, options?)`
+
+Registers a new MCP entry under `namespace`. By default, connects immediately:
+
+```typescript
+await computer.addEntry(
+  'github',
+  Computer.stdio('@modelcontextprotocol/server-github', [], {
+    env: { GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GH_TOKEN! },
+  }),
+);
+```
+
+Pass `{ deferred: true }` to register the entry without connecting. The entry starts in a degraded state and connects on the next `restartEntry(namespace)` call - useful for lazy MCPs the agent activates on demand:
+
+```typescript
+await computer.addEntry('github', githubEntry, { deferred: true });
+
+// Later, when the agent decides it needs GitHub:
+await computer.restartEntry('github');
+```
+
+`addEntry` throws if the namespace already exists. To replace an entry, call `removeEntry` first.
+
+If the immediate connection fails, `addEntry` does not throw - the entry is registered as degraded with the error message attached. Inspect via `getHealth()` or `restartEntry()` to retry.
+
+### `removeEntry(namespace)`
+
+Closes the entry's connection (if any) and drops it from the configuration. No-op when the namespace doesn't exist:
+
+```typescript
+await computer.removeEntry('github');
+```
+
+### `restartEntry(namespace)`
+
+Closes the existing connection (if any) and reconnects with the current configuration:
+
+```typescript
+await computer.restartEntry('github');
+```
+
+Use this to bring a deferred entry online for the first time, or to recover an entry that became degraded mid-session.
+
+### Detecting dynamic-entry support
+
+Consumers that work with arbitrary `ToolProvider` implementations can detect dynamic-entry capability with `isDynamicMcpProvider`:
+
+```typescript
+import { isDynamicMcpProvider } from '@octavus/server-sdk';
+
+if (isDynamicMcpProvider(provider)) {
+  await provider.addEntry('github', githubEntry);
+}
+```
+
+`Computer` always passes this check.
+
 ## Chrome Launch Helper
 
 For desktop applications that need to control a browser, `Computer.launchChrome()` launches Chrome with remote debugging enabled:
@@ -384,9 +446,37 @@ class Computer implements ToolProvider {
   start(): Promise<{ errors: string[] }>;
   stop(): Promise<void>;
 
+  // Dynamic entries
+  addEntry(namespace: string, entry: McpEntry, options?: { deferred?: boolean }): Promise<void>;
+  removeEntry(namespace: string): Promise<void>;
+  restartEntry(namespace: string): Promise<void>;
+  stopEntry(namespace: string): Promise<void>;
+
+  // Health
+  getHealth(): Promise<ComputerHealth>;
+  ensureReady(): Promise<EnsureReadyResult>;
+  retryDegraded(): Promise<{ recovered: string[]; stillDegraded: string[] }>;
+
   // ToolProvider implementation
   toolHandlers(): Record<string, ToolHandler>;
   toolSchemas(): ToolSchema[];
+}
+
+interface ComputerHealth {
+  healthy: boolean;
+  entries: EntryHealth[];
+  totalTools: number;
+}
+
+interface EntryHealth {
+  name: string;
+  healthy: boolean;
+  error?: string;
+}
+
+interface EnsureReadyResult extends ComputerHealth {
+  recovered?: string[];
+  failedEntries?: string[];
 }
 ```
 
@@ -396,6 +486,8 @@ class Computer implements ToolProvider {
 interface ComputerConfig {
   mcpServers: Record<string, McpEntry>;
   managedProcesses?: { process: ChildProcess }[];
+  /** Namespaces to skip during start() - they begin as degraded and can be connected on demand via restartEntry(). */
+  deferredEntries?: string[];
 }
 
 type McpEntry = StdioConfig | HttpConfig | ShellConfig;

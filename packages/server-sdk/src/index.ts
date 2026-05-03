@@ -40,6 +40,7 @@ export { WorkerError } from '@/worker-error.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
 export { normalizeToolResultImages } from '@/normalize-images.js';
+export { normalizeToolResultOutputFiles } from '@/normalize-output-files.js';
 
 // Agent types (read-only - use @octavus/cli for agent management)
 export type {
@@ -84,6 +85,7 @@ export {
   isFileReference,
   isFileReferenceArray,
   isDeviceProvider,
+  isDynamicMcpProvider,
   // Safe parse helpers
   safeParseStreamEvent,
   safeParseUIMessage,
@@ -92,4 +94,7 @@ export {
   OCTAVUS_SKILL_TOOLS,
   isOctavusSkillTool,
   getSkillSlugFromToolCall,
+  // MCP management
+  OCTAVUS_MCP_TOOLS,
+  isOctavusMcpTool,
 } from '@octavus/core';

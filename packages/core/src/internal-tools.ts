@@ -25,6 +25,8 @@ export const OCTAVUS_INTERNAL_TOOLS = {
   SKILL_LIST: 'octavus_skill_list',
   /** Execute a pre-built skill script */
   SKILL_RUN: 'octavus_skill_run',
+  /** Install a skill on the device for browsing and execution */
+  SKILL_SETUP: 'octavus_skill_setup',
   /** Execute Python/Bash code in sandbox */
   CODE_RUN: 'octavus_code_run',
   /** Create/write files in sandbox */
@@ -87,6 +89,7 @@ export const OCTAVUS_SKILL_TOOLS = {
   SKILL_READ: OCTAVUS_INTERNAL_TOOLS.SKILL_READ,
   SKILL_LIST: OCTAVUS_INTERNAL_TOOLS.SKILL_LIST,
   SKILL_RUN: OCTAVUS_INTERNAL_TOOLS.SKILL_RUN,
+  SKILL_SETUP: OCTAVUS_INTERNAL_TOOLS.SKILL_SETUP,
   CODE_RUN: OCTAVUS_INTERNAL_TOOLS.CODE_RUN,
   FILE_WRITE: OCTAVUS_INTERNAL_TOOLS.FILE_WRITE,
   FILE_READ: OCTAVUS_INTERNAL_TOOLS.FILE_READ,

@@ -3,6 +3,7 @@ import type {
   ToolHandler,
   ToolSchema,
   DeviceProvider,
+  DynamicMcpProvider,
   ComputerHealth,
   EnsureReadyResult,
   EntryHealth,
@@ -50,7 +51,7 @@ interface EntryState {
   error?: string;
 }
 
-export class Computer implements DeviceProvider {
+export class Computer implements DeviceProvider, DynamicMcpProvider {
   private config: ComputerConfig;
   private entries = new Map<string, EntryState>();
   private started = false;
@@ -196,6 +197,48 @@ export class Computer implements DeviceProvider {
       await existing.connection.close().catch(() => {});
     }
     this.setDegradedEntry(namespace, 'Entry stopped');
+  }
+
+  /**
+   * Add a new MCP entry to a running Computer.
+   * When `deferred` is false (default), connects immediately.
+   * When `deferred` is true, registers as degraded (agent calls `restartEntry` to connect).
+   * Throws if the namespace already exists - call `removeEntry` first to replace.
+   */
+  async addEntry(
+    namespace: string,
+    entry: McpEntry,
+    options?: { deferred?: boolean },
+  ): Promise<void> {
+    if (this.config.mcpServers[namespace]) {
+      throw new Error(
+        `MCP entry "${namespace}" already exists. Call removeEntry first to replace.`,
+      );
+    }
+
+    this.config.mcpServers[namespace] = entry;
+
+    if (options?.deferred) {
+      this.setDegradedEntry(namespace, 'Deferred - connect via restartEntry()');
+    } else {
+      try {
+        await this.connectEntry(namespace, entry);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.setDegradedEntry(namespace, errorMessage);
+      }
+    }
+  }
+
+  /** Stop and remove an MCP entry. No-op if the namespace doesn't exist. */
+  async removeEntry(namespace: string): Promise<void> {
+    const existing = this.entries.get(namespace);
+    if (existing?.connection) {
+      await existing.connection.close().catch(() => {});
+    }
+    this.entries.delete(namespace);
+    const { [namespace]: _, ...rest } = this.config.mcpServers;
+    this.config.mcpServers = rest;
   }
 
   /** Restart a specific MCP entry by closing its connection and reconnecting. */

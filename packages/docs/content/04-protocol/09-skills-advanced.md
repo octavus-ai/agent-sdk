@@ -66,6 +66,24 @@ steps:
     maxSteps: 10
 ```
 
+### Execution Mode
+
+The `execution` field is set at the skill definition level and applies to all threads that use the skill:
+
+```yaml
+skills:
+  deploy-tool:
+    display: description
+    description: Deploy applications
+    execution: device # All threads using this skill run it on the device
+  qr-code:
+    display: description
+    description: Generating QR codes
+    # Defaults to sandbox execution
+```
+
+You don't set `execution` per-thread - a skill's execution mode is consistent wherever it's used.
+
 ### Match Skills to Use Cases
 
 Different threads can have different skills. Define all skills at the protocol level, then scope them to each thread:
@@ -311,15 +329,15 @@ Pattern:
 
 When a skill declares secrets and an organization configures them, the skill runs in secure mode with its own isolated sandbox.
 
-### Standard vs Secure Skills
+### Standard vs Secure vs Device Skills
 
-| Aspect              | Standard Skills                   | Secure Skills                                       |
-| ------------------- | --------------------------------- | --------------------------------------------------- |
-| **Sandbox**         | Shared with other standard skills | Isolated (one per skill)                            |
-| **Available tools** | All 6 skill tools                 | `skill_read`, `skill_list`, `skill_run` only        |
-| **Script input**    | CLI arguments via `args`          | JSON via stdin (use `input` parameter)              |
-| **Environment**     | No secrets                        | Secrets as env vars                                 |
-| **Output**          | Raw stdout/stderr                 | Redacted (secret values replaced with `[REDACTED]`) |
+| Aspect              | Standard Skills          | Secure Skills                                       | Device Skills                                          |
+| ------------------- | ------------------------ | --------------------------------------------------- | ------------------------------------------------------ |
+| **Environment**     | Shared sandbox           | Isolated sandbox (one per skill)                    | Agent's computer (VM or desktop)                       |
+| **Available tools** | All 6 skill tools        | `skill_read`, `skill_list`, `skill_run` only        | `skill_read`, `skill_list`, `skill_run`, `skill_setup` |
+| **Script input**    | CLI arguments via `args` | JSON via stdin (use `input` parameter)              | CLI arguments via `args`                               |
+| **Secrets**         | No secrets               | Secrets as env vars                                 | No secrets                                             |
+| **Output**          | Raw stdout/stderr        | Redacted (secret values replaced with `[REDACTED]`) | Raw stdout/stderr                                      |
 
 ### Writing Scripts for Secure Skills
 

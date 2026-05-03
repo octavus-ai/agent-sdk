@@ -77,6 +77,40 @@ export function isDeviceProvider(provider: ToolProvider): provider is DeviceProv
 }
 
 /**
+ * Description of a STDIO MCP entry that can be added dynamically to a provider.
+ * Mirrors the public `Computer.stdio()` factory output shape.
+ */
+export interface DynamicStdioEntry {
+  type: 'stdio';
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+}
+
+/**
+ * Optional capability that lets consumers add or remove MCP entries on a
+ * running provider after construction. Implemented by `@octavus/computer`'s
+ * `Computer` class, used by session-managers that receive per-session MCP
+ * configurations from the dispatch payload.
+ */
+export interface DynamicMcpProvider {
+  addEntry(
+    namespace: string,
+    entry: DynamicStdioEntry,
+    options?: { deferred?: boolean },
+  ): Promise<void>;
+  removeEntry(namespace: string): Promise<void>;
+  restartEntry(namespace: string): Promise<void>;
+}
+
+export function isDynamicMcpProvider(
+  provider: ToolProvider,
+): provider is ToolProvider & DynamicMcpProvider {
+  return 'addEntry' in provider && 'removeEntry' in provider && 'restartEntry' in provider;
+}
+
+/**
  * Reference to an uploaded file.
  * Used in trigger input, user messages, and tool results for file attachments.
  * Compatible with UIFilePart structure for rendering.

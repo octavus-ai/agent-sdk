@@ -33,12 +33,13 @@ mcpServers:
 
 ### Fields
 
-| Field         | Required | Description                                                                           |
-| ------------- | -------- | ------------------------------------------------------------------------------------- |
-| `description` | Yes      | What the MCP server provides                                                          |
-| `source`      | Yes      | `remote` (platform-managed) or `device` (consumer-provided)                           |
-| `display`     | No       | How tool calls appear in UI: `hidden`, `name`, `description` (default: `description`) |
-| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). Remote only.                    |
+| Field         | Required | Description                                                                                             |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `description` | Yes      | What the MCP server provides                                                                            |
+| `source`      | Yes      | `remote` (platform-managed) or `device` (consumer-provided)                                             |
+| `display`     | No       | How tool calls appear in UI: `hidden`, `name`, `description` (default: `description`)                   |
+| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). Remote only.                                      |
+| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. See [Device Execution](#device-execution). |
 
 ### Display Modes
 
@@ -161,7 +162,7 @@ With **lazy connection** (the default), the agent receives two built-in tools - 
 
 With **eager connection**, the platform connects to the MCP server before the first LLM request, exactly like a declared tool. Use this when the agent needs the MCP's tools from the very first message.
 
-The `connection` field is only valid on `source: remote` - device MCPs have their own connection mechanism through the server-sdk.
+The `connection` field is only valid on `source: remote` - device MCPs (`source: device`) have their own connection mechanism through the server-sdk. The `connection` field is respected for remote MCPs with `execution: device` the same way as sandbox MCPs.
 
 ### Authentication
 
@@ -175,6 +176,35 @@ Remote MCP servers support multiple authentication methods:
 | None      | No authentication required      |
 
 Authentication is configured per-project - different projects can connect to the same MCP server with different credentials.
+
+## Device Execution
+
+The `execution` field controls where a remote MCP server's STDIO process runs. By default (`execution: sandbox`), the process runs in the platform's sandbox. When set to `execution: device`, the STDIO process runs on the agent's computer (VM or desktop) instead.
+
+```yaml
+mcpServers:
+  code-tools:
+    description: Code analysis and refactoring tools
+    source: remote
+    execution: device # STDIO process runs on the agent's computer
+    display: name
+
+  sentry:
+    description: Error tracking
+    source: remote
+    # execution defaults to sandbox - runs in the platform
+    display: name
+```
+
+### When to Use
+
+Use `execution: device` when the MCP server needs access to the agent's local environment - for example, tools that read from the local filesystem, interact with running processes, or need CLIs installed on the device.
+
+### Rules
+
+- `execution` is only meaningful for `source: remote` MCPs that use STDIO transport. HTTP-transport remote MCPs always connect from the platform regardless of the `execution` setting.
+- `execution: device` is **invalid** on `source: device` MCPs (they already run on the device by definition). Using it produces a validation error.
+- The `connection` field (`eager` or `lazy`) is respected for device-executed MCPs the same way as sandbox-executed MCPs.
 
 ## Device MCP Servers
 
@@ -253,9 +283,12 @@ onDemandMcpServers:
   remote:
     description: Additional connected integrations
     display: name
+    execution: device # on-demand MCPs run on the agent's computer
     contextRetention:
       toolResults: { retainLast: 5 }
 ```
+
+On-demand MCP definitions also support the `execution` field. When set, all MCPs matched by that on-demand source inherit the execution mode.
 
 ### Scope-level opt-in
 

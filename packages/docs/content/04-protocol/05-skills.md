@@ -5,7 +5,7 @@ description: Using Octavus skills for code execution and specialized capabilitie
 
 # Skills
 
-Skills are knowledge packages that enable agents to execute code and generate files in isolated sandbox environments. Unlike external tools (which you implement in your backend), skills are self-contained packages with documentation and scripts that run in secure sandboxes.
+Skills are knowledge packages that enable agents to execute code and generate files. Unlike external tools (which you implement in your backend), skills are self-contained packages with documentation and scripts. By default, skills run in isolated sandbox environments, but they can also run directly on the agent's computer.
 
 ## Overview
 
@@ -15,8 +15,8 @@ Octavus Skills provide **provider-agnostic** code execution. They work with any 
 
 1. **Skill Definition**: Skills are defined in the protocol's `skills:` section
 2. **Skill Resolution**: Skills are resolved from available sources (see below)
-3. **Sandbox Execution**: When a skill is used, code runs in an isolated sandbox environment
-4. **File Generation**: Files saved to `/output/` are automatically captured and made available for download
+3. **Execution**: Code runs in an isolated sandbox (default) or on the agent's computer
+4. **File Generation**: Files saved to `/output/` are automatically captured and made available for download (sandbox skills)
 
 ### Skill Sources
 
@@ -49,6 +49,7 @@ skills:
 | ------------- | -------- | ------------------------------------------------------------------------------------- |
 | `display`     | No       | How to show in UI: `hidden`, `name`, `description`, `stream` (default: `description`) |
 | `description` | No       | Custom description shown to users (overrides skill's built-in description)            |
+| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                 |
 
 ### Display Modes
 
@@ -107,18 +108,65 @@ This also works for named threads in interactive agents, allowing different thre
 
 When skills are enabled, the LLM has access to these tools:
 
-| Tool                 | Purpose                                 | Availability         |
-| -------------------- | --------------------------------------- | -------------------- |
-| `octavus_skill_read` | Read skill documentation (SKILL.md)     | All skills           |
-| `octavus_skill_list` | List available scripts in a skill       | All skills           |
-| `octavus_skill_run`  | Execute a pre-built script from a skill | All skills           |
-| `octavus_code_run`   | Execute arbitrary Python/Bash code      | Standard skills only |
-| `octavus_file_write` | Create files in the sandbox             | Standard skills only |
-| `octavus_file_read`  | Read files from the sandbox             | Standard skills only |
+| Tool                  | Purpose                                         | Availability                   |
+| --------------------- | ----------------------------------------------- | ------------------------------ |
+| `octavus_skill_read`  | Read skill documentation (SKILL.md)             | All skills                     |
+| `octavus_skill_list`  | List available scripts in a skill               | All skills                     |
+| `octavus_skill_run`   | Execute a pre-built script from a skill         | All skills                     |
+| `octavus_skill_setup` | Install a skill on the device for file browsing | Device skills only             |
+| `octavus_code_run`    | Execute arbitrary Python/Bash code              | Sandbox skills (standard) only |
+| `octavus_file_write`  | Create files in the sandbox                     | Sandbox skills (standard) only |
+| `octavus_file_read`   | Read files from the sandbox                     | Sandbox skills (standard) only |
 
 The LLM learns about available skills through system prompt injection and can use these tools to interact with skills.
 
 Skills that have [secrets](#skill-secrets) configured run in **secure mode**, where only `octavus_skill_read`, `octavus_skill_list`, and `octavus_skill_run` are available. See [Skill Secrets](#skill-secrets) below.
+
+## Device Execution
+
+By default, skills run in an isolated sandbox. When `execution: device` is set, the skill runs on the agent's computer (VM or desktop) instead.
+
+```yaml
+skills:
+  deploy-tool:
+    display: description
+    description: Deploy applications to production
+    execution: device
+  qr-code:
+    display: description
+    description: Generating QR codes
+    # execution defaults to sandbox
+```
+
+### How Device Skills Work
+
+Device skills are installed on the agent's computer so the agent can browse their files and run their scripts directly. After attaching a skill via integrations, the agent uses `octavus_skill_setup` to install it on the device. Once installed, the agent can:
+
+- Read the skill's documentation with `octavus_skill_read`
+- List available scripts with `octavus_skill_list`
+- Run pre-built scripts with `octavus_skill_run`
+
+The generic workspace tools (`octavus_code_run`, `octavus_file_write`, `octavus_file_read`) are **not available** for device skills. Instead, the agent uses the device's own shell and filesystem MCP servers to interact with files and run commands.
+
+### Sandbox vs Device Skills
+
+| Aspect              | Sandbox (default)                  | Device                                                 |
+| ------------------- | ---------------------------------- | ------------------------------------------------------ |
+| **Environment**     | Isolated sandbox                   | Agent's computer (VM or desktop)                       |
+| **Available tools** | All 6 skill tools                  | `skill_read`, `skill_list`, `skill_run`, `skill_setup` |
+| **File access**     | Via `octavus_file_read/write`      | Via device filesystem MCP                              |
+| **Code execution**  | Via `octavus_code_run`             | Via device shell MCP                                   |
+| **Isolation**       | Fully sandboxed                    | Runs alongside other device processes                  |
+| **File output**     | `/output/` directory auto-captured | Files written to device filesystem                     |
+
+### When to Use Device Execution
+
+Use `execution: device` when the skill needs to:
+
+- Access the agent's local filesystem or running processes
+- Use tools or CLIs installed on the device
+- Interact with services running on the device
+- Persist files beyond a single execution cycle
 
 ## Example: QR Code Generation
 
@@ -297,14 +345,14 @@ skills:
 
 ## Comparison: Skills vs Tools vs Provider Options
 
-| Feature            | Octavus Skills    | External Tools      | Provider Tools/Skills |
-| ------------------ | ----------------- | ------------------- | --------------------- |
-| **Execution**      | Isolated sandbox  | Your backend        | Provider servers      |
-| **Provider**       | Any (agnostic)    | N/A                 | Provider-specific     |
-| **Code Execution** | Yes               | No                  | Yes (provider tools)  |
-| **File Output**    | Yes               | No                  | Yes (provider skills) |
-| **Implementation** | Skill packages    | Your code           | Built-in              |
-| **Cost**           | Sandbox + LLM API | Your infrastructure | Included in API       |
+| Feature            | Octavus Skills              | External Tools      | Provider Tools/Skills |
+| ------------------ | --------------------------- | ------------------- | --------------------- |
+| **Execution**      | Sandbox or agent's computer | Your backend        | Provider servers      |
+| **Provider**       | Any (agnostic)              | N/A                 | Provider-specific     |
+| **Code Execution** | Yes                         | No                  | Yes (provider tools)  |
+| **File Output**    | Yes                         | No                  | Yes (provider skills) |
+| **Implementation** | Skill packages              | Your code           | Built-in              |
+| **Cost**           | Sandbox + LLM API           | Your infrastructure | Included in API       |
 
 ## Uploading Custom Skills
 
@@ -343,9 +391,21 @@ agent:
   skills: [my-skill]
 ```
 
+## On-Demand Skills
+
+On-demand skills (`onDemandSkills`) also support the `execution` field:
+
+```yaml
+onDemandSkills:
+  display: description
+  execution: device
+```
+
+When `execution: device` is set on the on-demand skills declaration, any skill attached at runtime via integrations runs on the agent's computer instead of in a sandbox.
+
 ## Sandbox Timeout
 
-The default sandbox timeout is 5 minutes. You can configure a custom timeout using `sandboxTimeout` in the agent config or on individual `start-thread` blocks:
+The default sandbox timeout is 5 minutes (applies to sandbox skills only). You can configure a custom timeout using `sandboxTimeout` in the agent config or on individual `start-thread` blocks:
 
 ```yaml
 # Agent-level timeout (applies to main thread)
@@ -436,13 +496,15 @@ For standard skills (without secrets), scripts receive input as CLI arguments. F
 
 ## Security
 
-Skills run in isolated sandbox environments:
+Sandbox skills run in isolated environments:
 
 - **No network access** (unless explicitly configured)
 - **No persistent storage** (sandbox destroyed after each `next-message` execution)
 - **File output only** via `/output/` directory
 - **Time limits** enforced (5-minute default, configurable via `sandboxTimeout`)
 - **Secret redaction** - output from secure skills is automatically scanned for secret values
+
+Device skills run on the agent's computer and share its environment. They do not have sandbox isolation but benefit from restricted tool access (only slug-bearing tools are available).
 
 ## Next Steps
 
