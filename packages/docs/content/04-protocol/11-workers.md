@@ -416,7 +416,9 @@ steps:
     maxSteps: 10
 ```
 
-Workers define their own skills independently -- they don't inherit skills from a parent interactive agent. Each thread gets its own sandbox scoped to only its listed skills.
+Workers define their own skills independently - they don't inherit skills from a parent interactive agent. Each thread gets its own sandbox scoped to only its listed skills.
+
+Skills with `execution: device` work the same way in workers as in interactive agents - the skill runs on the agent's computer. Workers resolve their device execution independently, so a worker can use device skills even if the parent agent does not.
 
 See [Skills](/docs/protocol/skills) for full documentation.
 
