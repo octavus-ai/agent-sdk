@@ -43,6 +43,16 @@ export interface ToolProvider {
   toolSchemas(): ToolSchema[];
 }
 
+/**
+ * An MCP server defined inline in the consumer's process.
+ * Tools are Zod-typed and execute in the consumer's server via the
+ * tool-request/continue pattern. The namespace prefixes all tool names
+ * with `namespace__toolName` to avoid collisions.
+ */
+export interface InlineMcpServer extends ToolProvider {
+  readonly namespace: string;
+}
+
 /** Health status for a single MCP entry (namespace). */
 export interface EntryHealth {
   name: string;

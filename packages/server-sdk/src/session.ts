@@ -1,6 +1,7 @@
 import {
   createInternalErrorEvent,
   type DynamicTool,
+  type InlineMcpServer,
   type StreamEvent,
   type ToolHandlers,
   type ToolProvider,
@@ -10,6 +11,7 @@ import {
 import type { ApiClientConfig } from '@/base-api-client.js';
 import type { Resource } from '@/resource.js';
 import { executeStream } from '@/streaming.js';
+import { resolveMcpServers } from '@/resolve-mcp-servers.js';
 
 // =============================================================================
 // Request Types
@@ -114,6 +116,8 @@ export interface SessionConfig {
   config: ApiClientConfig;
   tools?: ToolHandlers;
   resources?: Resource[];
+  /** Inline MCP servers providing namespaced, typed tool groups */
+  mcpServers?: InlineMcpServer[];
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
@@ -134,6 +138,9 @@ export class AgentSession {
   private config: ApiClientConfig;
   private toolHandlers: ToolHandlers;
   private resourceMap: Map<string, Resource>;
+  /** Schemas from inline MCP servers passed at construction. Stable for the session's lifetime. */
+  private mcpToolSchemas: ToolSchema[] = [];
+  /** Schemas registered via {@link setDynamicTools}. Mutable across the session. */
   private dynamicToolSchemas: ToolSchema[] | undefined;
   private dynamicToolNames = new Set<string>();
   private socketAbortController: AbortController | null = null;
@@ -143,10 +150,17 @@ export class AgentSession {
   constructor(sessionConfig: SessionConfig) {
     this.sessionId = sessionConfig.sessionId;
     this.config = sessionConfig.config;
-    this.toolHandlers = sessionConfig.tools ?? {};
     this.onToolResults = sessionConfig.onToolResults;
     this.rejectClientToolCalls = sessionConfig.rejectClientToolCalls ?? false;
     this.resourceMap = new Map();
+
+    if (sessionConfig.mcpServers !== undefined && sessionConfig.mcpServers.length > 0) {
+      const resolved = resolveMcpServers(sessionConfig.mcpServers, sessionConfig.tools);
+      this.toolHandlers = resolved.toolHandlers;
+      this.mcpToolSchemas = resolved.dynamicToolSchemas;
+    } else {
+      this.toolHandlers = sessionConfig.tools ?? {};
+    }
 
     for (const resource of sessionConfig.resources ?? []) {
       this.resourceMap.set(resource.name, resource);
@@ -212,6 +226,11 @@ export class AgentSession {
    * Safe to call mid-session: executeStream resolves toolHandlers via
    * a getter on each continuation loop, so new handlers are visible
    * immediately.
+   *
+   * Inline MCP servers passed via `SessionConfig.mcpServers` are kept
+   * separate and remain registered across `setDynamicTools` calls. If
+   * a dynamic tool name collides with an MCP-registered tool, the
+   * dynamic handler wins.
    */
   setDynamicTools(source: ToolProvider | DynamicTool[]): void {
     const tools = Array.isArray(source) ? source : resolveDynamicTools(source);
@@ -307,8 +326,9 @@ export class AgentSession {
             body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
           if (executionId !== undefined) body.executionId = executionId;
           if (toolResults !== undefined) body.toolResults = toolResults;
-          if (this.dynamicToolSchemas !== undefined) {
-            body.dynamicToolSchemas = this.dynamicToolSchemas;
+          const allDynamicSchemas = this.collectDynamicSchemas();
+          if (allDynamicSchemas !== undefined) {
+            body.dynamicToolSchemas = allDynamicSchemas;
           }
           return body;
         },
@@ -327,5 +347,18 @@ export class AgentSession {
     if (resource) {
       void resource.onUpdate(value);
     }
+  }
+
+  /**
+   * Merge MCP-registered schemas with `setDynamicTools`-managed schemas for
+   * the wire request. Returns undefined when both sources are empty so the
+   * field is omitted from the body.
+   */
+  private collectDynamicSchemas(): ToolSchema[] | undefined {
+    const dynamic = this.dynamicToolSchemas ?? [];
+    if (this.mcpToolSchemas.length === 0 && dynamic.length === 0) {
+      return this.dynamicToolSchemas;
+    }
+    return [...this.mcpToolSchemas, ...dynamic];
   }
 }

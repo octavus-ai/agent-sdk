@@ -39,6 +39,7 @@ export {
 export { WorkerError } from '@/worker-error.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
+export { createInlineMcpServer, defineInlineMcpTool } from '@/inline-mcp.js';
 export { normalizeToolResultImages } from '@/normalize-images.js';
 export { normalizeToolResultOutputFiles } from '@/normalize-output-files.js';
 
