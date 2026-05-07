@@ -1,6 +1,7 @@
 import {
   createInternalErrorEvent,
   type DynamicTool,
+  type InlineMcpServer,
   type StreamEvent,
   type ToolHandlers,
   type ToolProvider,
@@ -10,6 +11,7 @@ import {
 import type { ApiClientConfig } from '@/base-api-client.js';
 import type { Resource } from '@/resource.js';
 import { executeStream } from '@/streaming.js';
+import { resolveMcpServers } from '@/resolve-mcp-servers.js';
 
 // =============================================================================
 // Request Types
@@ -114,6 +116,8 @@ export interface SessionConfig {
   config: ApiClientConfig;
   tools?: ToolHandlers;
   resources?: Resource[];
+  /** Inline MCP servers providing namespaced, typed tool groups */
+  mcpServers?: InlineMcpServer[];
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
@@ -132,10 +136,19 @@ export interface TriggerOptions {
 export class AgentSession {
   private sessionId: string;
   private config: ApiClientConfig;
+  /**
+   * Stable handlers from construction (static tools + MCP-namespaced tools).
+   * `setDynamicTools` rebuilds {@link toolHandlers} from this snapshot every
+   * call, so dynamic tools never permanently shadow MCP/static handlers.
+   */
+  private baseHandlers: ToolHandlers;
+  /** Active handler set: {@link baseHandlers} merged with the latest dynamic tools (which override on name collision). */
   private toolHandlers: ToolHandlers;
   private resourceMap: Map<string, Resource>;
+  /** Schemas from inline MCP servers passed at construction. Stable for the session's lifetime. */
+  private mcpToolSchemas: ToolSchema[] = [];
+  /** Schemas registered via {@link setDynamicTools}. Mutable across the session. */
   private dynamicToolSchemas: ToolSchema[] | undefined;
-  private dynamicToolNames = new Set<string>();
   private socketAbortController: AbortController | null = null;
   private onToolResults?: (results: ToolResult[]) => Promise<void>;
   private rejectClientToolCalls: boolean;
@@ -143,10 +156,18 @@ export class AgentSession {
   constructor(sessionConfig: SessionConfig) {
     this.sessionId = sessionConfig.sessionId;
     this.config = sessionConfig.config;
-    this.toolHandlers = sessionConfig.tools ?? {};
     this.onToolResults = sessionConfig.onToolResults;
     this.rejectClientToolCalls = sessionConfig.rejectClientToolCalls ?? false;
     this.resourceMap = new Map();
+
+    if (sessionConfig.mcpServers !== undefined && sessionConfig.mcpServers.length > 0) {
+      const resolved = resolveMcpServers(sessionConfig.mcpServers, sessionConfig.tools);
+      this.baseHandlers = resolved.toolHandlers;
+      this.mcpToolSchemas = resolved.dynamicToolSchemas;
+    } else {
+      this.baseHandlers = sessionConfig.tools ?? {};
+    }
+    this.toolHandlers = { ...this.baseHandlers };
 
     for (const resource of sessionConfig.resources ?? []) {
       this.resourceMap.set(resource.name, resource);
@@ -212,24 +233,24 @@ export class AgentSession {
    * Safe to call mid-session: executeStream resolves toolHandlers via
    * a getter on each continuation loop, so new handlers are visible
    * immediately.
+   *
+   * Inline MCP servers passed via `SessionConfig.mcpServers` and the
+   * `tools` from `attach()` are stored as a stable base and re-applied
+   * on every call, so they survive across `setDynamicTools` invocations.
+   * If a dynamic tool name collides with a base handler, the dynamic
+   * handler wins for the duration of the current dynamic-tool set; the
+   * base handler is restored on the next `setDynamicTools` call that
+   * doesn't re-register the same name.
    */
   setDynamicTools(source: ToolProvider | DynamicTool[]): void {
     const tools = Array.isArray(source) ? source : resolveDynamicTools(source);
-    const newNames = new Set(tools.map((t) => t.schema.name));
 
-    const cleaned: ToolHandlers = {};
-    for (const [name, handler] of Object.entries(this.toolHandlers)) {
-      if (!this.dynamicToolNames.has(name)) {
-        cleaned[name] = handler;
-      }
-    }
-
+    const next: ToolHandlers = { ...this.baseHandlers };
     for (const tool of tools) {
-      cleaned[tool.schema.name] = tool.handler;
+      next[tool.schema.name] = tool.handler;
     }
 
-    this.toolHandlers = cleaned;
-    this.dynamicToolNames = newNames;
+    this.toolHandlers = next;
     this.dynamicToolSchemas = tools.map((t) => t.schema);
   }
 
@@ -307,8 +328,9 @@ export class AgentSession {
             body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
           if (executionId !== undefined) body.executionId = executionId;
           if (toolResults !== undefined) body.toolResults = toolResults;
-          if (this.dynamicToolSchemas !== undefined) {
-            body.dynamicToolSchemas = this.dynamicToolSchemas;
+          const allDynamicSchemas = this.collectDynamicSchemas();
+          if (allDynamicSchemas !== undefined) {
+            body.dynamicToolSchemas = allDynamicSchemas;
           }
           return body;
         },
@@ -327,5 +349,15 @@ export class AgentSession {
     if (resource) {
       void resource.onUpdate(value);
     }
+  }
+
+  /**
+   * Merge MCP-registered schemas with `setDynamicTools`-managed schemas for
+   * the wire request. Returns undefined when no MCP schemas are present and
+   * no dynamic schemas have been set, so the field is omitted from the body.
+   */
+  private collectDynamicSchemas(): ToolSchema[] | undefined {
+    if (this.mcpToolSchemas.length === 0) return this.dynamicToolSchemas;
+    return [...this.mcpToolSchemas, ...(this.dynamicToolSchemas ?? [])];
   }
 }

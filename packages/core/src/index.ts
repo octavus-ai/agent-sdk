@@ -58,6 +58,7 @@ export type {
   ToolHandlers,
   ToolSchema,
   ToolProvider,
+  InlineMcpServer,
   DynamicTool,
   EntryHealth,
   ComputerHealth,

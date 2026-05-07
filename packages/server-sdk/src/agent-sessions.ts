@@ -3,6 +3,7 @@ import {
   chatMessageSchema,
   uiMessageSchema,
   type ChatMessage,
+  type InlineMcpServer,
   type ToolHandlers,
   type ToolResult,
   type UIMessage,
@@ -95,6 +96,8 @@ export interface ClearSessionResult {
 export interface SessionAttachOptions {
   tools?: ToolHandlers;
   resources?: Resource[];
+  /** Inline MCP servers providing namespaced, typed tool groups */
+  mcpServers?: InlineMcpServer[];
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
@@ -209,6 +212,7 @@ export class AgentSessionsApi extends BaseApiClient {
       config: this.config,
       tools: options.tools,
       resources: options.resources,
+      mcpServers: options.mcpServers,
       onToolResults: options.onToolResults,
       rejectClientToolCalls: options.rejectClientToolCalls,
     });
