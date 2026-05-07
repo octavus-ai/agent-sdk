@@ -2,6 +2,12 @@ import { type z, toJSONSchema } from 'zod';
 import type { InlineMcpServer, ToolHandler, ToolSchema } from '@octavus/core';
 
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
+/**
+ * Tool name format. Mirrors the right-hand side of the platform's
+ * MCP-namespaced tool name pattern so the resulting `${namespace}__${tool}`
+ * matches what the runtime and LLM providers accept.
+ */
+const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
 interface InlineMcpToolDefinition<T extends z.ZodType = z.ZodType> {
   description: string;
@@ -17,6 +23,14 @@ function validateNamespace(namespace: string): void {
   if (!NAMESPACE_PATTERN.test(namespace)) {
     throw new Error(
       `Invalid MCP namespace "${namespace}". Must contain only lowercase letters, digits, and hyphens, and start with a letter.`,
+    );
+  }
+}
+
+function validateToolName(toolName: string, namespace: string): void {
+  if (!TOOL_NAME_PATTERN.test(toolName)) {
+    throw new Error(
+      `Invalid MCP tool name "${toolName}" in namespace "${namespace}". Must contain only lowercase letters, digits, underscores, and hyphens, and start with a letter.`,
     );
   }
 }
@@ -112,6 +126,7 @@ export function createInlineMcpServer(
   const handlers: Record<string, ToolHandler> = {};
 
   for (const [toolName, def] of Object.entries(config.tools)) {
+    validateToolName(toolName, namespace);
     const namespacedName = `${namespace}__${toolName}`;
 
     const jsonSchema = toJSONSchema(def.parameters) as Record<string, unknown>;

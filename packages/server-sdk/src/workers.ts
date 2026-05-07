@@ -227,16 +227,18 @@ export class WorkersApi extends BaseApiClient {
     toolResults: ToolResult[],
     options: WorkerExecuteOptions = {},
   ): AsyncGenerator<StreamEvent> {
+    // `continue` only forwards results - dynamic tool schemas are sent on the
+    // initial `start` request and never repeated, so we resolve handlers only.
     const mcpServers = options.mcpServers;
-    const resolved =
+    const toolHandlers =
       mcpServers !== undefined && mcpServers.length > 0
-        ? resolveMcpServers(mcpServers, options.tools)
-        : { toolHandlers: options.tools ?? {} };
+        ? resolveMcpServers(mcpServers, options.tools).toolHandlers
+        : (options.tools ?? {});
 
     yield* executeStream(
       {
         config: this.config,
-        getToolHandlers: () => resolved.toolHandlers,
+        getToolHandlers: () => toolHandlers,
         url: `${this.config.baseUrl}/api/agents/${agentId}/execute`,
         buildBody: ({ executionId: execId, toolResults: results }) => ({
           type: 'continue',

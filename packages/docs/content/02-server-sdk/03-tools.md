@@ -9,18 +9,19 @@ Tools extend what agents can do. In Octavus, tools can execute either on your se
 
 ## Server Tools vs Client Tools
 
-| Location   | Use Case                                          | Registration                                     |
-| ---------- | ------------------------------------------------- | ------------------------------------------------ |
-| **Server** | Database queries, API calls, sensitive operations | Register handler in `attach()`                   |
-| **MCP**    | Browser, filesystem, shell, external services     | Via `session.setDynamicTools()` after `attach()` |
-| **Client** | Browser APIs, interactive UIs, confirmations      | No server handler (forwarded to client)          |
+| Location       | Use Case                                          | Registration                                             |
+| -------------- | ------------------------------------------------- | -------------------------------------------------------- |
+| **Server**     | Database queries, API calls, sensitive operations | Register handler in `attach()`                           |
+| **Inline MCP** | Group an integration's tools (GitHub, Salesforce) | [`createInlineMcpServer()`](/docs/server-sdk/inline-mcp) |
+| **Computer**   | Browser, filesystem, shell, external services     | [`session.setDynamicTools()`](/docs/server-sdk/computer) |
+| **Client**     | Browser APIs, interactive UIs, confirmations      | No server handler (forwarded to client)                  |
 
 When the Server SDK encounters a tool call:
 
-1. **Handler exists** (server or dynamic) → Execute on server, continue automatically
+1. **Handler exists** (server, inline MCP, or dynamic) → Execute on server, continue automatically
 2. **No handler** → Forward to client via `client-tool-request` event
 
-MCP tool handlers registered via `session.setDynamicTools()` (e.g., from `@octavus/computer`) work identically to manual handlers from the platform's perspective. See [Computer](/docs/server-sdk/computer) for MCP tool integration.
+Inline MCP tools and dynamic tools registered via `session.setDynamicTools()` (e.g., from `@octavus/computer`) work identically to manual handlers from the platform's perspective. See [Inline MCP Servers](/docs/server-sdk/inline-mcp) for namespaced consumer-defined tool groups, and [Computer](/docs/server-sdk/computer) for device-side MCPs.
 
 For client-side tool handling, see [Client Tools](/docs/client-sdk/client-tools).
 

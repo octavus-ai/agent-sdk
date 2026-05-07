@@ -7,12 +7,13 @@ description: Connecting agents to external tools via Model Context Protocol (MCP
 
 MCP servers extend your agent with tools from external services. Define them in your protocol, and agents automatically discover and use their tools at runtime.
 
-There are two types of MCP servers:
+There are three types of MCP servers:
 
-| Source   | Description                                                        | Example                        |
-| -------- | ------------------------------------------------------------------ | ------------------------------ |
-| `remote` | HTTP-based MCP servers, managed by the platform                    | Figma, Sentry, GitHub          |
-| `device` | Local MCP servers running on the consumer's machine via server-sdk | Browser automation, filesystem |
+| Source     | Description                                                                         | Example                               |
+| ---------- | ----------------------------------------------------------------------------------- | ------------------------------------- |
+| `remote`   | HTTP-based MCP servers, managed by the platform                                     | Figma, Sentry, GitHub                 |
+| `device`   | Local MCP servers running on the agent's machine via `@octavus/computer`            | Browser automation, filesystem        |
+| `consumer` | Inline MCP servers defined in your server-sdk process via `createInlineMcpServer()` | Custom integrations, third-party APIs |
 
 ## Defining MCP Servers
 
@@ -29,17 +30,22 @@ mcpServers:
     description: Chrome DevTools browser automation
     source: device
     display: name
+
+  github:
+    description: Repository management - issues, pull requests, code
+    source: consumer
+    display: name
 ```
 
 ### Fields
 
-| Field         | Required | Description                                                                                             |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `description` | Yes      | What the MCP server provides                                                                            |
-| `source`      | Yes      | `remote` (platform-managed) or `device` (consumer-provided)                                             |
-| `display`     | No       | How tool calls appear in UI: `hidden`, `name`, `description` (default: `description`)                   |
-| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). Remote only.                                      |
-| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. See [Device Execution](#device-execution). |
+| Field         | Required | Description                                                                                                            |
+| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `description` | Yes      | What the MCP server provides                                                                                           |
+| `source`      | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                             |
+| `display`     | No       | How tool calls appear in UI: `hidden`, `name`, `description` (default: `description`)                                  |
+| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                   |
+| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution). |
 
 ### Display Modes
 
@@ -122,9 +128,13 @@ Device MCP tools (auto-discovered):
   filesystem__read_file
   filesystem__write_file
   filesystem__list_directory
+
+Consumer MCP tools (provided by the server-sdk):
+  github__get-pr-overview
+  github__list-issues
 ```
 
-You don't define individual MCP tool schemas in the protocol - they're auto-discovered from each MCP server at runtime.
+You don't define individual MCP tool schemas in the protocol - remote and device tools are auto-discovered from each MCP server at runtime, and consumer tools are supplied by the server-sdk.
 
 ## Remote MCP Servers
 
@@ -203,7 +213,7 @@ Use `execution: device` when the MCP server needs access to the agent's local en
 ### Rules
 
 - `execution` is only meaningful for `source: remote` MCPs that use STDIO transport. HTTP-transport remote MCPs always connect from the platform regardless of the `execution` setting.
-- `execution: device` is **invalid** on `source: device` MCPs (they already run on the device by definition). Using it produces a validation error.
+- `execution` is **invalid** on `source: device` and `source: consumer` MCPs - they already run outside the platform. Using it produces a validation error.
 - The `connection` field (`eager` or `lazy`) is respected for device-executed MCPs the same way as sandbox-executed MCPs.
 
 ## Device MCP Servers
@@ -242,6 +252,55 @@ const computer = new Computer({
 ```
 
 If the consumer provides a namespace not declared in the protocol, the platform rejects it.
+
+## Consumer MCP Servers
+
+Consumer MCP servers (`source: consumer`) are defined inline in your server-sdk process. Tool schemas and handlers live in your code; the platform learns the namespace from the protocol and routes tool calls to your process via the same `dynamicToolSchemas` channel that device MCPs use.
+
+```yaml
+mcpServers:
+  github:
+    description: Repository management - issues, pull requests, code
+    source: consumer
+    display: name
+
+agent:
+  mcpServers:
+    - github
+```
+
+The protocol declaration is intentionally minimal - the SDK supplies tool names and JSON schemas at runtime, so adding or evolving tools doesn't require a protocol change.
+
+Use consumer MCPs when:
+
+- The integration's credentials should never reach the platform (OAuth tokens, customer API keys).
+- You want to group an integration's tools (`github__list-prs`, `github__get-issue`) without enumerating each one in YAML.
+- You want type-safe handler arguments via Zod schemas.
+
+See [`createInlineMcpServer`](/docs/server-sdk/inline-mcp) in the server-sdk reference for the full implementation guide.
+
+### Namespace Matching
+
+The protocol namespace must match the namespace passed to `createInlineMcpServer()`:
+
+```yaml
+# protocol.yaml
+mcpServers:
+  github: # ← must match
+    source: consumer
+```
+
+```typescript
+const github = createInlineMcpServer('github', {
+  /* tools... */
+});
+
+session = client.agentSessions.attach(sessionId, {
+  mcpServers: [github],
+});
+```
+
+If the SDK provides a namespace not declared in the protocol, those tools are filtered out at the runtime boundary and the LLM never sees them.
 
 ## Thread-Level Scoping
 
