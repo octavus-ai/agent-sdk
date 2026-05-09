@@ -1,57 +1,24 @@
-import { z } from 'zod';
-import {
-  chatMessageSchema,
-  uiMessageSchema,
-  type ChatMessage,
-  type InlineMcpServer,
-  type ToolHandlers,
-  type ToolResult,
-  type UIMessage,
+import type {
+  ChatMessage,
+  ExecutionLogEntry,
+  InlineMcpServer,
+  ToolHandlers,
+  ToolResult,
+  UIMessage,
 } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
 import { throwApiError } from '@/api-error.js';
 import { AgentSession } from '@/session.js';
 import type { Resource } from '@/resource.js';
-
-const createSessionResponseSchema = z.object({
-  sessionId: z.string(),
-});
-
-const sessionStateSchema = z.object({
-  id: z.string(),
-  agentId: z.string(),
-  input: z.record(z.string(), z.unknown()),
-  variables: z.record(z.string(), z.unknown()),
-  resources: z.record(z.string(), z.unknown()),
-  messages: z.array(chatMessageSchema),
-  status: z.literal('active').optional(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-
-const uiSessionResponseSchema = z.object({
-  sessionId: z.string(),
-  agentId: z.string(),
-  messages: z.array(uiMessageSchema),
-  status: z.literal('active').optional(),
-});
-
-const expiredSessionResponseSchema = z.object({
-  sessionId: z.string(),
-  agentId: z.string(),
-  status: z.literal('expired'),
-  createdAt: z.string(),
-});
-
-const restoreSessionResponseSchema = z.object({
-  sessionId: z.string(),
-  restored: z.boolean(),
-});
-
-const clearSessionResponseSchema = z.object({
-  sessionId: z.string(),
-  cleared: z.boolean(),
-});
+import {
+  createSessionResponseSchema,
+  sessionStateSchema,
+  uiSessionResponseSchema,
+  expiredSessionResponseSchema,
+  restoreSessionResponseSchema,
+  clearSessionResponseSchema,
+  executionLogsResponseSchema,
+} from '@/agent-session-schemas.js';
 
 /** Session status indicating whether it's active or expired */
 export type SessionStatus = 'active' | 'expired';
@@ -91,6 +58,20 @@ export interface RestoreSessionResult {
 export interface ClearSessionResult {
   sessionId: string;
   cleared: boolean;
+}
+
+export interface GetLogsOptions {
+  /** Exclude model-request entries (which contain large provider payloads) */
+  excludeModelRequests?: boolean;
+}
+
+export interface ExecutionLogsResult {
+  sessionId: string;
+  entries: ExecutionLogEntry[];
+  /** Total number of entries available server-side. May exceed `entries.length` when the response was capped. */
+  total?: number;
+  /** True when the response was capped and only the most recent entries were returned. */
+  truncated?: boolean;
 }
 
 export interface SessionAttachOptions {
@@ -203,6 +184,47 @@ export class AgentSessionsApi extends BaseApiClient {
    */
   async clear(sessionId: string): Promise<ClearSessionResult> {
     return await this.httpDelete(`/api/agent-sessions/${sessionId}`, clearSessionResponseSchema);
+  }
+
+  /**
+   * Get execution logs for a session.
+   * Returns the chronological trace of everything that happened during execution.
+   *
+   * Entries are typed as `ExecutionLogEntry` (a discriminated union) for convenient
+   * narrowing on `entry.type`. New entry types may be added server-side - include a
+   * `default` case when switching on `type` to handle unknown variants gracefully.
+   *
+   * For expired sessions, returns status: 'expired' without entries.
+   */
+  async getLogs(
+    sessionId: string,
+    options?: GetLogsOptions,
+  ): Promise<ExecutionLogsResult | ExpiredSessionState> {
+    const params = new URLSearchParams();
+    if (options?.excludeModelRequests) {
+      params.set('excludeModelRequests', 'true');
+    }
+
+    const query = params.toString();
+    const url = `${this.config.baseUrl}/api/agent-sessions/${sessionId}/logs${query ? `?${query}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.config.getHeaders(),
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Request failed');
+    }
+
+    const data: unknown = await response.json();
+
+    const expiredResult = expiredSessionResponseSchema.safeParse(data);
+    if (expiredResult.success) {
+      return expiredResult.data;
+    }
+
+    return executionLogsResponseSchema.parse(data) as ExecutionLogsResult;
   }
 
   /** Attach to an existing session for triggering events */

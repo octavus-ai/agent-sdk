@@ -173,3 +173,30 @@ export {
 
 // Skill utilities
 export { getSkillSlugFromToolCall } from './skills';
+
+// Execution log types
+export type {
+  LogEntryFile,
+  LoggedToolCall,
+  ModelRequestTrace,
+  StepStatsTrace,
+  ExecutionLogError,
+  ExecutionLogEntryType,
+  ExecutionLogEntryBase,
+  TriggerLogEntry,
+  MessageLogEntry,
+  ToolCallLogEntry,
+  ToolResultLogEntry,
+  LlmToolRequestLogEntry,
+  LlmResponseLogEntry,
+  ReasoningLogEntry,
+  ThreadCreatedLogEntry,
+  BlockOperationLogEntry,
+  ModelRequestLogEntry,
+  StepStatsLogEntry,
+  WorkerExecutionLogEntry,
+  WorkerOutputLogEntry,
+  AbortLogEntry,
+  ErrorLogEntry,
+  ExecutionLogEntry,
+} from './execution-log';

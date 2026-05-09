@@ -9,6 +9,8 @@ export {
   type ClearSessionResult,
   type SessionStatus,
   type SessionAttachOptions,
+  type GetLogsOptions,
+  type ExecutionLogsResult,
 } from '@/agent-sessions.js';
 export {
   FilesApi,
