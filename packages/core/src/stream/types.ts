@@ -787,6 +787,12 @@ export interface MessagePart {
   todo?: TodoInfo;
   /** Thread name for non-main-thread content (e.g., "summary") */
   thread?: string;
+  /**
+   * Provider-specific metadata for this part (e.g., Anthropic reasoning signature).
+   * Stored per-part so each reasoning block retains its individual metadata
+   * for faithful round-trip to the provider on subsequent requests.
+   */
+  providerMetadata?: ProviderMetadata;
 }
 
 /**

@@ -439,6 +439,10 @@ export const todoInfoSchema = z.object({
   todos: z.array(todoItemSchema),
 });
 
+// Provider metadata is a nested record matching the ProviderMetadata TS type
+// (`Record<string, Record<string, unknown>>`).
+const providerMetadataSchema = z.record(z.string(), z.record(z.string(), z.unknown())).optional();
+
 // Base message part schema (without worker, for non-recursive use in worker nested parts)
 const baseMessagePartSchema = z.object({
   type: z.enum(['text', 'reasoning', 'tool-call', 'operation', 'source', 'file', 'object', 'todo']),
@@ -451,6 +455,7 @@ const baseMessagePartSchema = z.object({
   object: objectInfoSchema.optional(),
   todo: todoInfoSchema.optional(),
   thread: z.string().optional(),
+  providerMetadata: providerMetadataSchema,
 });
 
 // Worker part info schema (nested parts use base schema to avoid infinite recursion)
@@ -477,6 +482,7 @@ export const messagePartSchema = z.object({
   worker: workerPartInfoSchema.optional(),
   todo: todoInfoSchema.optional(),
   thread: z.string().optional(),
+  providerMetadata: providerMetadataSchema,
 });
 
 export const chatMessageSchema = z.object({
