@@ -55,15 +55,15 @@ export const clearSessionResponseSchema = z.object({
  * adds new entry types - unknown types pass through instead of failing validation.
  * Consumers narrow on `entry.type` using the TypeScript discriminated union.
  */
-const executionLogEntrySchema = z
-  .object({
-    id: z.string(),
-    timestamp: z.string(),
-    type: z.string(),
-  })
-  .passthrough();
+const executionLogEntrySchema = z.looseObject({
+  id: z.string(),
+  timestamp: z.string(),
+  type: z.string(),
+});
 
 export const executionLogsResponseSchema = z.object({
   sessionId: z.string(),
   entries: z.array(executionLogEntrySchema),
+  total: z.number().optional(),
+  truncated: z.boolean().optional(),
 });

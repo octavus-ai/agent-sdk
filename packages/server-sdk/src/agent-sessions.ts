@@ -68,6 +68,10 @@ export interface GetLogsOptions {
 export interface ExecutionLogsResult {
   sessionId: string;
   entries: ExecutionLogEntry[];
+  /** Total number of entries available server-side. May exceed `entries.length` when the response was capped. */
+  total?: number;
+  /** True when the response was capped and only the most recent entries were returned. */
+  truncated?: boolean;
 }
 
 export interface SessionAttachOptions {

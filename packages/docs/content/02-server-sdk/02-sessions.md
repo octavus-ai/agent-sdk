@@ -75,6 +75,67 @@ console.log({
 
 > **Note**: Use `getMessages()` for client-facing code. The `get()` method returns internal message format that includes hidden content not intended for end users.
 
+## Getting Execution Logs
+
+`getLogs()` returns the chronological execution trace for a session - triggers, messages, tool calls, LLM responses, errors, and other events emitted while the agent ran. Useful for debugging, observability, and building custom timeline views.
+
+```typescript
+const result = await client.agentSessions.getLogs(sessionId);
+
+if (result.status === 'expired') {
+  console.log('Session expired:', result.sessionId);
+} else {
+  for (const entry of result.entries) {
+    console.log(entry.type, entry.timestamp);
+  }
+}
+```
+
+Each entry is a typed variant of `ExecutionLogEntry` (a discriminated union) so consumers can narrow on `entry.type`:
+
+```typescript
+const result = await client.agentSessions.getLogs(sessionId);
+
+if (result.status !== 'expired') {
+  const toolCalls = result.entries.filter((e) => e.type === 'tool-call');
+  for (const call of toolCalls) {
+    // call.toolName, call.toolArguments are typed without optional chaining
+    console.log(call.toolName, call.toolArguments);
+  }
+}
+```
+
+### Excluding Model Request Payloads
+
+Model-request entries include the full provider request body and can be large. Pass `excludeModelRequests: true` to skip them:
+
+```typescript
+const result = await client.agentSessions.getLogs(sessionId, {
+  excludeModelRequests: true,
+});
+```
+
+### Truncation
+
+Responses are capped at 1000 entries (most recent). When the log exceeds that cap, the response includes `total` and `truncated` so consumers can detect this:
+
+```typescript
+const result = await client.agentSessions.getLogs(sessionId);
+
+if (result.status !== 'expired' && result.truncated) {
+  console.warn(`Showing latest 1000 of ${result.total} entries`);
+}
+```
+
+### Response Types
+
+| Status    | Type                  | Description                                                                                  |
+| --------- | --------------------- | -------------------------------------------------------------------------------------------- |
+| `active`  | `ExecutionLogsResult` | `{ sessionId, entries, total?, truncated? }`. `total` and `truncated` are present when known |
+| `expired` | `ExpiredSessionState` | `{ sessionId, agentId, status: 'expired', createdAt }`                                       |
+
+> **Forward-compatible types**: `ExecutionLogEntry` may gain new variants over time. Include a `default` case when switching on `entry.type` so unknown variants are handled gracefully.
+
 ## Attaching to Sessions
 
 To trigger actions on a session, you need to attach to it first:
