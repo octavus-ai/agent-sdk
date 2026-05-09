@@ -451,6 +451,7 @@ const baseMessagePartSchema = z.object({
   object: objectInfoSchema.optional(),
   todo: todoInfoSchema.optional(),
   thread: z.string().optional(),
+  providerMetadata: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
 });
 
 // Worker part info schema (nested parts use base schema to avoid infinite recursion)
@@ -477,6 +478,7 @@ export const messagePartSchema = z.object({
   worker: workerPartInfoSchema.optional(),
   todo: todoInfoSchema.optional(),
   thread: z.string().optional(),
+  providerMetadata: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
 });
 
 export const chatMessageSchema = z.object({
