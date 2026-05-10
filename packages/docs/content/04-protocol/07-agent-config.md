@@ -21,25 +21,25 @@ agent:
 
 ## Configuration Options
 
-| Field            | Required | Description                                                                    |
-| ---------------- | -------- | ------------------------------------------------------------------------------ |
-| `model`          | Yes      | Model identifier or variable reference                                         |
-| `backupModel`    | No       | Backup model for automatic failover on provider errors                         |
-| `system`         | Yes      | System prompt filename (without .md)                                           |
-| `input`          | No       | Variables to pass to the system prompt                                         |
-| `tools`          | No       | List of tools the LLM can call                                                 |
-| `mcpServers`     | No       | List of MCP servers to connect (see [MCP Servers](/docs/protocol/mcp-servers)) |
-| `skills`         | No       | List of Octavus skills the LLM can use                                         |
-| `references`     | No       | List of references the LLM can fetch on demand                                 |
-| `sandboxTimeout` | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                      |
-| `imageModel`     | No       | Image generation model (enables agentic image generation)                      |
-| `webSearch`      | No       | Enable built-in web search tool (provider-agnostic)                            |
-| `agentic`        | No       | Allow multiple tool call cycles                                                |
-| `maxSteps`       | No       | Maximum agentic steps (default: 10)                                            |
-| `temperature`    | No       | Model temperature (0-2)                                                        |
-| `thinking`       | No       | Extended reasoning level                                                       |
-| `cache`          | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                    |
-| `anthropic`      | No       | Anthropic-specific options (tools, skills)                                     |
+| Field            | Required | Description                                                                              |
+| ---------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `model`          | Yes      | Model identifier or variable reference                                                   |
+| `backupModel`    | No       | Backup model for automatic failover on provider errors                                   |
+| `system`         | Yes      | System prompt filename (without .md)                                                     |
+| `input`          | No       | Variables to pass to the system prompt                                                   |
+| `tools`          | No       | List of tools the LLM can call                                                           |
+| `mcpServers`     | No       | List of MCP servers to connect (see [MCP Servers](/docs/protocol/mcp-servers))           |
+| `skills`         | No       | List of Octavus skills the LLM can use                                                   |
+| `references`     | No       | List of references the LLM can fetch on demand                                           |
+| `sandboxTimeout` | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                                |
+| `imageModel`     | No       | Image generation model (enables agentic image generation)                                |
+| `webSearch`      | No       | Enable built-in web search tool (provider-agnostic)                                      |
+| `agentic`        | No       | Allow multiple tool call cycles                                                          |
+| `maxSteps`       | No       | Maximum agentic steps (default: 10) - literal or variable reference                      |
+| `temperature`    | No       | Model temperature (0-2), `"off"`, or a variable reference                                |
+| `thinking`       | No       | Extended reasoning level (`low`/`medium`/`high`/`max`), `"off"`, or a variable reference |
+| `cache`          | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                              |
+| `anthropic`      | No       | Anthropic-specific options (tools, skills)                                               |
 
 ## Models
 
@@ -222,14 +222,15 @@ Enable extended reasoning for complex tasks:
 ```yaml
 agent:
   model: anthropic/claude-sonnet-4-5
-  thinking: medium # low | medium | high
+  thinking: medium # low | medium | high | max
 ```
 
-| Level    | Use Case            |
-| -------- | ------------------- |
-| `low`    | Simple reasoning    |
-| `medium` | Moderate complexity |
-| `high`   | Complex analysis    |
+| Level    | Use Case                           |
+| -------- | ---------------------------------- |
+| `low`    | Simple reasoning                   |
+| `medium` | Moderate complexity                |
+| `high`   | Complex analysis                   |
+| `max`    | Maximum reasoning budget available |
 
 Thinking content streams to the UI and can be displayed to users.
 
@@ -237,15 +238,15 @@ Thinking content streams to the UI and can be displayed to users.
 
 Each provider translates `thinking` into its own reasoning controls:
 
-| Provider                                                                   | Level mapping                                                                                     |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Anthropic 4.6+ (`claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`) | Adaptive thinking - the model decides how much to reason, guided by `effort: low / medium / high` |
-| Anthropic older (4.5 and earlier)                                          | Fixed token budgets: `low` ~5,000, `medium` ~10,000, `high` ~20,000                               |
-| OpenAI (GPT-5.x, o-series)                                                 | `reasoningEffort: low / medium / high`                                                            |
-| Google (Gemini 3.x)                                                        | `thinkingLevel: low / high` (`medium` rounds up to `high`)                                        |
-| Google (Gemini 1.x / 2.x)                                                  | Token budgets: `low` 1,024, `medium` 8,192, `high` 24,576                                         |
-| OpenRouter                                                                 | Unified `reasoning.max_tokens` (translated upstream)                                              |
-| Vercel AI Gateway                                                          | Forwards the underlying provider's options                                                        |
+| Provider                                                                   | Level mapping                                                                                           |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Anthropic 4.6+ (`claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`) | Adaptive thinking - the model decides how much to reason, guided by `effort: low / medium / high / max` |
+| Anthropic older (4.5 and earlier)                                          | Fixed token budgets: `low` ~5,000, `medium` ~10,000, `high` ~20,000, `max` ~40,000                      |
+| OpenAI (GPT-5.x, o-series)                                                 | `reasoningEffort: low / medium / high` (`max` maps to `high`)                                           |
+| Google (Gemini 3.x)                                                        | `thinkingLevel: low / high` (`medium` rounds up to `high`)                                              |
+| Google (Gemini 1.x / 2.x)                                                  | Token budgets: `low` 1,024, `medium` 8,192, `high` 24,576, `max` 65,536                                 |
+| OpenRouter                                                                 | Unified `reasoning.max_tokens` (translated upstream)                                                    |
+| Vercel AI Gateway                                                          | Forwards the underlying provider's options                                                              |
 
 ## Prompt Caching
 
@@ -452,6 +453,68 @@ agent:
 - `0.4 - 0.7`: Balanced (good default)
 - `0.8 - 1.2`: Creative, varied responses
 - `> 1.2`: Very creative (may be inconsistent)
+
+## Dynamic Configuration
+
+Like `model`, the `temperature`, `thinking`, and `maxSteps` fields can also reference an input variable. Consumers choose values at session creation, so the same agent can be tuned per call without protocol changes:
+
+```yaml
+input:
+  TEMPERATURE:
+    type: number
+    description: Override temperature (0-2)
+    optional: true
+  THINKING:
+    type: string
+    description: Override thinking effort (low/medium/high/max, or "off")
+    optional: true
+  MAX_STEPS:
+    type: integer
+    description: Override max agentic steps
+    optional: true
+
+agent:
+  model: anthropic/claude-sonnet-4-5
+  temperature: TEMPERATURE
+  thinking: THINKING
+  maxSteps: MAX_STEPS
+  system: system
+```
+
+When creating a session, pass the values in their natural type:
+
+```typescript
+const sessionId = await client.agentSessions.create('my-agent', {
+  TEMPERATURE: 0.7,
+  THINKING: 'medium',
+  MAX_STEPS: 5,
+});
+```
+
+### Accepted values
+
+The resolver accepts the natural type for each field, plus a string fallback so consumers can pass values from form inputs without coercing first.
+
+| Field         | Suggested input type                       | Value at session creation                          |
+| ------------- | ------------------------------------------ | -------------------------------------------------- |
+| `temperature` | `number` (or `string` for `"off"` support) | A number `0`-`2`, a numeric string, or `"off"`     |
+| `thinking`    | `string`                                   | `"low"`, `"medium"`, `"high"`, `"max"`, or `"off"` |
+| `maxSteps`    | `integer` (or `string`)                    | A positive integer or a positive integer string    |
+
+The protocol's `input:` declaration enforces what the consumer can pass. Pick `type: number` / `type: integer` if you want native numeric overrides; pick `type: string` (or `type: unknown`) if you also need to pass the `"off"` sentinel for `temperature`.
+
+### Explicit "off" vs not set
+
+`temperature` and `thinking` accept an explicit `"off"` value to disable the field at session creation. This is different from omitting the variable:
+
+- **Variable not provided** -> the field is unset; the provider uses its default behavior
+- **Variable provided as `"off"`** -> the field is explicitly disabled (no temperature emitted, reasoning disabled)
+
+The distinction matters because `temperature` and `thinking` are mutually exclusive at the provider level - several providers ignore temperature when reasoning is enabled. Use `"off"` to opt one out so the other takes effect.
+
+### Validation
+
+Variable references are caught at protocol validation time. If `temperature: TEMPERATURE` is declared but `TEMPERATURE` is missing from `input:` or `variables:`, the validator surfaces the error in the dashboard before the agent runs.
 
 ## Provider Options
 

@@ -59,17 +59,24 @@ const sessionId = await client.agentSessions.create('support-chat', {
 });
 ```
 
-Inputs can also be used for [dynamic model selection](/docs/protocol/agent-config#dynamic-model-selection):
+Inputs can also drive agent configuration at session creation time. The `model`, `backupModel`, `imageModel`, `temperature`, `thinking`, and `maxSteps` fields all accept variable references:
 
 ```yaml
 input:
   MODEL:
     type: string
     description: The LLM model to use
+  TEMPERATURE:
+    type: number
+    description: Override temperature
+    optional: true
 
 agent:
   model: MODEL # Resolved from session input
+  temperature: TEMPERATURE # Same pattern works for thinking, maxSteps
 ```
+
+Each setting accepts the natural type for that field - declare `temperature: number`, `maxSteps: integer`, `thinking: string`. See [Dynamic Model Selection](/docs/protocol/agent-config#dynamic-model-selection) and [Dynamic Configuration](/docs/protocol/agent-config#dynamic-configuration) for details.
 
 In prompts, reference variables with `{{VARIABLE_NAME}}`:
 

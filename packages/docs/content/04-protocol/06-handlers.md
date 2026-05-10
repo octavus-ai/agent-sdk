@@ -158,7 +158,7 @@ Start summary thread:
 
 The `cache` field controls prompt caching for this thread and defaults to `auto` when omitted. Threads do not inherit the agent's `cache` value - see [Prompt Caching](/docs/protocol/agent-config#prompt-caching).
 
-The `model` field can also reference a variable for dynamic model selection. The `backupModel` field follows the same format and supports variable references.
+The `model` field can also reference a variable for dynamic model selection. The `backupModel`, `temperature`, `thinking`, and `maxSteps` fields also support variable references - see [Dynamic Configuration](/docs/protocol/agent-config#dynamic-configuration).
 
 ```yaml
 Start summary thread:
