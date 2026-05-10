@@ -250,6 +250,8 @@ interface WorkerPartState {
   accumulatedJson: string;
   /** Accumulated raw JSON text per tool call ID for progressive partial parsing */
   toolInputBuffers: Map<string, string>;
+  /** Accumulated raw JSON for progressive worker input parsing */
+  inputBuffer: string;
 }
 
 interface StreamingState {
@@ -1730,17 +1732,64 @@ export class OctavusChat {
         break;
       }
 
+      case 'worker-input-start': {
+        // Early signal that a stream worker is being invoked. Create the
+        // UIWorkerPart now so its input can stream in progressively via
+        // worker-input-delta. The regular worker-start that arrives once
+        // execution begins is reconciled into the same part by workerId.
+        const existingIndex = state.parts.findIndex(
+          (p) => p.type === 'worker' && p.workerId === event.workerId,
+        );
+        if (existingIndex !== -1) {
+          break;
+        }
+
+        const workerPart: UIWorkerPart = {
+          type: 'worker',
+          workerId: event.workerId,
+          workerSlug: event.workerSlug,
+          description: event.description,
+          input: undefined,
+          parts: [],
+          status: 'running',
+        };
+        state.parts.push(workerPart);
+        const partIndex = state.parts.length - 1;
+
+        const workerState: WorkerPartState = {
+          partIndex,
+          currentTextPartIndex: null,
+          currentReasoningPartIndex: null,
+          currentObjectPartIndex: null,
+          accumulatedJson: '',
+          toolInputBuffers: new Map(),
+          inputBuffer: '',
+        };
+        state.activeWorkers.set(event.workerId, workerState);
+        this.updateStreamingMessage();
+        break;
+      }
+
       case 'worker-start': {
-        // Check if worker with same workerId already exists (for continuations)
+        // Check if worker with same workerId already exists (for continuations
+        // and the worker-input-start pre-emission for stream workers).
         const existingIndex = state.parts.findIndex(
           (p) => p.type === 'worker' && p.workerId === event.workerId,
         );
 
         let partIndex: number;
         if (existingIndex !== -1) {
-          // Re-use existing worker part (continuation)
+          // Re-use existing worker part. Defensively fill in any fields the
+          // existing part doesn't yet have - input/description may be missing
+          // if the part was created by worker-input-start before the LLM
+          // finished generating input, and worker-input-ready hasn't arrived.
           const existingPart = state.parts[existingIndex] as UIWorkerPart;
-          state.parts[existingIndex] = { ...existingPart, status: 'running' };
+          state.parts[existingIndex] = {
+            ...existingPart,
+            status: 'running',
+            input: existingPart.input ?? event.input,
+            description: existingPart.description ?? event.description,
+          };
           partIndex = existingIndex;
         } else {
           // Create a new worker part
@@ -1757,16 +1806,21 @@ export class OctavusChat {
           partIndex = state.parts.length - 1;
         }
 
-        // Track the worker for event routing
-        const workerState: WorkerPartState = {
-          partIndex,
-          currentTextPartIndex: null,
-          currentReasoningPartIndex: null,
-          currentObjectPartIndex: null,
-          accumulatedJson: '',
-          toolInputBuffers: new Map(),
-        };
-        state.activeWorkers.set(event.workerId, workerState);
+        // Track the worker for event routing. Reuse the existing tracker if
+        // worker-input-start already created one so progressive input parsing
+        // state isn't reset.
+        if (!state.activeWorkers.has(event.workerId)) {
+          const workerState: WorkerPartState = {
+            partIndex,
+            currentTextPartIndex: null,
+            currentReasoningPartIndex: null,
+            currentObjectPartIndex: null,
+            accumulatedJson: '',
+            toolInputBuffers: new Map(),
+            inputBuffer: '',
+          };
+          state.activeWorkers.set(event.workerId, workerState);
+        }
         this.updateStreamingMessage();
         break;
       }
@@ -1798,6 +1852,37 @@ export class OctavusChat {
           state.activeWorkers.delete(event.workerId);
         }
         this.updateStreamingMessage();
+        break;
+      }
+
+      case 'worker-input-delta': {
+        const workerState = state.activeWorkers.get(event.workerId);
+        if (workerState) {
+          workerState.inputBuffer += event.delta;
+          const parsed = parsePartialJson(workerState.inputBuffer);
+          if (parsed !== undefined) {
+            const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+            state.parts[workerState.partIndex] = {
+              ...workerPart,
+              input: parsed as Record<string, unknown>,
+            };
+            this.updateStreamingMessage();
+          }
+        }
+        break;
+      }
+
+      case 'worker-input-ready': {
+        const workerState = state.activeWorkers.get(event.workerId);
+        if (workerState) {
+          workerState.inputBuffer = '';
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          state.parts[workerState.partIndex] = {
+            ...workerPart,
+            input: event.input,
+          };
+          this.updateStreamingMessage();
+        }
         break;
       }
 

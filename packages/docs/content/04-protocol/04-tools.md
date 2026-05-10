@@ -42,12 +42,31 @@ tools:
 
 ### Display Modes
 
-| Mode          | Behavior                                    |
-| ------------- | ------------------------------------------- |
-| `hidden`      | Tool runs silently, user doesn't see it     |
-| `name`        | Shows tool name while executing             |
-| `description` | Shows description while executing (default) |
-| `stream`      | Streams tool progress if available          |
+Controls what the client sees about tool execution. The default is `description`.
+
+| Mode          | Behavior                                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `hidden`      | No UI events emitted. The tool executes silently and the user has no awareness it was called. Use for internal plumbing tools (title setting, context management). |
+| `name`        | Shows the raw tool name while executing. Arguments and result are not displayed.                                                                                   |
+| `description` | Shows the tool's description while executing (default). Arguments are visible during live streaming but the result is not preserved after page refresh.            |
+| `stream`      | Full visibility. Arguments stream progressively as the LLM generates them, and the result is shown after execution. The result is preserved after page refresh.    |
+
+**When to use `stream`:**
+
+- Client tools where the user benefits from seeing arguments or results
+- Interactive client tools (user provides input via the tool card)
+- Tools whose result is rendered via `renderToolCallResult`
+- Any tool where transparency into what was sent/received matters
+
+**When to use `hidden`:**
+
+- Internal lifecycle tools (e.g., session title setting)
+- Context-setting tools that would clutter the UI
+- Tools that are implementation details of the agent's protocol
+
+**Refresh and restore behavior:**
+
+`stream` is the only mode that preserves the tool result after a page refresh. For all other modes, the result is available during the live session but stripped on refresh. On session restore (when the session expires and is rebuilt from stored `UIMessage[]`), `stream` tools retain their original result while other modes receive a placeholder.
 
 ## Parameters
 

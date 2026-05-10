@@ -336,6 +336,25 @@ export const workerResultEventSchema = z.object({
   error: z.string().optional(),
 });
 
+export const workerInputStartEventSchema = z.object({
+  type: z.literal('worker-input-start'),
+  workerId: z.string(),
+  workerSlug: z.string(),
+  description: z.string().optional(),
+});
+
+export const workerInputDeltaEventSchema = z.object({
+  type: z.literal('worker-input-delta'),
+  workerId: z.string(),
+  delta: z.string(),
+});
+
+export const workerInputReadyEventSchema = z.object({
+  type: z.literal('worker-input-ready'),
+  workerId: z.string(),
+  input: z.record(z.string(), z.unknown()),
+});
+
 // =============================================================================
 // Union of all stream events
 // =============================================================================
@@ -376,6 +395,9 @@ export const streamEventSchema = z.union([
   // Worker events
   workerStartEventSchema,
   workerResultEventSchema,
+  workerInputStartEventSchema,
+  workerInputDeltaEventSchema,
+  workerInputReadyEventSchema,
 ]);
 
 // =============================================================================

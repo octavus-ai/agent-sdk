@@ -614,6 +614,52 @@ export interface WorkerResultEvent {
   error?: string;
 }
 
+/**
+ * Early signal that a worker invocation is starting and its input will stream
+ * progressively. Emitted for workers with display: 'stream' invoked agentically
+ * (LLM tool call) before the LLM has finished generating the input arguments.
+ *
+ * Lets the client create the `UIWorkerPart` immediately, then populate its
+ * input via the subsequent `worker-input-delta` and `worker-input-ready` events.
+ * The runtime still emits the regular `worker-start` event when execution
+ * begins, so clients that don't handle this event continue to work unchanged
+ * (they just don't see the worker until execution starts).
+ */
+export interface WorkerInputStartEvent {
+  type: 'worker-input-start';
+  /** Unique ID for this worker invocation (correlates with worker-start) */
+  workerId: string;
+  /** Slug of the worker being invoked */
+  workerSlug: string;
+  /** Optional human-readable description from the worker definition */
+  description?: string;
+}
+
+/**
+ * Incremental worker input arguments streamed as the LLM generates them.
+ * Emitted for workers with display: 'stream' invoked agentically (LLM tool call).
+ * Allows the client to progressively build UIWorkerPart.input before execution starts.
+ */
+export interface WorkerInputDeltaEvent {
+  type: 'worker-input-delta';
+  /** Unique ID for this worker invocation (correlates with worker-start) */
+  workerId: string;
+  /** JSON chunk of the input object */
+  delta: string;
+}
+
+/**
+ * Worker input is complete and execution is starting.
+ * Emitted after all worker-input-delta events, carries the finalized input object.
+ */
+export interface WorkerInputReadyEvent {
+  type: 'worker-input-ready';
+  /** Unique ID for this worker invocation (correlates with worker-start) */
+  workerId: string;
+  /** Finalized input values for the worker */
+  input: Record<string, unknown>;
+}
+
 // =============================================================================
 // Union of All Stream Events
 // =============================================================================
@@ -651,7 +697,10 @@ export type StreamEvent =
   | FileAvailableEvent
   // Worker events
   | WorkerStartEvent
-  | WorkerResultEvent;
+  | WorkerResultEvent
+  | WorkerInputStartEvent
+  | WorkerInputDeltaEvent
+  | WorkerInputReadyEvent;
 
 // =============================================================================
 // Message Types (Internal - used by platform/runtime)

@@ -53,12 +53,14 @@ skills:
 
 ### Display Modes
 
-| Mode          | Behavior                                    |
-| ------------- | ------------------------------------------- |
-| `hidden`      | Skill usage not shown to users              |
-| `name`        | Shows skill name while executing            |
-| `description` | Shows description while executing (default) |
-| `stream`      | Streams progress if available               |
+The `display` setting on a skill applies to all tools under that skill namespace. See [Tool Display Modes](/docs/protocol/tools#display-modes) for full details on each mode.
+
+| Mode          | Behavior                                                                                                             |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `hidden`      | Skill tools run silently, no UI events emitted                                                                       |
+| `name`        | Shows skill name while executing                                                                                     |
+| `description` | Shows description while executing (default). Result not preserved after page refresh.                                |
+| `stream`      | Full visibility - arguments stream progressively, result shown after execution, result preserved after page refresh. |
 
 ## Enabling Skills
 
