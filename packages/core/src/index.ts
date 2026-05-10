@@ -114,6 +114,8 @@ export type {
   // Worker Events
   WorkerStartEvent,
   WorkerResultEvent,
+  WorkerInputDeltaEvent,
+  WorkerInputReadyEvent,
   // Union
   StreamEvent,
   // Internal Message Types

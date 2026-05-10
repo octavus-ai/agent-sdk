@@ -614,6 +614,31 @@ export interface WorkerResultEvent {
   error?: string;
 }
 
+/**
+ * Incremental worker input arguments streamed as the LLM generates them.
+ * Emitted for workers with display: 'stream' invoked agentically (LLM tool call).
+ * Allows the client to progressively build UIWorkerPart.input before execution starts.
+ */
+export interface WorkerInputDeltaEvent {
+  type: 'worker-input-delta';
+  /** Unique ID for this worker invocation (correlates with worker-start) */
+  workerId: string;
+  /** JSON chunk of the input object */
+  delta: string;
+}
+
+/**
+ * Worker input is complete and execution is starting.
+ * Emitted after all worker-input-delta events, carries the finalized input object.
+ */
+export interface WorkerInputReadyEvent {
+  type: 'worker-input-ready';
+  /** Unique ID for this worker invocation (correlates with worker-start) */
+  workerId: string;
+  /** Finalized input values for the worker */
+  input: Record<string, unknown>;
+}
+
 // =============================================================================
 // Union of All Stream Events
 // =============================================================================
@@ -651,7 +676,9 @@ export type StreamEvent =
   | FileAvailableEvent
   // Worker events
   | WorkerStartEvent
-  | WorkerResultEvent;
+  | WorkerResultEvent
+  | WorkerInputDeltaEvent
+  | WorkerInputReadyEvent;
 
 // =============================================================================
 // Message Types (Internal - used by platform/runtime)

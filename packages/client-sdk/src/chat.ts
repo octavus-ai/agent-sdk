@@ -250,6 +250,8 @@ interface WorkerPartState {
   accumulatedJson: string;
   /** Accumulated raw JSON text per tool call ID for progressive partial parsing */
   toolInputBuffers: Map<string, string>;
+  /** Accumulated raw JSON for progressive worker input parsing */
+  inputBuffer: string;
 }
 
 interface StreamingState {
@@ -1765,6 +1767,7 @@ export class OctavusChat {
           currentObjectPartIndex: null,
           accumulatedJson: '',
           toolInputBuffers: new Map(),
+          inputBuffer: '',
         };
         state.activeWorkers.set(event.workerId, workerState);
         this.updateStreamingMessage();
@@ -1798,6 +1801,37 @@ export class OctavusChat {
           state.activeWorkers.delete(event.workerId);
         }
         this.updateStreamingMessage();
+        break;
+      }
+
+      case 'worker-input-delta': {
+        const workerState = state.activeWorkers.get(event.workerId);
+        if (workerState) {
+          workerState.inputBuffer += event.delta;
+          const parsed = parsePartialJson(workerState.inputBuffer);
+          if (parsed !== undefined) {
+            const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+            state.parts[workerState.partIndex] = {
+              ...workerPart,
+              input: parsed as Record<string, unknown>,
+            };
+            this.updateStreamingMessage();
+          }
+        }
+        break;
+      }
+
+      case 'worker-input-ready': {
+        const workerState = state.activeWorkers.get(event.workerId);
+        if (workerState) {
+          workerState.inputBuffer = '';
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          state.parts[workerState.partIndex] = {
+            ...workerPart,
+            input: event.input,
+          };
+          this.updateStreamingMessage();
+        }
         break;
       }
 
