@@ -114,6 +114,7 @@ export type {
   // Worker Events
   WorkerStartEvent,
   WorkerResultEvent,
+  WorkerInputStartEvent,
   WorkerInputDeltaEvent,
   WorkerInputReadyEvent,
   // Union

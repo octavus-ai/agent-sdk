@@ -615,6 +615,27 @@ export interface WorkerResultEvent {
 }
 
 /**
+ * Early signal that a worker invocation is starting and its input will stream
+ * progressively. Emitted for workers with display: 'stream' invoked agentically
+ * (LLM tool call) before the LLM has finished generating the input arguments.
+ *
+ * Lets the client create the `UIWorkerPart` immediately, then populate its
+ * input via the subsequent `worker-input-delta` and `worker-input-ready` events.
+ * The runtime still emits the regular `worker-start` event when execution
+ * begins, so clients that don't handle this event continue to work unchanged
+ * (they just don't see the worker until execution starts).
+ */
+export interface WorkerInputStartEvent {
+  type: 'worker-input-start';
+  /** Unique ID for this worker invocation (correlates with worker-start) */
+  workerId: string;
+  /** Slug of the worker being invoked */
+  workerSlug: string;
+  /** Optional human-readable description from the worker definition */
+  description?: string;
+}
+
+/**
  * Incremental worker input arguments streamed as the LLM generates them.
  * Emitted for workers with display: 'stream' invoked agentically (LLM tool call).
  * Allows the client to progressively build UIWorkerPart.input before execution starts.
@@ -677,6 +698,7 @@ export type StreamEvent =
   // Worker events
   | WorkerStartEvent
   | WorkerResultEvent
+  | WorkerInputStartEvent
   | WorkerInputDeltaEvent
   | WorkerInputReadyEvent;
 
