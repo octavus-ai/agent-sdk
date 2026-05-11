@@ -2055,6 +2055,7 @@ export class OctavusChat {
     this._completedToolResults = [];
     this._pendingExecutionId = null;
 
+    this.setError(null);
     this.setStatus('streaming');
 
     try {
