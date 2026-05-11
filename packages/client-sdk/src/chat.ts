@@ -1934,6 +1934,7 @@ export class OctavusChat {
           this.setMessages(messages);
         }
 
+        this.setError(null);
         this.setStatus('idle');
         this.streamingState = null;
         this.options.onFinish?.();
