@@ -1934,6 +1934,7 @@ export class OctavusChat {
           this.setMessages(messages);
         }
 
+        this.setError(null);
         this.setStatus('idle');
         this.streamingState = null;
         this.options.onFinish?.();
@@ -2054,6 +2055,7 @@ export class OctavusChat {
     this._completedToolResults = [];
     this._pendingExecutionId = null;
 
+    this.setError(null);
     this.setStatus('streaming');
 
     try {
