@@ -818,6 +818,13 @@ export interface MessagePart {
   type: MessagePartType;
   /** Whether shown in chat UI (false = LLM sees it, user doesn't) */
   visible: boolean;
+  /**
+   * When true, this part is for UI display only - toAiMessages skips it.
+   * Used for parts carried forward from earlier agentic steps so the UI
+   * shows the full execution on refresh. The hidden stepAssistant messages
+   * already provide the content to the LLM.
+   */
+  displayOnly?: boolean;
   /** Content for text/reasoning parts */
   content?: string;
   /** Tool call info for tool-call parts */
