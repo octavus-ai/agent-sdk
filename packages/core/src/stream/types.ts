@@ -25,6 +25,13 @@ export interface ToolSchema {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /**
+   * Optional JSON Schema describing the tool's return shape.
+   * Forwarded to the LLM as `outputSchema` when the underlying provider
+   * supports structured tool outputs (e.g. OpenAI strict mode). Discovered
+   * from MCP servers that declare `outputSchema` per the MCP spec.
+   */
+  outputSchema?: Record<string, unknown>;
 }
 
 /** A runtime-discovered tool pairing a schema with an execution handler. */

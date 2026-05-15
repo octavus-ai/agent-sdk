@@ -9,10 +9,14 @@ const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
  */
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
-interface InlineMcpToolDefinition<T extends z.ZodType = z.ZodType> {
+interface InlineMcpToolDefinition<
+  T extends z.ZodType = z.ZodType,
+  O extends z.ZodType = z.ZodType,
+> {
   description: string;
   parameters: T;
-  handler: (args: z.infer<T>) => Promise<unknown>;
+  output?: O;
+  handler: (args: z.infer<T>) => Promise<z.infer<O>>;
 }
 
 interface InlineMcpServerConfig {
@@ -52,6 +56,13 @@ function formatZodIssues(error: z.ZodError): string {
  * TypeScript collapses the per-tool generic when the tools are placed in
  * a record literal, leaving `args` typed as `unknown`.
  *
+ * Optionally pass an `output` Zod schema to declare the tool's return shape.
+ * When set, the schema is forwarded to the LLM as `outputSchema` (used by
+ * providers that support structured tool outputs, e.g. OpenAI strict mode)
+ * and handler return values are validated at runtime - a handler that
+ * returns a malformed result throws before reaching the LLM. Omitting
+ * `output` preserves the previous unconstrained-return behavior.
+ *
  * @example
  * ```typescript
  * const getPrOverview = defineInlineMcpTool({
@@ -61,16 +72,23 @@ function formatZodIssues(error: z.ZodError): string {
  *     repo: z.string(),
  *     pullNumber: z.number(),
  *   }),
+ *   output: z.object({
+ *     title: z.string(),
+ *     state: z.enum(['open', 'closed', 'merged']),
+ *     additions: z.number(),
+ *     deletions: z.number(),
+ *   }),
  *   handler: async (args) => {
  *     // args is { owner: string; repo: string; pullNumber: number }
+ *     // return value is type-checked against the `output` schema
  *     return await githubService.getPrOverview(args.owner, args.repo, args.pullNumber);
  *   },
  * });
  * ```
  */
-export function defineInlineMcpTool<T extends z.ZodType>(
-  def: InlineMcpToolDefinition<T>,
-): InlineMcpToolDefinition<T> {
+export function defineInlineMcpTool<T extends z.ZodType, O extends z.ZodType = z.ZodType>(
+  def: InlineMcpToolDefinition<T, O>,
+): InlineMcpToolDefinition<T, O> {
   return def;
 }
 
@@ -129,15 +147,20 @@ export function createInlineMcpServer(
     validateToolName(toolName, namespace);
     const namespacedName = `${namespace}__${toolName}`;
 
-    const jsonSchema = toJSONSchema(def.parameters) as Record<string, unknown>;
+    const inputJsonSchema = toJSONSchema(def.parameters) as Record<string, unknown>;
+    const outputJsonSchema = def.output
+      ? (toJSONSchema(def.output) as Record<string, unknown>)
+      : undefined;
 
     schemas.push({
       name: namespacedName,
       description: def.description,
-      inputSchema: jsonSchema,
+      inputSchema: inputJsonSchema,
+      outputSchema: outputJsonSchema,
     });
 
     const zodSchema = def.parameters;
+    const outputZodSchema = def.output;
     handlers[namespacedName] = async (args: Record<string, unknown>) => {
       const parsed = zodSchema.safeParse(args);
       if (!parsed.success) {
@@ -145,7 +168,17 @@ export function createInlineMcpServer(
           `Invalid arguments for "${namespacedName}": ${formatZodIssues(parsed.error)}`,
         );
       }
-      return await def.handler(parsed.data);
+      const result = await def.handler(parsed.data);
+      if (outputZodSchema) {
+        const validated = outputZodSchema.safeParse(result);
+        if (!validated.success) {
+          throw new Error(
+            `Invalid output from "${namespacedName}": ${formatZodIssues(validated.error)}`,
+          );
+        }
+        return validated.data;
+      }
+      return result;
     };
   }
 
