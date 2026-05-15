@@ -8,6 +8,14 @@ export type McpToolResultProjectionSource =
   | 'empty'
   | 'error';
 
+/**
+ * Single block from an MCP tool result `content` array.
+ *
+ * The shape is intentionally open (only `type` is required) because the MCP
+ * spec is extensible: servers can return `text`, `image`, `audio`, `resource`,
+ * and any future kinds. Consumers should duck-type on `type` and the relevant
+ * payload fields rather than relying on a closed union.
+ */
 export interface McpContentBlock {
   type: string;
   [key: string]: unknown;
@@ -148,6 +156,30 @@ function matchesSchemaType(value: unknown, type: string): boolean {
   }
 }
 
+/**
+ * Lightweight structural validator for the subset of JSON Schema MCP servers
+ * commonly use in `outputSchema`. Intentionally lenient: unsupported keywords
+ * are treated as "no constraint" so a schema using advanced features still
+ * passes validation rather than crashing.
+ *
+ * Supported keywords:
+ * - `type` (single string or array of strings, including `integer`)
+ * - `enum`
+ * - `required`
+ * - `properties` (recursive)
+ * - `additionalProperties: false` (when paired with `properties`)
+ * - `items` (single schema, applied to every array element)
+ *
+ * Not enforced (silently allowed):
+ * - `oneOf`, `anyOf`, `allOf`, `not`
+ * - `pattern`, `format`
+ * - `minLength`, `maxLength`, `minimum`, `maximum`, `multipleOf`
+ * - `$ref`, `$defs`, `definitions`
+ * - `prefixItems`, `contains`, `unevaluatedProperties`
+ *
+ * Consumers needing full JSON Schema coverage can pass a custom
+ * `validateStructuredContent` callback to `normalizeMcpToolResult`.
+ */
 function validateAgainstJsonSchema(
   value: unknown,
   schema: Record<string, unknown>,
@@ -207,6 +239,9 @@ function validateStructuredContentAgainstOutputSchema(
   }
 
   const errors = validateAgainstJsonSchema(structuredContent, outputSchema);
+  // Cap surfaced errors so a deeply broken structured payload doesn't produce
+  // an unreadable multi-kilobyte tool error string for the LLM. The first few
+  // failures usually point at the root cause; deeper errors are downstream.
   return errors.length === 0
     ? { valid: true }
     : { valid: false, error: errors.slice(0, 5).join('; ') };

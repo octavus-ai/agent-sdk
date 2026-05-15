@@ -30,6 +30,11 @@ export const mcpToolResultProjectionSourceSchema = z.enum([
   'error',
 ]);
 
+/**
+ * Open-ended schema for an MCP `content` block. Only `type` is required;
+ * `catchall(unknown)` accepts forward-compatible kinds (e.g. `audio`,
+ * `resource`) without rejecting unknown payload shapes.
+ */
 export const mcpContentBlockSchema = z
   .object({
     type: z.string(),

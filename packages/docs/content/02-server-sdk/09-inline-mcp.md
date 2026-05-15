@@ -106,6 +106,57 @@ tools: {
 
 The handler also receives Zod-validated arguments. Invalid inputs throw before reaching your code, with the failed paths and messages joined into the error.
 
+## Validating Tool Output
+
+Pass a Zod schema as `outputSchema` to declare the shape of structured data the tool returns. The SDK converts the schema to JSON Schema, ships it to the platform alongside the tool, and validates the handler's structured output against it on every call:
+
+```typescript
+'get-pr-overview': defineInlineMcpTool({
+  description: 'Get pull request metadata and file changes',
+  parameters: z.object({
+    owner: z.string(),
+    repo: z.string(),
+    pullNumber: z.number(),
+  }),
+  outputSchema: z.object({
+    title: z.string(),
+    state: z.enum(['open', 'closed', 'merged']),
+    changedFiles: z.number(),
+  }),
+  handler: async (args) => {
+    return await githubService.getPrOverview(args.owner, args.repo, args.pullNumber);
+  },
+}),
+```
+
+If the handler returns data that doesn't match `outputSchema`, the SDK surfaces a tool error to the LLM (with the first few validation failures) instead of forwarding the malformed payload. The model then sees the failure and can choose how to recover.
+
+The platform-side validator is intentionally lightweight - it covers `type`, `enum`, `required`, `properties`, `additionalProperties: false`, and `items`. Schemas using advanced JSON Schema features (`oneOf`, `pattern`, `format`, `$ref`, ...) are still accepted; the unsupported keywords are treated as "no constraint" rather than rejecting otherwise-valid output.
+
+## Returning MCP-Native Results
+
+For most tools, returning a plain object or string is enough - the SDK wraps it as the tool's structured content automatically. When you need full control over the MCP envelope (mixed text and image content, explicit `isError`, custom content blocks), return a `McpToolResultPayload`:
+
+```typescript
+import { normalizeMcpToolResult } from '@octavus/core';
+
+'screenshot-page': defineInlineMcpTool({
+  description: 'Capture a page screenshot and return it inline',
+  parameters: z.object({ url: z.string().url() }),
+  handler: async (args) => {
+    const png = await captureScreenshot(args.url);
+    return normalizeMcpToolResult({
+      content: [
+        { type: 'text', text: `Captured ${args.url}` },
+        { type: 'image', data: png.toString('base64'), mimeType: 'image/png' },
+      ],
+    });
+  },
+}),
+```
+
+`McpToolResultPayload` carries a lossless `mcp` envelope (the original `content`, `structuredContent`, and `isError` from the MCP spec) alongside a backward-compatible `result` projection. Image blocks are uploaded to your file storage automatically before the result reaches the LLM, so the model sees a presigned URL rather than megabytes of base64.
+
 ## Attaching to a Session
 
 Pass inline MCP servers via `mcpServers` on `attach()`. They merge with `tools` and survive across `setDynamicTools()` calls:
