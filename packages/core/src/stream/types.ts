@@ -816,13 +816,13 @@ export interface WorkerPartInfo {
  */
 export interface MessagePart {
   type: MessagePartType;
-  /** Whether shown in chat UI (false = LLM sees it, user doesn't) */
+  /** When false, the part is hidden from the chat UI but still sent to the model. */
   visible: boolean;
   /**
-   * When true, this part is for UI display only - toAiMessages skips it.
-   * Used for parts carried forward from earlier agentic steps so the UI
-   * shows the full execution on refresh. The hidden stepAssistant messages
-   * already provide the content to the LLM.
+   * When true, the part is rendered in the chat UI but skipped when the
+   * message is converted to model messages. Use this for content that the
+   * model has already received through another message in the
+   * conversation but the UI still needs to display.
    */
   displayOnly?: boolean;
   /** Content for text/reasoning parts */
