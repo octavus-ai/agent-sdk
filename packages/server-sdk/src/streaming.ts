@@ -3,6 +3,7 @@ import {
   isAbortError,
   createInternalErrorEvent,
   createApiErrorEvent,
+  isMcpToolResultPayload,
   type StreamEvent,
   type ToolHandlers,
   type PendingToolCall,
@@ -198,10 +199,14 @@ export async function* executeStream(
           const handler = toolHandlers[tc.toolName]!;
           try {
             const result = await handler(tc.args);
+            const mcpPayload = isMcpToolResultPayload(result) ? result : undefined;
             return {
               toolCallId: tc.toolCallId,
               toolName: tc.toolName,
-              result,
+              result: mcpPayload ? mcpPayload.result : result,
+              error: mcpPayload?.error,
+              mcp: mcpPayload?.mcp,
+              files: mcpPayload?.files,
               outputVariable: tc.outputVariable,
               blockIndex: tc.blockIndex,
               thread: tc.thread,
@@ -263,9 +268,19 @@ export async function* executeStream(
 
       for (const tr of serverResults) {
         if (tr.error) {
-          yield { type: 'tool-output-error', toolCallId: tr.toolCallId, error: tr.error };
+          yield {
+            type: 'tool-output-error',
+            toolCallId: tr.toolCallId,
+            error: tr.error,
+            mcp: tr.mcp,
+          };
         } else {
-          yield { type: 'tool-output-available', toolCallId: tr.toolCallId, output: tr.result };
+          yield {
+            type: 'tool-output-available',
+            toolCallId: tr.toolCallId,
+            output: tr.result,
+            mcp: tr.mcp,
+          };
         }
       }
 

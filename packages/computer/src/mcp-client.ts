@@ -2,7 +2,12 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import { normalizeToolInputSchema, type ToolHandler, type ToolSchema } from '@octavus/core';
+import {
+  normalizeMcpToolResult,
+  normalizeToolInputSchema,
+  type ToolHandler,
+  type ToolSchema,
+} from '@octavus/core';
 import { NAMESPACE_SEPARATOR, type StdioConfig, type HttpConfig } from './entries';
 
 const MCP_CLIENT_NAME = 'octavus-computer';
@@ -19,59 +24,6 @@ export interface McpConnection {
 
 function namespaceTool(namespace: string, toolName: string): string {
   return `${namespace}${NAMESPACE_SEPARATOR}${toolName}`;
-}
-
-interface ContentPart {
-  type: string;
-  text?: string;
-  [key: string]: unknown;
-}
-
-interface CallToolResult {
-  content: ContentPart[];
-  isError?: boolean;
-  [key: string]: unknown;
-}
-
-function formatContentPart(part: ContentPart): unknown {
-  if (part.type === 'text' && typeof part.text === 'string') {
-    return part.text;
-  }
-  // Preserve non-text content (images, audio, resources) as structured data
-  // so downstream consumers can handle them appropriately.
-  return part;
-}
-
-function formatCallToolResult(result: CallToolResult): unknown {
-  if (result.isError) {
-    const errorText = result.content
-      .filter((c) => c.type === 'text' && typeof c.text === 'string')
-      .map((c) => c.text!)
-      .join('\n');
-    return { error: errorText || 'Tool execution failed' };
-  }
-
-  if (result.content.length === 0) {
-    return { success: true };
-  }
-
-  const textParts = result.content.filter((c) => c.type === 'text' && typeof c.text === 'string');
-  const hasNonText = result.content.some((c) => c.type !== 'text');
-
-  // Pure text results: parse JSON or return as string
-  if (!hasNonText) {
-    if (textParts.length === 1) {
-      try {
-        return JSON.parse(textParts[0]!.text!);
-      } catch {
-        return textParts[0]!.text;
-      }
-    }
-    return textParts.map((p) => p.text).join('\n');
-  }
-
-  // Mixed or non-text content: return as structured content array
-  return result.content.map(formatContentPart);
 }
 
 async function discoverTools(
@@ -91,11 +43,16 @@ async function discoverTools(
       name: nsName,
       description: tool.description ?? originalName,
       inputSchema: normalizeToolInputSchema(tool.inputSchema as Record<string, unknown>),
+      ...(tool.outputSchema && {
+        outputSchema: normalizeToolInputSchema(tool.outputSchema as Record<string, unknown>),
+      }),
     });
 
     handlers[nsName] = async (args: Record<string, unknown>) => {
       const result = await client.callTool({ name: originalName, arguments: args });
-      return formatCallToolResult(result as CallToolResult);
+      return normalizeMcpToolResult(result, {
+        outputSchema: tool.outputSchema as Record<string, unknown> | undefined,
+      });
     };
   }
 

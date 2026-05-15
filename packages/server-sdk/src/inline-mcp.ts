@@ -1,5 +1,11 @@
 import { type z, toJSONSchema } from 'zod';
-import type { InlineMcpServer, ToolHandler, ToolSchema } from '@octavus/core';
+import {
+  isMcpToolResultPayload,
+  normalizeMcpToolResult,
+  type InlineMcpServer,
+  type ToolHandler,
+  type ToolSchema,
+} from '@octavus/core';
 
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
 /**
@@ -9,10 +15,14 @@ const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
  */
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
-interface InlineMcpToolDefinition<T extends z.ZodType = z.ZodType> {
+interface InlineMcpToolDefinition<
+  TInput extends z.ZodType = z.ZodType,
+  TOutput extends z.ZodType = z.ZodType,
+> {
   description: string;
-  parameters: T;
-  handler: (args: z.infer<T>) => Promise<unknown>;
+  parameters: TInput;
+  outputSchema?: TOutput;
+  handler: (args: z.infer<TInput>) => Promise<unknown>;
 }
 
 interface InlineMcpServerConfig {
@@ -68,9 +78,10 @@ function formatZodIssues(error: z.ZodError): string {
  * });
  * ```
  */
-export function defineInlineMcpTool<T extends z.ZodType>(
-  def: InlineMcpToolDefinition<T>,
-): InlineMcpToolDefinition<T> {
+export function defineInlineMcpTool<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType = z.ZodType,
+>(def: InlineMcpToolDefinition<TInput, TOutput>): InlineMcpToolDefinition<TInput, TOutput> {
   return def;
 }
 
@@ -130,11 +141,15 @@ export function createInlineMcpServer(
     const namespacedName = `${namespace}__${toolName}`;
 
     const jsonSchema = toJSONSchema(def.parameters) as Record<string, unknown>;
+    const outputSchema = def.outputSchema
+      ? (toJSONSchema(def.outputSchema) as Record<string, unknown>)
+      : undefined;
 
     schemas.push({
       name: namespacedName,
       description: def.description,
       inputSchema: jsonSchema,
+      ...(outputSchema ? { outputSchema } : {}),
     });
 
     const zodSchema = def.parameters;
@@ -145,7 +160,16 @@ export function createInlineMcpServer(
           `Invalid arguments for "${namespacedName}": ${formatZodIssues(parsed.error)}`,
         );
       }
-      return await def.handler(parsed.data);
+      const result = await def.handler(parsed.data);
+
+      if (!outputSchema) return result;
+
+      if (isMcpToolResultPayload(result)) {
+        const normalized = normalizeMcpToolResult(result.mcp, { outputSchema });
+        return { ...normalized, files: result.files };
+      }
+
+      return normalizeMcpToolResult({ content: [], structuredContent: result }, { outputSchema });
     };
   }
 

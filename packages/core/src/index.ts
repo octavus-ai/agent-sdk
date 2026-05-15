@@ -30,6 +30,7 @@ export {
 
 export { generateId, isAbortError, normalizeToolInputSchema } from './utils';
 export { MAIN_THREAD, resolveThread, isMainThread, threadForPart, isOtherThread } from './thread';
+export { normalizeMcpToolResult, isMcpToolResultPayload } from './mcp-results';
 
 export { isFileReference, isFileReferenceArray } from './stream/schemas';
 
@@ -37,6 +38,11 @@ export {
   chatMessageSchema,
   toolResultSchema,
   fileReferenceSchema,
+  mcpContentBlockSchema,
+  mcpToolResultSchema,
+  mcpToolResultProjectionSchema,
+  mcpToolResultValidationSchema,
+  toolResultEntrySchema,
   uiMessageSchema,
   uiMessagePartSchema,
   uiWorkerPartSchema,
@@ -50,6 +56,17 @@ export {
 } from './stream/schemas';
 
 export { isDeviceProvider, isDynamicMcpProvider } from './stream/types';
+
+export type {
+  McpContentBlock,
+  McpToolResult,
+  McpToolResultPayload,
+  McpToolResultProjection,
+  McpToolResultProjectionSource,
+  McpToolResultValidation,
+  NormalizeMcpToolResultOptions,
+  McpStructuredContentValidationContext,
+} from './mcp-results';
 
 export type {
   // Common

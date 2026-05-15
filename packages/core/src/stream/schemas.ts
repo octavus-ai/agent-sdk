@@ -21,6 +21,39 @@ export const finishReasonSchema = z.enum([
   'other',
 ]);
 
+export const mcpToolResultProjectionSourceSchema = z.enum([
+  'structuredContent',
+  'jsonText',
+  'text',
+  'content',
+  'empty',
+  'error',
+]);
+
+export const mcpContentBlockSchema = z
+  .object({
+    type: z.string(),
+  })
+  .catchall(z.unknown());
+
+export const mcpToolResultValidationSchema = z.object({
+  valid: z.boolean(),
+  error: z.string().optional(),
+});
+
+export const mcpToolResultProjectionSchema = z.object({
+  source: mcpToolResultProjectionSourceSchema,
+  errorText: z.string().optional(),
+});
+
+export const mcpToolResultSchema = z.object({
+  content: z.array(mcpContentBlockSchema),
+  structuredContent: z.record(z.string(), z.unknown()).optional(),
+  isError: z.boolean().optional(),
+  projection: mcpToolResultProjectionSchema.optional(),
+  validation: mcpToolResultValidationSchema.optional(),
+});
+
 export const toolCallInfoSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -29,6 +62,7 @@ export const toolCallInfoSchema = z.object({
   status: toolCallStatusSchema,
   result: z.unknown().optional(),
   error: z.string().optional(),
+  mcp: mcpToolResultSchema.optional(),
   thoughtSignature: z.string().optional(),
   display: displayModeSchema.optional(),
 });
@@ -174,6 +208,7 @@ export const toolOutputAvailableEventSchema = z.object({
   type: z.literal('tool-output-available'),
   toolCallId: z.string(),
   output: z.unknown(),
+  mcp: mcpToolResultSchema.optional(),
   workerId: z.string().optional(),
 });
 
@@ -181,6 +216,7 @@ export const toolOutputErrorEventSchema = z.object({
   type: z.literal('tool-output-error'),
   toolCallId: z.string(),
   error: z.string(),
+  mcp: mcpToolResultSchema.optional(),
   workerId: z.string().optional(),
 });
 
@@ -272,6 +308,7 @@ export const toolResultSchema = z.object({
   toolName: z.string().optional(),
   result: z.unknown().optional(),
   error: z.string().optional(),
+  mcp: mcpToolResultSchema.optional(),
   files: z.array(fileReferenceSchema).optional(),
   outputVariable: z.string().optional(),
   blockIndex: z.number().optional(),
@@ -491,6 +528,14 @@ export const workerPartInfoSchema = z.object({
   error: z.string().optional(),
 });
 
+export const toolResultEntrySchema = z.object({
+  toolCallId: z.string(),
+  toolName: z.string().optional(),
+  result: z.unknown(),
+  mcp: mcpToolResultSchema.optional(),
+  files: z.array(fileReferenceSchema).optional(),
+});
+
 // Full message part schema including worker type
 export const messagePartSchema = z.object({
   type: messagePartTypeSchema,
@@ -517,6 +562,7 @@ export const chatMessageSchema = z.object({
   toolCalls: z.array(toolCallInfoSchema).optional(),
   reasoning: z.string().optional(),
   reasoningSignature: z.string().optional(),
+  toolResults: z.array(toolResultEntrySchema).optional(),
 });
 
 // =============================================================================
@@ -550,6 +596,7 @@ export const uiToolCallPartSchema = z.object({
   args: z.record(z.string(), z.unknown()),
   result: z.unknown().optional(),
   error: z.string().optional(),
+  mcp: mcpToolResultSchema.optional(),
   status: uiToolCallStatusSchema,
   thread: z.string().optional(),
   providerMetadata: z.record(z.string(), z.unknown()).optional(),

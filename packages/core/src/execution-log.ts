@@ -1,4 +1,5 @@
 import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from './errors/types';
+import type { McpToolResult } from './mcp-results';
 
 // ---------------------------------------------------------------------------
 // Supporting types
@@ -142,6 +143,7 @@ export interface ToolResultLogEntry extends ExecutionLogEntryBase {
   type: 'tool-result';
   toolName?: string;
   toolResult?: unknown;
+  mcpToolResult?: McpToolResult;
 }
 
 export interface LlmToolRequestLogEntry extends ExecutionLogEntryBase {

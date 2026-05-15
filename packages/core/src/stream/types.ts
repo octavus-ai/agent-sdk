@@ -14,6 +14,7 @@
  * - stream: Shows live streaming content
  */
 import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from '@/errors/types';
+import type { McpToolResult } from '@/mcp-results';
 
 export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream';
 
@@ -25,6 +26,7 @@ export interface ToolSchema {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
 }
 
 /** A runtime-discovered tool pairing a schema with an execution handler. */
@@ -163,6 +165,7 @@ export interface ToolCallInfo {
   status: ToolCallStatus;
   result?: unknown;
   error?: string;
+  mcp?: McpToolResult;
   /** Google Gemini 3 thought signature - required for tool call continuation */
   thoughtSignature?: string;
   /** Raw provider metadata for generic passthrough (preferred over thoughtSignature when present) */
@@ -369,6 +372,7 @@ export interface ToolOutputAvailableEvent {
   type: 'tool-output-available';
   toolCallId: string;
   output: unknown;
+  mcp?: McpToolResult;
   /** Worker ID if this event originated from a worker execution */
   workerId?: string;
 }
@@ -378,6 +382,7 @@ export interface ToolOutputErrorEvent {
   type: 'tool-output-error';
   toolCallId: string;
   error: string;
+  mcp?: McpToolResult;
   /** Worker ID if this event originated from a worker execution */
   workerId?: string;
 }
@@ -533,6 +538,7 @@ export interface ToolResult {
   toolName?: string;
   result?: unknown;
   error?: string;
+  mcp?: McpToolResult;
   /** Files produced by the tool (e.g., screenshots, generated images). */
   files?: FileReference[];
   outputVariable?: string;
@@ -852,6 +858,7 @@ export interface ToolResultEntry {
   toolCallId: string;
   toolName?: string;
   result: unknown;
+  mcp?: McpToolResult;
   /** Files produced by the tool, included as visual content for the LLM. */
   files?: FileReference[];
 }
@@ -947,6 +954,7 @@ export interface UIToolCallPart {
   args: Record<string, unknown>;
   result?: unknown;
   error?: string;
+  mcp?: McpToolResult;
   status: UIToolCallStatus;
   /** Thread name (undefined or 'main' for main thread) */
   thread?: string;

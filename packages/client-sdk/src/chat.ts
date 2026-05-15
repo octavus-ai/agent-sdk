@@ -1,5 +1,6 @@
 import {
   generateId,
+  isMcpToolResultPayload,
   threadForPart,
   isFileReferenceArray,
   OctavusError,
@@ -19,12 +20,22 @@ import {
   type FileReference,
   type PendingToolCall,
   type ToolResult,
+  type McpToolResultPayload,
 } from '@octavus/core';
 import type { Transport, TriggerOptions } from './transports/types';
 import { uploadFiles, type UploadFilesOptions } from './files';
 
 /** Block types that are internal operations (not LLM-driven) */
 const OPERATION_BLOCK_TYPES = new Set(['set-resource', 'serialize-thread', 'generate-image']);
+
+function mergeFiles(
+  a: FileReference[] | undefined,
+  b: FileReference[],
+): FileReference[] | undefined {
+  if (!a || a.length === 0) return b.length > 0 ? b : undefined;
+  if (b.length === 0) return a;
+  return [...a, ...b];
+}
 
 // =============================================================================
 // Types
@@ -962,11 +973,18 @@ export class OctavusChat {
     }
     this.updatePendingClientToolsCache();
 
+    let payload: McpToolResultPayload | undefined;
+    if (!error && isMcpToolResultPayload(result)) {
+      payload = result;
+    }
+    const resultValue = error ? undefined : (payload?.result ?? result);
     const toolResult: ToolResult = {
       toolCallId,
       toolName: pendingTool.toolName,
-      result: error ? undefined : result,
-      error,
+      result: resultValue,
+      error: error ?? payload?.error,
+      mcp: payload?.mcp,
+      files: payload?.files,
       outputVariable: pendingTool.outputVariable,
       blockIndex: pendingTool.blockIndex,
       thread: pendingTool.thread,
@@ -974,10 +992,10 @@ export class OctavusChat {
     };
     this._completedToolResults.push(toolResult);
 
-    if (error) {
-      this.emitToolOutputError(toolCallId, error);
+    if (toolResult.error) {
+      this.emitToolOutputError(toolCallId, toolResult.error, toolResult.mcp);
     } else {
-      this.emitToolOutputAvailable(toolCallId, result);
+      this.emitToolOutputAvailable(toolCallId, toolResult.result, toolResult.mcp);
     }
 
     if (this._pendingToolsByCallId.size === 0) {
@@ -1566,6 +1584,7 @@ export class OctavusChat {
             updatedParts[toolPartIndex] = {
               ...part,
               result: event.output,
+              mcp: event.mcp,
               status: 'done',
             };
             state.parts[workerState.partIndex] = { ...workerPart, parts: updatedParts };
@@ -1580,6 +1599,7 @@ export class OctavusChat {
             state.parts[toolPartIndex] = {
               ...part,
               result: event.output,
+              mcp: event.mcp,
               status: 'done',
             };
             this.updateStreamingMessage();
@@ -1603,6 +1623,7 @@ export class OctavusChat {
             updatedParts[toolPartIndex] = {
               ...part,
               error: event.error,
+              mcp: event.mcp,
               status: 'error',
             };
             state.parts[workerState.partIndex] = { ...workerPart, parts: updatedParts };
@@ -1617,6 +1638,7 @@ export class OctavusChat {
             state.parts[toolPartIndex] = {
               ...part,
               error: event.error,
+              mcp: event.mcp,
               status: 'error',
             };
             this.updateStreamingMessage();
@@ -1989,7 +2011,11 @@ export class OctavusChat {
   /**
    * Emit a tool-output-available event for a client tool result.
    */
-  private emitToolOutputAvailable(toolCallId: string, output: unknown): void {
+  private emitToolOutputAvailable(
+    toolCallId: string,
+    output: unknown,
+    mcp?: ToolResult['mcp'],
+  ): void {
     const state = this.streamingState;
     if (!state) return;
 
@@ -2001,6 +2027,7 @@ export class OctavusChat {
       state.parts[toolPartIndex] = {
         ...part,
         result: output,
+        mcp,
         status: 'done',
       };
       this.updateStreamingMessage();
@@ -2010,7 +2037,7 @@ export class OctavusChat {
   /**
    * Emit a tool-output-error event for a client tool result.
    */
-  private emitToolOutputError(toolCallId: string, error: string): void {
+  private emitToolOutputError(toolCallId: string, error: string, mcp?: ToolResult['mcp']): void {
     const state = this.streamingState;
     if (!state) return;
 
@@ -2022,6 +2049,7 @@ export class OctavusChat {
       state.parts[toolPartIndex] = {
         ...part,
         error,
+        mcp,
         status: 'error',
       };
       this.updateStreamingMessage();
@@ -2142,19 +2170,30 @@ export class OctavusChat {
             signal: this._clientToolAbortController.signal,
             addFile: (file) => collectedFiles.push(file),
           });
+          const payload = isMcpToolResultPayload(result) ? result : undefined;
 
           this._completedToolResults.push({
             toolCallId: tc.toolCallId,
             toolName: tc.toolName,
-            result,
-            files: collectedFiles.length > 0 ? collectedFiles : undefined,
+            result: payload ? payload.result : result,
+            error: payload?.error,
+            mcp: payload?.mcp,
+            files: mergeFiles(payload?.files, collectedFiles),
             outputVariable: tc.outputVariable,
             blockIndex: tc.blockIndex,
             thread: tc.thread,
             workerId: tc.workerId,
           });
 
-          this.emitToolOutputAvailable(tc.toolCallId, result);
+          if (payload?.error) {
+            this.emitToolOutputError(tc.toolCallId, payload.error, payload.mcp);
+          } else {
+            this.emitToolOutputAvailable(
+              tc.toolCallId,
+              payload ? payload.result : result,
+              payload?.mcp,
+            );
+          }
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : 'Tool execution failed';
           this._completedToolResults.push({
