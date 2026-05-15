@@ -25,6 +25,7 @@ export interface ToolSchema {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
 }
 
 /** A runtime-discovered tool pairing a schema with an execution handler. */

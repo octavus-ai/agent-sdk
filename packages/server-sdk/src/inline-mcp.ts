@@ -9,10 +9,14 @@ const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
  */
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
-interface InlineMcpToolDefinition<T extends z.ZodType = z.ZodType> {
+interface InlineMcpToolDefinition<
+  T extends z.ZodType = z.ZodType,
+  O extends z.ZodType = z.ZodType,
+> {
   description: string;
   parameters: T;
-  handler: (args: z.infer<T>) => Promise<unknown>;
+  output?: O;
+  handler: (args: z.infer<T>) => Promise<z.infer<O>>;
 }
 
 interface InlineMcpServerConfig {
@@ -68,9 +72,9 @@ function formatZodIssues(error: z.ZodError): string {
  * });
  * ```
  */
-export function defineInlineMcpTool<T extends z.ZodType>(
-  def: InlineMcpToolDefinition<T>,
-): InlineMcpToolDefinition<T> {
+export function defineInlineMcpTool<T extends z.ZodType, O extends z.ZodType = z.ZodType>(
+  def: InlineMcpToolDefinition<T, O>,
+): InlineMcpToolDefinition<T, O> {
   return def;
 }
 
@@ -129,15 +133,20 @@ export function createInlineMcpServer(
     validateToolName(toolName, namespace);
     const namespacedName = `${namespace}__${toolName}`;
 
-    const jsonSchema = toJSONSchema(def.parameters) as Record<string, unknown>;
+    const inputJsonSchema = toJSONSchema(def.parameters) as Record<string, unknown>;
+    const outputJsonSchema = def.output
+      ? (toJSONSchema(def.output) as Record<string, unknown>)
+      : undefined;
 
     schemas.push({
       name: namespacedName,
       description: def.description,
-      inputSchema: jsonSchema,
+      inputSchema: inputJsonSchema,
+      outputSchema: outputJsonSchema,
     });
 
     const zodSchema = def.parameters;
+    const outputZodSchema = def.output;
     handlers[namespacedName] = async (args: Record<string, unknown>) => {
       const parsed = zodSchema.safeParse(args);
       if (!parsed.success) {
@@ -145,7 +154,17 @@ export function createInlineMcpServer(
           `Invalid arguments for "${namespacedName}": ${formatZodIssues(parsed.error)}`,
         );
       }
-      return await def.handler(parsed.data);
+      const result = await def.handler(parsed.data);
+      if (outputZodSchema) {
+        const validated = outputZodSchema.safeParse(result);
+        if (!validated.success) {
+          throw new Error(
+            `Invalid output from "${namespacedName}": ${formatZodIssues(validated.error)}`,
+          );
+        }
+        return validated.data;
+      }
+      return result;
     };
   }
 

@@ -28,7 +28,8 @@ interface ContentPart {
 }
 
 interface CallToolResult {
-  content: ContentPart[];
+  content?: ContentPart[];
+  structuredContent?: Record<string, unknown>;
   isError?: boolean;
   [key: string]: unknown;
 }
@@ -44,21 +45,26 @@ function formatContentPart(part: ContentPart): unknown {
 
 function formatCallToolResult(result: CallToolResult): unknown {
   if (result.isError) {
-    const errorText = result.content
+    const errorText = (result.content ?? [])
       .filter((c) => c.type === 'text' && typeof c.text === 'string')
       .map((c) => c.text!)
       .join('\n');
     return { error: errorText || 'Tool execution failed' };
   }
 
-  if (result.content.length === 0) {
+  if (result.structuredContent !== undefined && result.structuredContent !== null) {
+    return result.structuredContent;
+  }
+
+  const content = result.content ?? [];
+
+  if (content.length === 0) {
     return { success: true };
   }
 
-  const textParts = result.content.filter((c) => c.type === 'text' && typeof c.text === 'string');
-  const hasNonText = result.content.some((c) => c.type !== 'text');
+  const textParts = content.filter((c) => c.type === 'text' && typeof c.text === 'string');
+  const hasNonText = content.some((c) => c.type !== 'text');
 
-  // Pure text results: parse JSON or return as string
   if (!hasNonText) {
     if (textParts.length === 1) {
       try {
@@ -70,8 +76,7 @@ function formatCallToolResult(result: CallToolResult): unknown {
     return textParts.map((p) => p.text).join('\n');
   }
 
-  // Mixed or non-text content: return as structured content array
-  return result.content.map(formatContentPart);
+  return content.map(formatContentPart);
 }
 
 async function discoverTools(
@@ -91,6 +96,7 @@ async function discoverTools(
       name: nsName,
       description: tool.description ?? originalName,
       inputSchema: normalizeToolInputSchema(tool.inputSchema as Record<string, unknown>),
+      outputSchema: tool.outputSchema as Record<string, unknown> | undefined,
     });
 
     handlers[nsName] = async (args: Record<string, unknown>) => {
