@@ -52,6 +52,10 @@ function formatCallToolResult(result: CallToolResult): unknown {
     return { error: errorText || 'Tool execution failed' };
   }
 
+  // Prefer structuredContent over content[] when both are present. Per the
+  // MCP spec, content[] sent alongside structuredContent is a JSON-stringified
+  // fallback for clients that don't understand structured results, so the
+  // structured object is the canonical representation for the LLM.
   if (result.structuredContent !== undefined && result.structuredContent !== null) {
     return result.structuredContent;
   }
@@ -96,7 +100,9 @@ async function discoverTools(
       name: nsName,
       description: tool.description ?? originalName,
       inputSchema: normalizeToolInputSchema(tool.inputSchema as Record<string, unknown>),
-      outputSchema: tool.outputSchema as Record<string, unknown> | undefined,
+      outputSchema: tool.outputSchema
+        ? normalizeToolInputSchema(tool.outputSchema as Record<string, unknown>)
+        : undefined,
     });
 
     handlers[nsName] = async (args: Record<string, unknown>) => {

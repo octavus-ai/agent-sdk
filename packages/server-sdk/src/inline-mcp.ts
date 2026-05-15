@@ -56,6 +56,13 @@ function formatZodIssues(error: z.ZodError): string {
  * TypeScript collapses the per-tool generic when the tools are placed in
  * a record literal, leaving `args` typed as `unknown`.
  *
+ * Optionally pass an `output` Zod schema to declare the tool's return shape.
+ * When set, the schema is forwarded to the LLM as `outputSchema` (used by
+ * providers that support structured tool outputs, e.g. OpenAI strict mode)
+ * and handler return values are validated at runtime - a handler that
+ * returns a malformed result throws before reaching the LLM. Omitting
+ * `output` preserves the previous unconstrained-return behavior.
+ *
  * @example
  * ```typescript
  * const getPrOverview = defineInlineMcpTool({
@@ -65,8 +72,15 @@ function formatZodIssues(error: z.ZodError): string {
  *     repo: z.string(),
  *     pullNumber: z.number(),
  *   }),
+ *   output: z.object({
+ *     title: z.string(),
+ *     state: z.enum(['open', 'closed', 'merged']),
+ *     additions: z.number(),
+ *     deletions: z.number(),
+ *   }),
  *   handler: async (args) => {
  *     // args is { owner: string; repo: string; pullNumber: number }
+ *     // return value is type-checked against the `output` schema
  *     return await githubService.getPrOverview(args.owner, args.repo, args.pullNumber);
  *   },
  * });

@@ -7,12 +7,15 @@ export function generateId(): string {
 }
 
 /**
- * Ensures a tool `inputSchema` has a `properties` field on its root object
+ * Ensures a tool JSON Schema has a `properties` field on its root object
  * node and on any nested schema reachable through `properties`. OpenAI
  * rejects tool schemas that declare `type: "object"` without `properties`;
  * Anthropic and Google are lenient. This normalizer acts as a safety net
  * for schemas coming from MCP servers or hand-crafted definitions that may
  * not satisfy OpenAI's stricter validation.
+ *
+ * Applies equally to tool `inputSchema` and `outputSchema` - the body is
+ * schema-shape agnostic; the name reflects the original use site only.
  *
  * Scope: walks `type: "object"` nodes through the `properties` map. It does
  * not descend into `items`, `additionalProperties`, `anyOf`/`oneOf`/`allOf`,

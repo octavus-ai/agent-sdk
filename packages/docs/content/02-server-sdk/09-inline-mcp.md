@@ -106,6 +106,36 @@ tools: {
 
 The handler also receives Zod-validated arguments. Invalid inputs throw before reaching your code, with the failed paths and messages joined into the error.
 
+## Declaring an Output Schema
+
+`defineInlineMcpTool()` accepts an optional `output` Zod schema. When provided, two things happen:
+
+1. The schema is converted to JSON Schema and forwarded to the LLM as `outputSchema`. Providers that support structured tool outputs (e.g. OpenAI strict mode) can use it to validate the tool result they reason over.
+2. Handler return values are validated against the schema at runtime. A handler returning a malformed result throws before the result reaches the LLM, with the failed paths and messages joined into the error.
+
+```typescript
+'get-pr-overview': defineInlineMcpTool({
+  description: 'Get pull request metadata and file changes',
+  parameters: z.object({
+    owner: z.string(),
+    repo: z.string(),
+    pullNumber: z.number(),
+  }),
+  output: z.object({
+    title: z.string(),
+    state: z.enum(['open', 'closed', 'merged']),
+    additions: z.number(),
+    deletions: z.number(),
+  }),
+  handler: async (args) => {
+    // Return type is type-checked against the `output` schema.
+    return await githubService.getPrOverview(args.owner, args.repo, args.pullNumber);
+  },
+}),
+```
+
+Omitting `output` preserves the previous behavior - the handler return type is unconstrained and the LLM sees no `outputSchema` on the tool.
+
 ## Attaching to a Session
 
 Pass inline MCP servers via `mcpServers` on `attach()`. They merge with `tools` and survive across `setDynamicTools()` calls:
