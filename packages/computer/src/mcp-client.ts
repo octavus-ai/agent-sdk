@@ -44,7 +44,7 @@ async function discoverTools(
       description: tool.description ?? originalName,
       inputSchema: normalizeToolInputSchema(tool.inputSchema as Record<string, unknown>),
       ...(tool.outputSchema && {
-        outputSchema: normalizeToolInputSchema(tool.outputSchema as Record<string, unknown>),
+        outputSchema: tool.outputSchema as Record<string, unknown>,
       }),
     });
 
