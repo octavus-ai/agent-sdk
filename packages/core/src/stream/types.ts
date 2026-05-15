@@ -823,8 +823,15 @@ export interface WorkerPartInfo {
  */
 export interface MessagePart {
   type: MessagePartType;
-  /** Whether shown in chat UI (false = LLM sees it, user doesn't) */
+  /** When false, the part is hidden from the chat UI but still sent to the model. */
   visible: boolean;
+  /**
+   * When true, the part is rendered in the chat UI but skipped when the
+   * message is converted to model messages. Use this for content that the
+   * model has already received through another message in the
+   * conversation but the UI still needs to display.
+   */
+  displayOnly?: boolean;
   /** Content for text/reasoning parts */
   content?: string;
   /** Tool call info for tool-call parts */
