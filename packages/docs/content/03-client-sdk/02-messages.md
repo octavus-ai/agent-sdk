@@ -33,7 +33,8 @@ type UIMessagePart =
   | UIFilePart
   | UIObjectPart
   | UITodoPart
-  | UIWorkerPart;
+  | UIWorkerPart
+  | UIStepStartPart;
 
 // Text content
 interface UITextPart {
@@ -60,7 +61,7 @@ interface UIToolCallPart {
   args: Record<string, unknown>;
   result?: unknown;
   error?: string;
-  status: 'pending' | 'running' | 'done' | 'error';
+  status: 'pending' | 'running' | 'done' | 'error' | 'cancelled';
   thread?: string;
 }
 
@@ -133,6 +134,11 @@ interface UIWorkerPart {
   output?: unknown;
   error?: string;
   status: 'running' | 'done' | 'error';
+}
+
+// Step boundary marker (structural, not rendered visually)
+interface UIStepStartPart {
+  type: 'step-start';
 }
 ```
 
@@ -315,6 +321,9 @@ function PartRenderer({ part }: { part: UIMessagePart }) {
       // For structured output, render custom UI based on typeName
       // See Structured Output guide for more details
       return <ObjectPartRenderer part={part} />;
+
+    case 'step-start':
+      return null;
 
     default:
       return null;

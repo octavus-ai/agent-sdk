@@ -156,7 +156,7 @@ export type ToolCallStatus = 'pending' | 'streaming' | 'available' | 'error';
 
 /**
  * Raw provider metadata, namespaced by provider (e.g. `{ anthropic: { signature: "..." } }`,
- * `{ google: { thoughtSignature: "..." } }`). Stored on reasoning blocks and tool calls
+ * `{ google: { thoughtSignature: "..." } }`). Stored on reasoning and tool-call parts
  * so per-provider continuation hints round-trip through session storage. Inner values are
  * `unknown` because the data may have round-tripped through JSON serialization.
  */
@@ -170,9 +170,7 @@ export interface ToolCallInfo {
   status: ToolCallStatus;
   result?: unknown;
   error?: string;
-  /** Google Gemini 3 thought signature - required for tool call continuation */
-  thoughtSignature?: string;
-  /** Raw provider metadata for generic passthrough (preferred over thoughtSignature when present) */
+  /** Provider-specific metadata for this tool call (e.g. Google thought signatures). */
   providerMetadata?: ProviderMetadata;
   /** Display mode from tool definition - controls what data flows to UIMessage */
   display?: DisplayMode;
@@ -496,9 +494,7 @@ export interface PendingToolCall {
   thread?: string;
   /** Worker ID if this tool call originated from a worker execution */
   workerId?: string;
-  /** Google Gemini 3 thought signature - required for tool call continuation */
-  thoughtSignature?: string;
-  /** Raw provider metadata for generic passthrough (preferred over thoughtSignature when present) */
+  /** Provider-specific metadata for this tool call (e.g. Google thought signatures). */
   providerMetadata?: ProviderMetadata;
 }
 
@@ -863,9 +859,9 @@ export interface MessagePart {
    *
    * Reasoning parts carry signed thinking envelopes (Anthropic signature,
    * OpenAI item reference, OpenRouter reasoning details, etc). Tool-call
-   * parts carry provider-specific tool metadata (Google `thoughtSignature`,
-   * etc). The runtime treats this as an opaque blob - never inspect the
-   * structure here, so a new provider works without runtime changes.
+   * parts carry provider-specific tool metadata. The runtime treats this
+   * as an opaque blob - never inspect the structure here, so a new
+   * provider works without runtime changes.
    */
   providerMetadata?: ProviderMetadata;
 }

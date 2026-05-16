@@ -29,7 +29,6 @@ export const toolCallInfoSchema = z.object({
   status: toolCallStatusSchema,
   result: z.unknown().optional(),
   error: z.string().optional(),
-  thoughtSignature: z.string().optional(),
   display: displayModeSchema.optional(),
 });
 
@@ -523,7 +522,7 @@ export const chatMessageSchema = z.object({
 
 export const uiMessageStatusSchema = z.enum(['streaming', 'done']);
 export const uiPartStatusSchema = z.enum(['streaming', 'done']);
-export const uiToolCallStatusSchema = z.enum(['pending', 'running', 'done', 'error']);
+export const uiToolCallStatusSchema = z.enum(['pending', 'running', 'done', 'error', 'cancelled']);
 
 export const uiTextPartSchema = z.object({
   type: z.literal('text'),
@@ -553,7 +552,7 @@ export const uiToolCallPartSchema = z.object({
   providerMetadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const uiOperationStatusSchema = z.enum(['running', 'done']);
+export const uiOperationStatusSchema = z.enum(['running', 'done', 'cancelled']);
 
 export const uiOperationPartSchema = z.object({
   type: z.literal('operation'),

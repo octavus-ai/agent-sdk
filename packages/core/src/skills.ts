@@ -4,14 +4,7 @@
  * For internal tool definitions and checking, see internal-tools.ts
  */
 
-import {
-  isOctavusSkillTool,
-  OCTAVUS_SKILL_TOOLS,
-  type OctavusSkillToolName,
-} from './internal-tools';
-
-// Re-export skill tool constants for backward compatibility
-export { OCTAVUS_SKILL_TOOLS, isOctavusSkillTool, type OctavusSkillToolName };
+import { isOctavusSkillTool } from './internal-tools';
 
 /**
  * Extract skill slug from skill tool arguments.
