@@ -714,13 +714,21 @@ export type StreamEvent =
 // =============================================================================
 
 /**
- * Type of content in a message part (internal)
+ * Type of content in a message part (internal).
+ *
+ * `step-start` is a structural marker between LLM steps in a multi-step
+ * agentic response. It carries no user-visible content; it splits a
+ * single assistant `ChatMessage` into per-step assistant + tool model
+ * messages when the conversation is rebuilt for the next LLM call.
+ *
+ * Tool results live on the `tool-call` part itself via
+ * `ToolCallInfo.result` / `error`. Files produced by a tool are emitted
+ * as sibling `file` parts with the matching `toolCallId`.
  */
 export type MessagePartType =
   | 'text'
   | 'reasoning'
   | 'tool-call'
-  | 'tool-result'
   | 'step-start'
   | 'operation'
   | 'source'
@@ -825,30 +833,21 @@ export interface WorkerPartInfo {
  */
 export interface MessagePart {
   type: MessagePartType;
-  /** When false, the part is hidden from the chat UI but still sent to the model. */
+  /**
+   * When false, the part is sent to the model but hidden from the chat UI.
+   * Used for internal directives (system prompts injected as user content,
+   * etc.) that the LLM needs but the user should not see.
+   */
   visible: boolean;
-  /**
-   * When true, the part is rendered in the chat UI but skipped when the
-   * message is converted to model messages. Use this for content that the
-   * model has already received through another message in the
-   * conversation but the UI still needs to display.
-   */
-  /**
-   * Legacy: use step-start boundary markers instead. Will be removed once
-   * old Redis sessions expire (24h TTL).
-   */
-  displayOnly?: boolean;
   /** Content for text/reasoning parts */
   content?: string;
-  /** Tool call info for tool-call parts */
+  /** Tool call info for tool-call parts (carries result/error inline) */
   toolCall?: ToolCallInfo;
-  /** Inline tool result for tool-result parts */
-  toolResult?: ToolResultInfo;
   /** Operation info for operation parts (block operations) */
   operation?: OperationInfo;
   /** Source info for source parts (from web search, etc.) */
   source?: SourceInfo;
-  /** File info for file parts (from skill execution, etc.) */
+  /** File info for file parts (from skill execution, tool results, etc.) */
   file?: FileInfo;
   /** Object info for object parts (structured output) */
   object?: ObjectInfo;
@@ -859,69 +858,44 @@ export interface MessagePart {
   /** Thread name for non-main-thread content (e.g., "summary") */
   thread?: string;
   /**
-   * Provider-specific metadata for this part (e.g., Anthropic reasoning signature).
-   * Stored per-part so each reasoning block retains its individual metadata
-   * for faithful round-trip to the provider on subsequent requests.
+   * Provider-specific metadata captured opaquely from the AI SDK stream
+   * and replayed verbatim as `providerOptions` on the next LLM call.
+   *
+   * Reasoning parts carry signed thinking envelopes (Anthropic signature,
+   * OpenAI item reference, OpenRouter reasoning details, etc). Tool-call
+   * parts carry provider-specific tool metadata (Google `thoughtSignature`,
+   * etc). The runtime treats this as an opaque blob - never inspect the
+   * structure here, so a new provider works without runtime changes.
    */
   providerMetadata?: ProviderMetadata;
 }
 
 /**
- * Tool result entry for tool continuation messages.
- * Used internally when injecting tool results back into conversation history.
- */
-export interface ToolResultEntry {
-  toolCallId: string;
-  toolName?: string;
-  result: unknown;
-  /** Files produced by the tool, included as visual content for the LLM. */
-  files?: FileReference[];
-}
-
-/**
- * Inline tool result stored as a MessagePart.
- * Used within step-boundary-based message format where tool results
- * live alongside tool calls in the parts array rather than in separate messages.
- */
-export interface ToolResultInfo {
-  toolCallId: string;
-  toolName?: string;
-  result: unknown;
-  /** Files produced by the tool, included as visual content for the LLM. */
-  files?: FileReference[];
-}
-
-/**
- * Internal chat message - stored in session state, used by LLM
+ * Internal chat message - stored in session state, used by LLM.
+ *
+ * One assistant `ChatMessage` corresponds to one user-visible turn,
+ * regardless of how many internal LLM steps the runtime executed. Step
+ * boundaries are tracked by `step-start` parts inside `parts[]`, and tool
+ * results live on the originating `tool-call` part via `ToolCallInfo`.
  */
 export interface ChatMessage {
   id: string;
   role: MessageRole;
-  /** Ordered parts for display - preserves reasoning/tool/text order */
+  /**
+   * Ordered parts. Source of truth for both UI rendering and LLM
+   * context reconstruction. Step boundaries are encoded as `step-start`
+   * parts in this array.
+   */
   parts: MessagePart[];
   createdAt: string;
-  /**
-   * Whether shown in chat UI (false = LLM sees it, user doesn't).
-   * Use for internal directives. Different from `display` which controls execution indicator.
-   * @default true
-   */
-  visible?: boolean;
-
-  // Flat fields derived from parts - kept for LLM context
+  /** Cached concatenation of visible text parts, for display convenience. */
   content: string;
-  toolCalls?: ToolCallInfo[];
-  /** Legacy: per-part reasoning content is the source of truth in new format */
-  reasoning?: string;
-  /** Legacy: per-part providerMetadata is the source of truth in new format */
-  reasoningSignature?: string;
-  /** Legacy: per-part providerMetadata is the source of truth in new format */
-  reasoningProviderMetadata?: ProviderMetadata;
   /**
-   * Tool results for continuation messages (legacy format).
-   * In the new step-boundary format, tool results are stored as
-   * tool-result parts in the message's parts array instead.
+   * Mirror of every `tool-call` part in `parts[]`, sharing the same
+   * `ToolCallInfo` references so back-fills land in both views. Lets
+   * tool-call iteration skip the parts filter.
    */
-  toolResults?: ToolResultEntry[];
+  toolCalls?: ToolCallInfo[];
 }
 
 // =============================================================================
@@ -1150,9 +1124,10 @@ export interface UITodoPart {
 }
 
 /**
- * Step boundary marker in a UI message.
- * Not rendered visually - used to preserve step boundary information
- * across session restore so model messages can be correctly reconstructed.
+ * Step boundary marker between LLM steps in a multi-step agentic
+ * response. Carries no payload and is not rendered visually - it
+ * preserves step structure across session persist / restore so the
+ * conversation rebuilds with one assistant + tool model message per step.
  */
 export interface UIStepStartPart {
   type: 'step-start';

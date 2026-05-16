@@ -130,8 +130,6 @@ export type {
   TodoInfo,
   WorkerPartInfo,
   MessagePart,
-  ToolResultEntry,
-  ToolResultInfo,
   ChatMessage,
   // UI Message Types (for client SDK and consumer apps)
   UIMessageStatus,
