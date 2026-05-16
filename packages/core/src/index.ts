@@ -131,6 +131,7 @@ export type {
   WorkerPartInfo,
   MessagePart,
   ToolResultEntry,
+  ToolResultInfo,
   ChatMessage,
   // UI Message Types (for client SDK and consumer apps)
   UIMessageStatus,
@@ -151,6 +152,7 @@ export type {
   UITodoPart,
   UIWorkerStatus,
   UIWorkerPart,
+  UIStepStartPart,
   UIMessagePart,
   UIMessage,
 } from './stream/types';

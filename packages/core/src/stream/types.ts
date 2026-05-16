@@ -720,6 +720,8 @@ export type MessagePartType =
   | 'text'
   | 'reasoning'
   | 'tool-call'
+  | 'tool-result'
+  | 'step-start'
   | 'operation'
   | 'source'
   | 'file'
@@ -831,11 +833,17 @@ export interface MessagePart {
    * model has already received through another message in the
    * conversation but the UI still needs to display.
    */
+  /**
+   * Legacy: use step-start boundary markers instead. Will be removed once
+   * old Redis sessions expire (24h TTL).
+   */
   displayOnly?: boolean;
   /** Content for text/reasoning parts */
   content?: string;
   /** Tool call info for tool-call parts */
   toolCall?: ToolCallInfo;
+  /** Inline tool result for tool-result parts */
+  toolResult?: ToolResultInfo;
   /** Operation info for operation parts (block operations) */
   operation?: OperationInfo;
   /** Source info for source parts (from web search, etc.) */
@@ -871,6 +879,19 @@ export interface ToolResultEntry {
 }
 
 /**
+ * Inline tool result stored as a MessagePart.
+ * Used within step-boundary-based message format where tool results
+ * live alongside tool calls in the parts array rather than in separate messages.
+ */
+export interface ToolResultInfo {
+  toolCallId: string;
+  toolName?: string;
+  result: unknown;
+  /** Files produced by the tool, included as visual content for the LLM. */
+  files?: FileReference[];
+}
+
+/**
  * Internal chat message - stored in session state, used by LLM
  */
 export interface ChatMessage {
@@ -889,15 +910,16 @@ export interface ChatMessage {
   // Flat fields derived from parts - kept for LLM context
   content: string;
   toolCalls?: ToolCallInfo[];
+  /** Legacy: per-part reasoning content is the source of truth in new format */
   reasoning?: string;
-  /** Required by Anthropic to verify reasoning blocks */
+  /** Legacy: per-part providerMetadata is the source of truth in new format */
   reasoningSignature?: string;
-  /** Raw provider metadata for reasoning (preferred over reasoningSignature when present) */
+  /** Legacy: per-part providerMetadata is the source of truth in new format */
   reasoningProviderMetadata?: ProviderMetadata;
   /**
-   * Tool results for continuation messages.
-   * When present, this message represents tool results being injected back
-   * into the conversation (converted to role: 'tool' for the AI SDK).
+   * Tool results for continuation messages (legacy format).
+   * In the new step-boundary format, tool results are stored as
+   * tool-result parts in the message's parts array instead.
    */
   toolResults?: ToolResultEntry[];
 }
@@ -1128,6 +1150,15 @@ export interface UITodoPart {
 }
 
 /**
+ * Step boundary marker in a UI message.
+ * Not rendered visually - used to preserve step boundary information
+ * across session restore so model messages can be correctly reconstructed.
+ */
+export interface UIStepStartPart {
+  type: 'step-start';
+}
+
+/**
  * Union of all UI message part types
  */
 export type UIMessagePart =
@@ -1139,7 +1170,8 @@ export type UIMessagePart =
   | UIFilePart
   | UIObjectPart
   | UIWorkerPart
-  | UITodoPart;
+  | UITodoPart
+  | UIStepStartPart;
 
 /**
  * UI Message - the client-facing message format
