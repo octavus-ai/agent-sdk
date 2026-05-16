@@ -34,10 +34,9 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
   https://octavus.ai/api/agent-sessions/SESSION_ID
 ```
 
-| Header value | Wire shape                                                                                               |
-| ------------ | -------------------------------------------------------------------------------------------------------- |
-| (missing)    | Legacy (v3) - matches `@octavus/server-sdk@^3`                                                           |
-| `4`          | Current (v4) - matches `@octavus/server-sdk@^4`. Adds `step-start` parts to `UIMessage` / `ChatMessage`. |
+| Header value | Wire shape                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------- |
+| `4`          | Current - matches `@octavus/server-sdk@^4`. Includes `step-start` parts in `UIMessage` / `ChatMessage`. |
 
 The header value is the major version the client can parse, not the SDK release version. Future wire-incompatible additions bump it again.
 
