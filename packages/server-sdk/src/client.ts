@@ -4,6 +4,15 @@ import { AgentSessionsApi } from '@/agent-sessions.js';
 import { FilesApi } from '@/files.js';
 import { WorkersApi } from '@/workers.js';
 
+/**
+ * Wire-format major version this SDK can parse.
+ *
+ * Sent on every request as `X-Octavus-Sdk-Version` so the platform
+ * serves a shape we understand. Bump together with the SDK's major
+ * version whenever a wire-incompatible change lands.
+ */
+const SDK_WIRE_VERSION = '4';
+
 export interface OctavusClientConfig {
   baseUrl: string;
   apiKey?: string;
@@ -50,6 +59,7 @@ export class OctavusClient {
   getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-Octavus-Sdk-Version': SDK_WIRE_VERSION,
     };
 
     if (this.apiKey) {

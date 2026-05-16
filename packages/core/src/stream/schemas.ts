@@ -408,6 +408,7 @@ export const messagePartTypeSchema = z.enum([
   'text',
   'reasoning',
   'tool-call',
+  'step-start',
   'operation',
   'source',
   'file',
@@ -512,11 +513,8 @@ export const chatMessageSchema = z.object({
   role: messageRoleSchema,
   parts: z.array(messagePartSchema),
   createdAt: z.string(),
-  visible: z.boolean().optional(),
   content: z.string(),
   toolCalls: z.array(toolCallInfoSchema).optional(),
-  reasoning: z.string().optional(),
-  reasoningSignature: z.string().optional(),
 });
 
 // =============================================================================
@@ -631,6 +629,14 @@ export const uiWorkerStatusSchema = z.enum(['running', 'done', 'error']);
 
 // Note: We use z.union here because source parts share type: 'source' but
 // differ by sourceType. z.discriminatedUnion requires unique discriminator values.
+
+// Step boundary marker. No payload, no UI rendering - preserves step
+// structure across UIMessage <-> ChatMessage round-trips so multi-step
+// reasoning rebuilds into one assistant + tool model message per step.
+export const uiStepStartPartSchema = z.object({
+  type: z.literal('step-start'),
+});
+
 // Base parts schema (without worker, for non-recursive use)
 const baseUiMessagePartSchema = z.union([
   uiTextPartSchema,
@@ -641,6 +647,7 @@ const baseUiMessagePartSchema = z.union([
   uiFilePartSchema,
   uiObjectPartSchema,
   uiTodoPartSchema,
+  uiStepStartPartSchema,
 ]);
 
 // Worker part schema with nested parts (uses base schema to avoid infinite recursion)
@@ -667,6 +674,7 @@ export const uiMessagePartSchema = z.union([
   uiObjectPartSchema,
   uiWorkerPartSchema,
   uiTodoPartSchema,
+  uiStepStartPartSchema,
 ]);
 
 export const uiMessageSchema = z.object({

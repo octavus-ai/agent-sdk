@@ -24,6 +24,23 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 API keys can be created in the Octavus Platform under your project's **API Keys** page.
 
+## Wire-Format Versioning
+
+The platform negotiates wire shape via the `X-Octavus-Sdk-Version` header. The Server SDK sets this automatically; direct API users only need to send it when they want the latest format.
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "X-Octavus-Sdk-Version: 4" \
+  https://octavus.ai/api/agent-sessions/SESSION_ID
+```
+
+| Header value | Wire shape                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------------- |
+| (missing)    | Legacy (v3) - matches `@octavus/server-sdk@^3`                                                           |
+| `4`          | Current (v4) - matches `@octavus/server-sdk@^4`. Adds `step-start` parts to `UIMessage` / `ChatMessage`. |
+
+The header value is the major version the client can parse, not the SDK release version. Future wire-incompatible additions bump it again.
+
 ## API Key Permissions
 
 API keys have two permission scopes:
