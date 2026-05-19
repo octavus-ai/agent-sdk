@@ -6,6 +6,8 @@ export { ApiError } from '@/api-error.js';
 export interface ApiClientConfig {
   baseUrl: string;
   getHeaders: () => Record<string, string>;
+  /** Maximum retries for transient network failures during streaming execution. */
+  maxRetries?: number;
 }
 
 /** Base class for API clients with shared HTTP utilities */

@@ -11,6 +11,77 @@ import {
 import { parseApiError } from '@/api-error.js';
 import type { ApiClientConfig } from '@/base-api-client.js';
 
+// =============================================================================
+// Retry helpers
+// =============================================================================
+
+const DEFAULT_MAX_RETRIES = 2;
+const RETRY_INITIAL_DELAY_MS = 1_000;
+const RETRY_MAX_DELAY_MS = 8_000;
+const RETRY_JITTER_FACTOR = 0.25;
+
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status === 502 || status === 503 || status === 504;
+}
+
+function isRetryableNetworkError(err: unknown): boolean {
+  return err instanceof TypeError;
+}
+
+/**
+ * Parse an HTTP `Retry-After` header value into milliseconds. The spec allows
+ * both an integer number of seconds and an HTTP-date. Returns `null` if the
+ * value matches neither, so the caller can fall back to exponential backoff.
+ */
+function parseRetryAfterMs(value: string): number | null {
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+  const dateMs = Date.parse(value);
+  if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
+
+  return null;
+}
+
+async function retryDelay(
+  attempt: number,
+  response: Response | null,
+  signal?: AbortSignal,
+): Promise<void> {
+  const retryAfter = response?.headers.get('retry-after');
+  const parsedRetryAfter = retryAfter ? parseRetryAfterMs(retryAfter) : null;
+
+  let delayMs: number;
+  if (parsedRetryAfter !== null) {
+    // Clamp so a misbehaving server (or malicious proxy) sending a huge
+    // `Retry-After` can't pin the session waiting for hours.
+    delayMs = Math.min(parsedRetryAfter, RETRY_MAX_DELAY_MS);
+  } else {
+    const base = Math.min(RETRY_INITIAL_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
+    const jitter = base * RETRY_JITTER_FACTOR * (Math.random() * 2 - 1);
+    delayMs = base + jitter;
+  }
+
+  if (signal?.aborted) return;
+
+  await new Promise<void>((resolve, reject) => {
+    // Use a ref object so `onAbort` can clear the timer that gets set after
+    // it, without tripping `no-use-before-define`. Removing the abort
+    // listener when the timer wins the race keeps long sessions with many
+    // retry rounds from accumulating listeners on the caller's signal.
+    const handle: { timer: ReturnType<typeof setTimeout> | null } = { timer: null };
+    const onAbort = () => {
+      if (handle.timer !== null) clearTimeout(handle.timer);
+      reject(signal!.reason instanceof Error ? signal!.reason : new Error('Aborted'));
+    };
+    handle.timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, delayMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 /**
  * Configuration for streaming execution.
  */
@@ -78,21 +149,42 @@ export async function* executeStream(
     }
 
     const body = config.buildBody({ executionId, toolResults });
+    const maxRetries = Math.max(0, config.config.maxRetries ?? DEFAULT_MAX_RETRIES);
 
-    let response: Response;
-    try {
-      response = await fetch(config.url, {
-        method: 'POST',
-        headers: config.config.getHeaders(),
-        body: JSON.stringify(body),
-        signal,
-      });
-    } catch (err) {
-      if (isAbortError(err)) {
+    let response!: Response;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (signal?.aborted) {
         yield { type: 'finish', finishReason: 'stop' };
         return;
       }
-      throw err;
+
+      try {
+        response = await fetch(config.url, {
+          method: 'POST',
+          headers: config.config.getHeaders(),
+          body: JSON.stringify(body),
+          signal,
+        });
+
+        if (isRetryableStatus(response.status) && attempt < maxRetries) {
+          // Release the socket promptly; the body is unused before we retry.
+          await response.body?.cancel().catch(() => {});
+          await retryDelay(attempt, response, signal);
+          continue;
+        }
+
+        break;
+      } catch (err) {
+        if (isAbortError(err)) {
+          yield { type: 'finish', finishReason: 'stop' };
+          return;
+        }
+        if (attempt < maxRetries && isRetryableNetworkError(err)) {
+          await retryDelay(attempt, null, signal);
+          continue;
+        }
+        throw err;
+      }
     }
 
     if (!response.ok) {
