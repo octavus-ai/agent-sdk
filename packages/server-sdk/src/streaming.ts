@@ -11,6 +11,53 @@ import {
 import { parseApiError } from '@/api-error.js';
 import type { ApiClientConfig } from '@/base-api-client.js';
 
+// =============================================================================
+// Retry helpers
+// =============================================================================
+
+const DEFAULT_MAX_RETRIES = 2;
+const RETRY_INITIAL_DELAY_MS = 1_000;
+const RETRY_MAX_DELAY_MS = 8_000;
+const RETRY_JITTER_FACTOR = 0.25;
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status === 502 || status === 503;
+}
+
+function isRetryableNetworkError(err: unknown): boolean {
+  return err instanceof TypeError;
+}
+
+async function retryDelay(
+  attempt: number,
+  response: Response | null,
+  signal?: AbortSignal,
+): Promise<void> {
+  const retryAfter = response?.headers.get('retry-after');
+  let delayMs: number;
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    delayMs = Number.isFinite(seconds) ? seconds * 1000 : RETRY_INITIAL_DELAY_MS;
+  } else {
+    const base = Math.min(RETRY_INITIAL_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
+    const jitter = base * RETRY_JITTER_FACTOR * (Math.random() * 2 - 1);
+    delayMs = base + jitter;
+  }
+
+  if (signal?.aborted) return;
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, delayMs);
+    if (signal) {
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+}
+
 /**
  * Configuration for streaming execution.
  */
@@ -78,21 +125,40 @@ export async function* executeStream(
     }
 
     const body = config.buildBody({ executionId, toolResults });
+    const maxRetries = config.config.maxRetries ?? DEFAULT_MAX_RETRIES;
 
-    let response: Response;
-    try {
-      response = await fetch(config.url, {
-        method: 'POST',
-        headers: config.config.getHeaders(),
-        body: JSON.stringify(body),
-        signal,
-      });
-    } catch (err) {
-      if (isAbortError(err)) {
+    let response!: Response;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (signal?.aborted) {
         yield { type: 'finish', finishReason: 'stop' };
         return;
       }
-      throw err;
+
+      try {
+        response = await fetch(config.url, {
+          method: 'POST',
+          headers: config.config.getHeaders(),
+          body: JSON.stringify(body),
+          signal,
+        });
+
+        if (isRetryableStatus(response.status) && attempt < maxRetries) {
+          await retryDelay(attempt, response, signal);
+          continue;
+        }
+
+        break;
+      } catch (err) {
+        if (isAbortError(err)) {
+          yield { type: 'finish', finishReason: 'stop' };
+          return;
+        }
+        if (attempt < maxRetries && isRetryableNetworkError(err)) {
+          await retryDelay(attempt, null, signal);
+          continue;
+        }
+        throw err;
+      }
     }
 
     if (!response.ok) {

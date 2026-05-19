@@ -18,6 +18,11 @@ export interface OctavusClientConfig {
   apiKey?: string;
   /** Enable model request tracing to capture full payloads sent to providers (default: false) */
   traceModelRequests?: boolean;
+  /**
+   * Maximum number of retries for transient network failures during streaming
+   * execution (tool continuation). Set to 0 to disable retries. Default: 2.
+   */
+  maxRetries?: number;
 }
 
 /** Client for interacting with the Octavus platform API */
@@ -38,6 +43,7 @@ export class OctavusClient {
     const apiConfig: ApiClientConfig = {
       baseUrl: this.baseUrl,
       getHeaders: () => this.getHeaders(),
+      maxRetries: config.maxRetries,
     };
 
     this.agents = new AgentsApi(apiConfig);
