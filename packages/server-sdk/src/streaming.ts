@@ -21,7 +21,7 @@ const RETRY_MAX_DELAY_MS = 8_000;
 const RETRY_JITTER_FACTOR = 0.25;
 
 function isRetryableStatus(status: number): boolean {
-  return status === 429 || status === 502 || status === 503;
+  return status === 408 || status === 429 || status === 502 || status === 503 || status === 504;
 }
 
 function isRetryableNetworkError(err: unknown): boolean {
