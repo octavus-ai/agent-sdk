@@ -28,16 +28,34 @@ function isRetryableNetworkError(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
+/**
+ * Parse an HTTP `Retry-After` header value into milliseconds. The spec allows
+ * both an integer number of seconds and an HTTP-date. Returns `null` if the
+ * value matches neither, so the caller can fall back to exponential backoff.
+ */
+function parseRetryAfterMs(value: string): number | null {
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+  const dateMs = Date.parse(value);
+  if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
+
+  return null;
+}
+
 async function retryDelay(
   attempt: number,
   response: Response | null,
   signal?: AbortSignal,
 ): Promise<void> {
   const retryAfter = response?.headers.get('retry-after');
+  const parsedRetryAfter = retryAfter ? parseRetryAfterMs(retryAfter) : null;
+
   let delayMs: number;
-  if (retryAfter) {
-    const seconds = Number(retryAfter);
-    delayMs = Number.isFinite(seconds) ? seconds * 1000 : RETRY_INITIAL_DELAY_MS;
+  if (parsedRetryAfter !== null) {
+    // Clamp so a misbehaving server (or malicious proxy) sending a huge
+    // `Retry-After` can't pin the session waiting for hours.
+    delayMs = Math.min(parsedRetryAfter, RETRY_MAX_DELAY_MS);
   } else {
     const base = Math.min(RETRY_INITIAL_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
     const jitter = base * RETRY_JITTER_FACTOR * (Math.random() * 2 - 1);
@@ -47,14 +65,20 @@ async function retryDelay(
   if (signal?.aborted) return;
 
   await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(resolve, delayMs);
-    if (signal) {
-      const onAbort = () => {
-        clearTimeout(timer);
-        reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
-      };
-      signal.addEventListener('abort', onAbort, { once: true });
-    }
+    // Use a ref object so `onAbort` can clear the timer that gets set after
+    // it, without tripping `no-use-before-define`. Removing the abort
+    // listener when the timer wins the race keeps long sessions with many
+    // retry rounds from accumulating listeners on the caller's signal.
+    const handle: { timer: ReturnType<typeof setTimeout> | null } = { timer: null };
+    const onAbort = () => {
+      if (handle.timer !== null) clearTimeout(handle.timer);
+      reject(signal!.reason instanceof Error ? signal!.reason : new Error('Aborted'));
+    };
+    handle.timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, delayMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
   });
 }
 
@@ -125,7 +149,7 @@ export async function* executeStream(
     }
 
     const body = config.buildBody({ executionId, toolResults });
-    const maxRetries = config.config.maxRetries ?? DEFAULT_MAX_RETRIES;
+    const maxRetries = Math.max(0, config.config.maxRetries ?? DEFAULT_MAX_RETRIES);
 
     let response!: Response;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -143,6 +167,8 @@ export async function* executeStream(
         });
 
         if (isRetryableStatus(response.status) && attempt < maxRetries) {
+          // Release the socket promptly; the body is unused before we retry.
+          await response.body?.cancel().catch(() => {});
           await retryDelay(attempt, response, signal);
           continue;
         }

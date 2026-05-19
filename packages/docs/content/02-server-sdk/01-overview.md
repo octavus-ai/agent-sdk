@@ -149,6 +149,7 @@ interface OctavusClientConfig {
   baseUrl: string; // Octavus API URL
   apiKey?: string; // Your API key
   traceModelRequests?: boolean; // Enable model request tracing (default: false)
+  maxRetries?: number; // Retries for transient network failures during streaming (default: 2, set to 0 to disable)
 }
 
 class OctavusClient {
