@@ -38,7 +38,7 @@ export {
   type WorkerExecuteOptions,
   type WorkerGenerateResult,
 } from '@/workers.js';
-export { WorkerError } from '@/worker-error.js';
+export { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
 export { createInlineMcpServer, defineInlineMcpTool } from '@/inline-mcp.js';

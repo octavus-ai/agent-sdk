@@ -7,7 +7,7 @@ import type {
 } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
 import { executeStream } from '@/streaming.js';
-import { WorkerError } from '@/worker-error.js';
+import { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
 import { resolveMcpServers } from '@/resolve-mcp-servers.js';
 
 // =============================================================================
@@ -173,21 +173,49 @@ export class WorkersApi extends BaseApiClient {
     options: WorkerExecuteOptions = {},
   ): Promise<WorkerGenerateResult> {
     let sessionId: string | undefined;
+    let workerOutput: WorkerGenerateResult | undefined;
+    let errorMessage: string | undefined;
+    let errorDetails: WorkerErrorDetails | undefined;
+    let lastWorkerId: string | undefined;
 
+    // Drain the entire stream before deciding the outcome. A failing worker
+    // emits both a `worker-result` and a structured `error` event, and their
+    // relative order is not guaranteed; reading through both lets us throw
+    // with the richest available info regardless of which arrives first.
     for await (const event of this.execute(agentId, input, options)) {
       if (event.type === 'start' && event.executionId) {
         sessionId = event.executionId;
       } else if (event.type === 'error') {
-        throw new WorkerError(event.message, sessionId);
-      } else if (event.type === 'worker-result') {
-        if (event.error) {
-          throw new WorkerError(event.error, sessionId ?? event.workerId);
-        }
-        return {
-          output: event.output,
-          sessionId: sessionId ?? event.workerId,
+        errorMessage = event.message;
+        errorDetails = {
+          errorType: event.errorType,
+          source: event.source,
+          code: event.code,
+          retryable: event.retryable,
+          retryAfter: event.retryAfter,
+          provider: event.provider,
         };
+      } else if (event.type === 'worker-result') {
+        lastWorkerId = event.workerId;
+        if (event.error !== undefined) {
+          // Prefer a previously-captured structured error message over the
+          // (already-masked) worker-result string; otherwise use this one.
+          errorMessage = errorMessage ?? event.error;
+        } else {
+          workerOutput = {
+            output: event.output,
+            sessionId: sessionId ?? event.workerId,
+          };
+        }
       }
+    }
+
+    if (errorMessage !== undefined) {
+      throw new WorkerError(errorMessage, sessionId ?? lastWorkerId, errorDetails);
+    }
+
+    if (workerOutput !== undefined) {
+      return workerOutput;
     }
 
     throw new WorkerError('Worker completed without producing a result', sessionId);
