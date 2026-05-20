@@ -173,29 +173,48 @@ export class WorkersApi extends BaseApiClient {
     options: WorkerExecuteOptions = {},
   ): Promise<WorkerGenerateResult> {
     let sessionId: string | undefined;
-    let lastErrorDetails: WorkerErrorDetails | undefined;
+    let workerOutput: WorkerGenerateResult | undefined;
+    let errorMessage: string | undefined;
+    let errorDetails: WorkerErrorDetails | undefined;
+    let lastWorkerId: string | undefined;
 
+    // Drain the entire stream before deciding the outcome. A failing worker
+    // emits both a `worker-result` and a structured `error` event, and their
+    // relative order is not guaranteed; reading through both lets us throw
+    // with the richest available info regardless of which arrives first.
     for await (const event of this.execute(agentId, input, options)) {
       if (event.type === 'start' && event.executionId) {
         sessionId = event.executionId;
       } else if (event.type === 'error') {
-        lastErrorDetails = {
+        errorMessage = event.message;
+        errorDetails = {
           errorType: event.errorType,
           source: event.source,
           code: event.code,
           retryable: event.retryable,
           provider: event.provider,
         };
-        throw new WorkerError(event.message, sessionId, lastErrorDetails);
       } else if (event.type === 'worker-result') {
-        if (event.error) {
-          throw new WorkerError(event.error, sessionId ?? event.workerId, lastErrorDetails);
+        lastWorkerId = event.workerId;
+        if (event.error !== undefined) {
+          // Prefer a previously-captured structured error message over the
+          // (already-masked) worker-result string; otherwise use this one.
+          errorMessage = errorMessage ?? event.error;
+        } else {
+          workerOutput = {
+            output: event.output,
+            sessionId: sessionId ?? event.workerId,
+          };
         }
-        return {
-          output: event.output,
-          sessionId: sessionId ?? event.workerId,
-        };
       }
+    }
+
+    if (errorMessage !== undefined) {
+      throw new WorkerError(errorMessage, sessionId ?? lastWorkerId, errorDetails);
+    }
+
+    if (workerOutput !== undefined) {
+      return workerOutput;
     }
 
     throw new WorkerError('Worker completed without producing a result', sessionId);
