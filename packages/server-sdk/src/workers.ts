@@ -7,7 +7,7 @@ import type {
 } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
 import { executeStream } from '@/streaming.js';
-import { WorkerError } from '@/worker-error.js';
+import { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
 import { resolveMcpServers } from '@/resolve-mcp-servers.js';
 
 // =============================================================================
@@ -173,15 +173,23 @@ export class WorkersApi extends BaseApiClient {
     options: WorkerExecuteOptions = {},
   ): Promise<WorkerGenerateResult> {
     let sessionId: string | undefined;
+    let lastErrorDetails: WorkerErrorDetails | undefined;
 
     for await (const event of this.execute(agentId, input, options)) {
       if (event.type === 'start' && event.executionId) {
         sessionId = event.executionId;
       } else if (event.type === 'error') {
-        throw new WorkerError(event.message, sessionId);
+        lastErrorDetails = {
+          errorType: event.errorType,
+          source: event.source,
+          code: event.code,
+          retryable: event.retryable,
+          provider: event.provider,
+        };
+        throw new WorkerError(event.message, sessionId, lastErrorDetails);
       } else if (event.type === 'worker-result') {
         if (event.error) {
-          throw new WorkerError(event.error, sessionId ?? event.workerId);
+          throw new WorkerError(event.error, sessionId ?? event.workerId, lastErrorDetails);
         }
         return {
           output: event.output,
