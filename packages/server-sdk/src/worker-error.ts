@@ -10,6 +10,8 @@ export interface WorkerErrorDetails {
   code?: string;
   /** Whether automatic retry is possible */
   retryable?: boolean;
+  /** Suggested retry delay in seconds (from provider headers) */
+  retryAfter?: number;
   /** Provider details when the error originated from an LLM provider */
   provider?: ProviderErrorInfo;
 }

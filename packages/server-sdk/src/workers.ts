@@ -192,6 +192,7 @@ export class WorkersApi extends BaseApiClient {
           source: event.source,
           code: event.code,
           retryable: event.retryable,
+          retryAfter: event.retryAfter,
           provider: event.provider,
         };
       } else if (event.type === 'worker-result') {
