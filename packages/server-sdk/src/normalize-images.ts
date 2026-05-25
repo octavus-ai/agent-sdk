@@ -49,6 +49,11 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  *
  * Runs at the server-sdk streaming layer so images are uploaded before
  * tool results travel over the network (WebSocket, HTTP continuation).
+ *
+ * On failure (presigned URL acquisition error or PUT rejection), the
+ * base64 `data` is stripped and replaced with a compact
+ * `{type:'image', mediaType, size, error}` summary so the agent sees
+ * the failure without the payload bloating the LLM context.
  */
 export async function normalizeToolResultImages(
   toolResults: ToolResult[],
@@ -89,6 +94,23 @@ export async function normalizeToolResultImages(
       const response = await filesApi.getUploadUrls(sessionId, uploadRequests);
       uploadInfos = response.files;
     } catch {
+      // Strip base64 data to prevent bloating the LLM context
+      const stripped: unknown[] = [];
+      let idx = 0;
+      for (let i = 0; i < parts.length; i++) {
+        if (idx < imageIndices.length && imageIndices[idx] === i) {
+          stripped.push({
+            type: 'image',
+            mediaType: uploadRequests[idx]!.mediaType,
+            size: imageBuffers[idx]!.byteLength,
+            error: 'Upload failed',
+          });
+          idx += 1;
+        } else {
+          stripped.push(parts[i]);
+        }
+      }
+      toolResult.result = stripped;
       continue;
     }
 
@@ -128,7 +150,12 @@ export async function normalizeToolResultImages(
             url: info.downloadUrl,
           });
         } else {
-          summaryParts.push(parts[i]);
+          summaryParts.push({
+            type: 'image',
+            mediaType: request.mediaType,
+            size: buf.byteLength,
+            error: 'Upload failed',
+          });
         }
 
         imageIdx += 1;

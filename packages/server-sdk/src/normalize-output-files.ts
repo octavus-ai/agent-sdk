@@ -23,6 +23,13 @@ interface ToolResultOutputFileSummary {
   url: string;
 }
 
+interface ToolResultOutputFileError {
+  name: string;
+  mediaType: string;
+  size: number;
+  error: string;
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -55,9 +62,10 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * `onToolResults` callback so file contents never travel over the
  * tool-result wire (which would inflate continue payloads and bypass S3).
  *
- * Per-result failures (network error, presigned URL acquisition error)
- * leave the offending entry untouched - the tool result still flows to the
- * model with the original payload so the agent can decide whether to retry.
+ * On failure (network error, presigned URL rejection), `contentBase64` is
+ * stripped to prevent the raw data from bloating the LLM context. The entry
+ * is replaced with a compact `{name, mediaType, size, error}` summary so
+ * the agent sees the failure without the payload.
  */
 export async function normalizeToolResultOutputFiles(
   toolResults: ToolResult[],
@@ -91,6 +99,14 @@ export async function normalizeToolResultOutputFiles(
       const response = await filesApi.getUploadUrls(sessionId, uploadRequests);
       uploadInfos = response.files;
     } catch {
+      result.outputFiles = outputs.map(
+        (o): ToolResultOutputFileError => ({
+          name: o.name,
+          mediaType: o.mediaType,
+          size: o.size,
+          error: 'Upload failed',
+        }),
+      );
       continue;
     }
 
@@ -105,13 +121,12 @@ export async function normalizeToolResultOutputFiles(
     );
 
     const files: FileReference[] = toolResult.files ? [...toolResult.files] : [];
-    const summaries: (ToolResultOutputFile | ToolResultOutputFileSummary)[] = [];
+    const summaries: (ToolResultOutputFileSummary | ToolResultOutputFileError)[] = [];
 
     for (let i = 0; i < outputs.length; i++) {
       const upload = uploadResults[i]!;
       const info = uploadInfos[i]!;
       const request = uploadRequests[i]!;
-      const original = outputs[i]!;
 
       if (upload.status === 'fulfilled' && upload.value.ok) {
         files.push({
@@ -128,9 +143,12 @@ export async function normalizeToolResultOutputFiles(
           url: info.downloadUrl,
         });
       } else {
-        // Keep the original entry so the agent can see something failed and
-        // retry the script. The bloat is bounded by the per-bundle entry cap.
-        summaries.push(original);
+        summaries.push({
+          name: request.filename,
+          mediaType: request.mediaType,
+          size: request.size,
+          error: 'Upload failed',
+        });
       }
     }
 
