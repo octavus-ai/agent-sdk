@@ -44,8 +44,19 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
   const scrollRef = options.scrollRef ?? internalRef;
   const threshold = options.threshold ?? DEFAULT_THRESHOLD_PX;
   const shouldAutoScrollRef = useRef(true);
+  // Guards against the async scroll event from a programmatic scrollTop
+  // assignment falsely disabling auto-scroll. When content height grows
+  // between the assignment and the scroll event handler, the distance-
+  // from-bottom check can exceed the threshold even though no user
+  // interaction occurred. This is most visible in narrow containers
+  // (e.g. a 30%-width chat panel) where wrapping amplifies height changes.
+  const isProgrammaticScrollRef = useRef(false);
 
   const handleScroll = useCallback(() => {
+    if (isProgrammaticScrollRef.current) {
+      isProgrammaticScrollRef.current = false;
+      return;
+    }
     const el = scrollRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -57,7 +68,14 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     if (!el) return;
 
     if (shouldAutoScrollRef.current) {
+      // Only set the guard when the assignment actually moves scrollTop.
+      // If we're already at the bottom, the browser fires no scroll event
+      // and a stale `true` would swallow the next genuine user scroll.
+      const previousScrollTop = el.scrollTop;
       el.scrollTop = el.scrollHeight;
+      if (el.scrollTop !== previousScrollTop) {
+        isProgrammaticScrollRef.current = true;
+      }
       return;
     }
 
