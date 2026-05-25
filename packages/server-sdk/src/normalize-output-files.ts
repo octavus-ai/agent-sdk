@@ -5,12 +5,18 @@ import type { FilesApi, FileUploadRequest } from '@/files.js';
  * Wire shape produced by tool handlers that need to surface output files
  * (typically device-side skill execution). The normalizer below uploads the
  * `contentBase64` payloads via presigned URLs, replaces the embedded content
- * with `{name, mediaType, url, size}` summaries in the tool result, and
- * attaches `FileReference` entries on `toolResult.files` so the platform
+ * with `{name, mediaType, url, size, path?}` summaries in the tool result,
+ * and attaches `FileReference` entries on `toolResult.files` so the platform
  * emits `file-available` events on the next continue.
+ *
+ * `path` (optional) is the absolute path of the file on the device
+ * filesystem. When present, the platform uses it to dedup explicit
+ * `octavus_file_upload` calls against auto-collected outputs and exposes
+ * it to the LLM so subsequent skills in the same turn can chain by path.
  */
 interface ToolResultOutputFile {
   name: string;
+  path?: string;
   mediaType: string;
   size: number;
   contentBase64: string;
@@ -18,6 +24,7 @@ interface ToolResultOutputFile {
 
 interface ToolResultOutputFileSummary {
   name: string;
+  path?: string;
   mediaType: string;
   size: number;
   url: string;
@@ -25,6 +32,7 @@ interface ToolResultOutputFileSummary {
 
 interface ToolResultOutputFileError {
   name: string;
+  path?: string;
   mediaType: string;
   size: number;
   error: string;
@@ -38,6 +46,7 @@ function isToolResultOutputFile(value: unknown): value is ToolResultOutputFile {
   if (!isObject(value)) return false;
   return (
     typeof value.name === 'string' &&
+    (value.path === undefined || typeof value.path === 'string') &&
     typeof value.mediaType === 'string' &&
     typeof value.size === 'number' &&
     typeof value.contentBase64 === 'string'
@@ -102,6 +111,7 @@ export async function normalizeToolResultOutputFiles(
       result.outputFiles = outputs.map(
         (o): ToolResultOutputFileError => ({
           name: o.name,
+          ...(o.path !== undefined ? { path: o.path } : {}),
           mediaType: o.mediaType,
           size: o.size,
           error: 'Upload failed',
@@ -127,6 +137,7 @@ export async function normalizeToolResultOutputFiles(
       const upload = uploadResults[i]!;
       const info = uploadInfos[i]!;
       const request = uploadRequests[i]!;
+      const output = outputs[i]!;
 
       if (upload.status === 'fulfilled' && upload.value.ok) {
         files.push({
@@ -138,6 +149,7 @@ export async function normalizeToolResultOutputFiles(
         });
         summaries.push({
           name: request.filename,
+          ...(output.path !== undefined ? { path: output.path } : {}),
           mediaType: request.mediaType,
           size: request.size,
           url: info.downloadUrl,
@@ -145,6 +157,7 @@ export async function normalizeToolResultOutputFiles(
       } else {
         summaries.push({
           name: request.filename,
+          ...(output.path !== undefined ? { path: output.path } : {}),
           mediaType: request.mediaType,
           size: request.size,
           error: 'Upload failed',
