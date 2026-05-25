@@ -33,6 +33,8 @@ export const OCTAVUS_INTERNAL_TOOLS = {
   FILE_WRITE: 'octavus_file_write',
   /** Read files from sandbox */
   FILE_READ: 'octavus_file_read',
+  /** Upload a local file to get a downloadable URL (bypasses LLM context) */
+  FILE_UPLOAD: 'octavus_file_upload',
 
   // === Reference Tools (agent-local documents fetched on demand) ===
   /** List all available references with descriptions */
@@ -93,6 +95,7 @@ export const OCTAVUS_SKILL_TOOLS = {
   CODE_RUN: OCTAVUS_INTERNAL_TOOLS.CODE_RUN,
   FILE_WRITE: OCTAVUS_INTERNAL_TOOLS.FILE_WRITE,
   FILE_READ: OCTAVUS_INTERNAL_TOOLS.FILE_READ,
+  FILE_UPLOAD: OCTAVUS_INTERNAL_TOOLS.FILE_UPLOAD,
 } as const;
 
 export type OctavusSkillToolName = (typeof OCTAVUS_SKILL_TOOLS)[keyof typeof OCTAVUS_SKILL_TOOLS];
