@@ -44,8 +44,16 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
   const scrollRef = options.scrollRef ?? internalRef;
   const threshold = options.threshold ?? DEFAULT_THRESHOLD_PX;
   const shouldAutoScrollRef = useRef(true);
+  // Swallows the async scroll event from a programmatic scrollTop write so it
+  // can't falsely disable auto-scroll when content height grows between the
+  // write and the event.
+  const isProgrammaticScrollRef = useRef(false);
 
   const handleScroll = useCallback(() => {
+    if (isProgrammaticScrollRef.current) {
+      isProgrammaticScrollRef.current = false;
+      return;
+    }
     const el = scrollRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -57,7 +65,14 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     if (!el) return;
 
     if (shouldAutoScrollRef.current) {
+      // Only set the guard when the assignment actually moves scrollTop.
+      // If we're already at the bottom, the browser fires no scroll event
+      // and a stale `true` would swallow the next genuine user scroll.
+      const previousScrollTop = el.scrollTop;
       el.scrollTop = el.scrollHeight;
+      if (el.scrollTop !== previousScrollTop) {
+        isProgrammaticScrollRef.current = true;
+      }
       return;
     }
 
