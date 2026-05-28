@@ -133,7 +133,7 @@ interface UIWorkerPart {
   parts: UIMessagePart[]; // Nested parts from the worker (excluding nested workers)
   output?: unknown;
   error?: string;
-  status: 'running' | 'done' | 'error';
+  status: 'running' | 'done' | 'error' | 'cancelled';
 }
 
 // Step boundary marker (structural, not rendered visually)
