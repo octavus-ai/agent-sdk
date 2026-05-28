@@ -13,6 +13,7 @@ import {
   type UIFilePart,
   type UIObjectPart,
   type UIWorkerPart,
+  type UIWorkerStatus,
   type UITodoPart,
   type DisplayMode,
   type StreamEvent,
@@ -422,9 +423,10 @@ function buildMessageFromState(state: StreamingState, status: 'streaming' | 'don
 /**
  * Finalize parts when stream is stopped or errors.
  * Marks streaming parts as done, pending/running tools as cancelled,
- * and recursively finalizes worker parts.
+ * and recursively finalizes worker parts. Cancelled workers carry no
+ * error string so the in-memory state matches what the runtime persists.
  */
-function finalizeParts(parts: UIMessagePart[], workerError?: string): UIMessagePart[] {
+function finalizeParts(parts: UIMessagePart[]): UIMessagePart[] {
   return parts.map((part): UIMessagePart => {
     if (part.type === 'text' || part.type === 'reasoning') {
       if (part.status === 'streaming') {
@@ -448,9 +450,9 @@ function finalizeParts(parts: UIMessagePart[], workerError?: string): UIMessageP
     if (part.type === 'worker' && part.status === 'running') {
       return {
         ...part,
-        status: 'error',
-        error: workerError,
-        parts: finalizeParts(part.parts), // Recursive for nested parts
+        status: 'cancelled',
+        error: undefined,
+        parts: finalizeParts(part.parts),
       };
     }
     return part;
@@ -877,7 +879,7 @@ export class OctavusChat {
         const lastMsg = messages[messages.length - 1];
 
         if (state.parts.length > 0) {
-          const finalParts = finalizeParts(state.parts, 'Stream error');
+          const finalParts = finalizeParts(state.parts);
 
           const finalMessage: UIMessage = {
             id: state.messageId,
@@ -1008,7 +1010,7 @@ export class OctavusChat {
 
     const state = this.streamingState;
     if (state && state.parts.length > 0) {
-      const finalParts = finalizeParts(state.parts, 'Stopped by user');
+      const finalParts = finalizeParts(state.parts);
 
       const finalMessage: UIMessage = {
         id: state.messageId,
@@ -1829,11 +1831,16 @@ export class OctavusChat {
         const workerState = state.activeWorkers.get(event.workerId);
         if (workerState !== undefined) {
           const part = state.parts[workerState.partIndex] as UIWorkerPart;
+          let workerStatus: UIWorkerStatus = 'done';
+          if (event.cancelled) workerStatus = 'cancelled';
+          else if (event.error) workerStatus = 'error';
+          // Match the persisted shape - cancelled workers carry no error string.
+          const workerError = event.cancelled ? undefined : event.error;
           state.parts[workerState.partIndex] = {
             ...part,
             output: event.output,
-            error: event.error,
-            status: event.error ? 'error' : 'done',
+            error: workerError,
+            status: workerStatus,
             parts: part.parts.map((p): UIMessagePart => {
               if (p.type === 'text' || p.type === 'reasoning') {
                 if (p.status === 'streaming') {

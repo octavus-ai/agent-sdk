@@ -615,6 +615,8 @@ export interface WorkerResultEvent {
   output?: unknown;
   /** Error message if the worker failed */
   error?: string;
+  /** True when the worker was cancelled (abort signal) rather than failing */
+  cancelled?: boolean;
 }
 
 /**
@@ -822,6 +824,8 @@ export interface WorkerPartInfo {
   output?: unknown;
   /** Error message if worker failed */
   error?: string;
+  /** True when the worker was cancelled (abort signal) rather than failing */
+  cancelled?: boolean;
 }
 
 /**
@@ -1071,7 +1075,7 @@ export interface UIObjectPart {
 /**
  * Status of a UI worker part
  */
-export type UIWorkerStatus = 'running' | 'done' | 'error';
+export type UIWorkerStatus = 'running' | 'done' | 'error' | 'cancelled';
 
 /**
  * Worker execution in a UI message.
