@@ -13,6 +13,7 @@ import {
   type UIFilePart,
   type UIObjectPart,
   type UIWorkerPart,
+  type UIWorkerStatus,
   type UITodoPart,
   type DisplayMode,
   type StreamEvent,
@@ -448,9 +449,9 @@ function finalizeParts(parts: UIMessagePart[], workerError?: string): UIMessageP
     if (part.type === 'worker' && part.status === 'running') {
       return {
         ...part,
-        status: 'error',
+        status: 'cancelled',
         error: workerError,
-        parts: finalizeParts(part.parts), // Recursive for nested parts
+        parts: finalizeParts(part.parts),
       };
     }
     return part;
@@ -1829,11 +1830,14 @@ export class OctavusChat {
         const workerState = state.activeWorkers.get(event.workerId);
         if (workerState !== undefined) {
           const part = state.parts[workerState.partIndex] as UIWorkerPart;
+          let workerStatus: UIWorkerStatus = 'done';
+          if (event.cancelled) workerStatus = 'cancelled';
+          else if (event.error) workerStatus = 'error';
           state.parts[workerState.partIndex] = {
             ...part,
             output: event.output,
             error: event.error,
-            status: event.error ? 'error' : 'done',
+            status: workerStatus,
             parts: part.parts.map((p): UIMessagePart => {
               if (p.type === 'text' || p.type === 'reasoning') {
                 if (p.status === 'streaming') {
