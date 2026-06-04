@@ -17,6 +17,7 @@
  *   OCTAVUS_API_URL     - Optional, defaults to https://octavus.ai
  */
 
+import { readFileSync } from 'node:fs';
 import dotenv from 'dotenv';
 import { Command } from 'commander';
 import { registerValidateCommand } from '@/commands/validate.js';
@@ -33,12 +34,16 @@ const envFile = envIndex !== -1 && process.argv[envIndex + 1] ? process.argv[env
 // Load environment file
 dotenv.config({ path: envFile });
 
+const { version } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+) as { version: string };
+
 const program = new Command();
 
 program
   .name('octavus')
   .description('CLI for validating and syncing Octavus agent definitions')
-  .version('0.1.0')
+  .version(version)
   .option('--env <file>', 'Load environment from a specific file', '.env');
 
 // Register agent commands
