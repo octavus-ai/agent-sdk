@@ -26,6 +26,7 @@ export interface SkillFrontmatter {
   version?: string;
   license?: string;
   author?: string;
+  category?: string;
   secrets?: { name: string; description?: string; required?: boolean }[];
 }
 
@@ -87,6 +88,7 @@ export async function parseSkillFrontmatter(skillPath: string): Promise<SkillFro
     version: optionalString(frontmatter.version),
     license: optionalString(frontmatter.license),
     author: optionalString(frontmatter.author),
+    category: optionalString(frontmatter.category),
     secrets: parsedSecrets.success ? parsedSecrets.data : undefined,
   };
 }
