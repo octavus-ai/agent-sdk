@@ -19,6 +19,36 @@ export interface LoggedToolCall {
 }
 
 /**
+ * Stand-in for a heavy log field whose original value was too large to store
+ * in full. The middle is dropped and only `preview` - the head plus the tail of
+ * the serialized original - is kept, so the field stays inspectable instead of
+ * being discarded wholesale.
+ *
+ * Producers construct it as a plain object literal so it stays assignable to
+ * both `unknown` and `Record<string, unknown>` payload fields (a fresh object
+ * literal carries an implicit index signature); consumers narrow back to this
+ * shape with `isTrimmedValue`.
+ */
+export interface TrimmedValue {
+  __trimmed: true;
+  /** UTF-8 byte length of the original serialized value, before trimming. */
+  originalBytes: number;
+  /** UTF-8 byte length of the retained `preview`. */
+  keptBytes: number;
+  /** Head + tail of the serialized original, with the middle removed. */
+  preview: string;
+}
+
+/** Narrow an arbitrary payload value to a {@link TrimmedValue}. */
+export function isTrimmedValue(value: unknown): value is TrimmedValue {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { __trimmed?: unknown }).__trimmed === true
+  );
+}
+
+/**
  * Full model request payload captured for debugging.
  * Includes both LLM and image generation requests.
  */
@@ -109,6 +139,12 @@ export interface ExecutionLogEntryBase {
   /** Correlation ID for grouping all log entries from a single worker invocation */
   workerId?: string;
   workerSlug?: string;
+  /**
+   * Set when one or more heavy fields on this entry were trimmed to a head/tail
+   * preview (or dropped) to fit the per-entry storage cap. Lets the UI flag the
+   * entry as not showing the full payload. See {@link TrimmedValue}.
+   */
+  trimmed?: boolean;
 }
 
 // ---------------------------------------------------------------------------

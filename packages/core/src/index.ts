@@ -202,4 +202,6 @@ export type {
   AbortLogEntry,
   ErrorLogEntry,
   ExecutionLogEntry,
+  TrimmedValue,
 } from './execution-log';
+export { isTrimmedValue } from './execution-log';
