@@ -236,6 +236,7 @@ description: >
 version: 1.0.0
 license: MIT
 author: Octavus Team
+category: Productivity
 ---
 
 # QR Code Generator
@@ -273,6 +274,7 @@ Main script for generating QR codes...
 | `version`     | No       | Semantic version string                                |
 | `license`     | No       | License identifier                                     |
 | `author`      | No       | Skill author                                           |
+| `category`    | No       | Display category used to group and filter skills in the UI |
 | `secrets`     | No       | Array of secret declarations (enables secure mode)     |
 
 ## Best Practices
