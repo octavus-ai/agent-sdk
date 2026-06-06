@@ -5,6 +5,29 @@ import type { StreamEvent, ToolResult } from '@octavus/core';
 // =============================================================================
 
 /**
+ * Client-side control signals a transport may interleave with `StreamEvent`s to
+ * tell `OctavusChat` how to render an incoming stream. These are never sent over
+ * the wire by the server - a transport injects them locally to mark the boundary
+ * between buffered replay (late join / reconnect) and live streaming.
+ *
+ * - `replay-start`: the events that follow re-describe content the agent has
+ *   already produced this turn. The chat rebuilds its current turn silently and
+ *   does not notify subscribers per event.
+ * - `live`: replay is finished. The chat flushes the rebuilt turn in a single
+ *   update, then resumes per-event notifications for genuinely new output.
+ *
+ * Transports that do not support late join simply never emit these, so the chat
+ * stays in normal per-event mode.
+ */
+export type ChatControlSignal = { type: 'replay-start' } | { type: 'live' };
+
+/**
+ * The values a transport stream yields: protocol `StreamEvent`s plus the
+ * client-side `ChatControlSignal` render markers.
+ */
+export type ChatStreamItem = StreamEvent | ChatControlSignal;
+
+/**
  * Options for trigger execution (e.g., retry with rollback).
  */
 export interface TriggerOptions {
@@ -34,7 +57,7 @@ export interface Transport {
     triggerName: string,
     input?: Record<string, unknown>,
     options?: TriggerOptions,
-  ): AsyncIterable<StreamEvent>;
+  ): AsyncIterable<ChatStreamItem>;
 
   /**
    * Continue execution with tool results after client-side tool handling.
@@ -42,7 +65,10 @@ export interface Transport {
    * @param executionId - The execution ID from the client-tool-request event
    * @param results - All tool results (server + client) to send
    */
-  continueWithToolResults(executionId: string, results: ToolResult[]): AsyncIterable<StreamEvent>;
+  continueWithToolResults(
+    executionId: string,
+    results: ToolResult[],
+  ): AsyncIterable<ChatStreamItem>;
 
   /**
    * Observe an already-active execution without triggering a new one.
@@ -52,7 +78,7 @@ export interface Transport {
    * client connection (e.g., polling). HTTP and WebSocket transports do not need
    * to implement this.
    */
-  observe?(): AsyncIterable<StreamEvent>;
+  observe?(): AsyncIterable<ChatStreamItem>;
 
   /** Stop the current stream. Safe to call when no stream is active. */
   stop(): void;

@@ -21,7 +21,7 @@ import {
   type PendingToolCall,
   type ToolResult,
 } from '@octavus/core';
-import type { Transport, TriggerOptions } from './transports/types';
+import type { Transport, TriggerOptions, ChatStreamItem } from './transports/types';
 import { uploadFiles, type UploadFilesOptions } from './files';
 
 /** Block types that are internal operations (not LLM-driven) */
@@ -531,6 +531,12 @@ export class OctavusChat {
   // Prevents continuation start events from overwriting the pre-trigger rollback point.
   private _rollbackSynced = false;
 
+  // While true (late-join / reconnect replay), stream handlers mutate the
+  // streaming state but do not notify subscribers per event. The whole
+  // caught-up turn is painted in a single update when the `live` boundary is
+  // crossed (see beginReplayBatch / endReplayBatch).
+  private _batching = false;
+
   // Last trigger snapshot for retry support
   private _lastTrigger: {
     triggerName: string;
@@ -838,10 +844,11 @@ export class OctavusChat {
    * Shared streaming logic for `send()`, `retry()`, and `observe()`.
    * Sets up streaming state, consumes an event stream, and handles errors.
    */
-  private async _consumeStream(stream: AsyncIterable<StreamEvent>): Promise<void> {
+  private async _consumeStream(stream: AsyncIterable<ChatStreamItem>): Promise<void> {
     this.setStatus('streaming');
     this.setError(null);
     this.streamingState = createEmptyStreamingState();
+    this._batching = false;
 
     // Clear any previous client tool state
     this._pendingToolsByName.clear();
@@ -855,12 +862,25 @@ export class OctavusChat {
     this.updatePendingClientToolsCache();
 
     try {
-      for await (const event of stream) {
+      for await (const item of stream) {
         if (this.streamingState === null) break;
+        if (item.type === 'replay-start') {
+          this.beginReplayBatch();
+          continue;
+        }
+        if (item.type === 'live') {
+          this.endReplayBatch();
+          continue;
+        }
 
-        this.handleStreamEvent(event, this.streamingState);
+        this.handleStreamEvent(item, this.streamingState);
       }
+      // Stream ended without an explicit `live` marker (e.g. the session ended
+      // during replay). Flush so a silent batch can never strand the UI.
+      this.endReplayBatch();
     } catch (err) {
+      // Paint whatever was rebuilt during a replay batch before surfacing the error.
+      this.endReplayBatch();
       // Convert unknown errors to OctavusError
       const errorObj = OctavusError.isInstance(err)
         ? err
@@ -1004,6 +1024,7 @@ export class OctavusChat {
     this._pendingExecutionId = null;
     this._readyToContinue = false;
     this._finishEventReceived = false;
+    this._batching = false;
     this.updatePendingClientToolsCache();
 
     this.transport.stop();
@@ -1976,6 +1997,35 @@ export class OctavusChat {
     }
   }
 
+  /**
+   * Enter replay-batch mode: the events that follow re-describe content already
+   * produced this turn (late join or reconnect). Drop the partially-built
+   * current-turn message and rebuild from the replay, suppressing per-event
+   * notifications until the `live` boundary flushes a single update.
+   */
+  private beginReplayBatch(): void {
+    const state = this.streamingState;
+    if (state) {
+      const lastMsg = this._messages[this._messages.length - 1];
+      if (lastMsg?.id === state.messageId) {
+        this._messages = this._messages.slice(0, -1);
+      }
+    }
+    this.streamingState = createEmptyStreamingState();
+    this._batching = true;
+  }
+
+  /**
+   * Exit replay-batch mode and paint the rebuilt turn in a single update.
+   * Idempotent: a no-op when not batching, so terminal/safety callers can call
+   * it unconditionally.
+   */
+  private endReplayBatch(): void {
+    if (!this._batching) return;
+    this._batching = false;
+    this.notifyListeners();
+  }
+
   private updateStreamingMessage(): void {
     const state = this.streamingState;
     if (!state) return;
@@ -1990,7 +2040,12 @@ export class OctavusChat {
       messages.push(msg);
     }
 
-    this.setMessages(messages);
+    // During replay batching, update state silently; the `live` boundary paints
+    // the whole caught-up turn in one notification.
+    this._messages = messages;
+    if (!this._batching) {
+      this.notifyListeners();
+    }
   }
 
   /**
@@ -2067,11 +2122,21 @@ export class OctavusChat {
 
     try {
       // Use the transport's continuation method (works for both HTTP and Socket)
-      for await (const event of this.transport.continueWithToolResults(executionId, allResults)) {
+      for await (const item of this.transport.continueWithToolResults(executionId, allResults)) {
         if (this.streamingState === null) break;
-        this.handleStreamEvent(event, this.streamingState);
+        if (item.type === 'replay-start') {
+          this.beginReplayBatch();
+          continue;
+        }
+        if (item.type === 'live') {
+          this.endReplayBatch();
+          continue;
+        }
+        this.handleStreamEvent(item, this.streamingState);
       }
+      this.endReplayBatch();
     } catch (err) {
+      this.endReplayBatch();
       const errorObj = OctavusError.isInstance(err)
         ? err
         : new OctavusError({

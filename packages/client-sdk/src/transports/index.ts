@@ -4,6 +4,8 @@ export {
   type SocketTransport,
   type ConnectionState,
   type ConnectionStateListener,
+  type ChatControlSignal,
+  type ChatStreamItem,
   isSocketTransport,
 } from './types';
 export {
