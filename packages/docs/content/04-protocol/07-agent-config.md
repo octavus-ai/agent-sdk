@@ -21,26 +21,27 @@ agent:
 
 ## Configuration Options
 
-| Field               | Required | Description                                                                                       |
-| ------------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `model`             | Yes      | Model identifier or variable reference                                                            |
-| `backupModel`       | No       | Backup model for automatic failover on provider errors                                            |
-| `system`            | Yes      | System prompt filename (without .md)                                                              |
-| `input`             | No       | Variables to pass to the system prompt                                                            |
-| `tools`             | No       | List of tools the LLM can call                                                                    |
-| `mcpServers`        | No       | List of MCP servers to connect (see [MCP Servers](/docs/protocol/mcp-servers))                    |
-| `skills`            | No       | List of Octavus skills the LLM can use                                                            |
-| `references`        | No       | List of references the LLM can fetch on demand                                                    |
-| `sandboxTimeout`    | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                                         |
-| `imageModel`        | No       | Image generation model (enables agentic image generation)                                         |
-| `webSearch`         | No       | Enable built-in web search tool (provider-agnostic)                                               |
-| `agentic`           | No       | Allow multiple tool call cycles                                                                   |
-| `maxSteps`          | No       | Maximum agentic steps (default: 10) - literal or variable reference                               |
-| `temperature`       | No       | Model temperature (0-2), `"off"`, or a variable reference                                         |
-| `thinking`          | No       | Extended reasoning level (`low`/`medium`/`high`/`max`), `"off"`, or a variable reference          |
-| `cache`             | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                                       |
-| `contextManagement` | No       | Automatic context-window compaction (see [Context Management](/docs/protocol/context-management)) |
-| `anthropic`         | No       | Anthropic-specific options (tools, skills)                                                        |
+| Field               | Required | Description                                                                                              |
+| ------------------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `model`             | Yes      | Model identifier or variable reference                                                                   |
+| `backupModel`       | No       | Backup model for automatic failover on provider errors                                                   |
+| `system`            | Yes      | System prompt filename (without .md)                                                                     |
+| `input`             | No       | Variables to pass to the system prompt                                                                   |
+| `tools`             | No       | List of tools the LLM can call                                                                           |
+| `mcpServers`        | No       | List of MCP servers to connect (see [MCP Servers](/docs/protocol/mcp-servers))                           |
+| `skills`            | No       | List of Octavus skills the LLM can use                                                                   |
+| `references`        | No       | List of references the LLM can fetch on demand                                                           |
+| `sandboxTimeout`    | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                                                |
+| `imageModel`        | No       | Image generation model (enables agentic image generation)                                                |
+| `webSearch`         | No       | Enable built-in web search tool (provider-agnostic)                                                      |
+| `agentic`           | No       | Allow multiple tool call cycles                                                                          |
+| `maxSteps`          | No       | Maximum agentic steps (default: 10) - literal or variable reference                                      |
+| `temperature`       | No       | Model temperature (0-2), `"off"`, or a variable reference                                                |
+| `thinking`          | No       | Extended reasoning level (`low`/`medium`/`high`/`max`), `"off"`, or a variable reference                 |
+| `speed`             | No       | Inference speed for supported Opus models: `fast`/`standard` (see [Fast Mode](/docs/protocol/fast-mode)) |
+| `cache`             | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                                              |
+| `contextManagement` | No       | Automatic context-window compaction (see [Context Management](/docs/protocol/context-management))        |
+| `anthropic`         | No       | Anthropic-specific options (tools, skills)                                                               |
 
 ## Models
 
@@ -457,7 +458,7 @@ agent:
 
 ## Dynamic Configuration
 
-Like `model`, the `temperature`, `thinking`, and `maxSteps` fields can also reference an input variable. Consumers choose values at session creation, so the same agent can be tuned per call without protocol changes:
+Like `model`, the `temperature`, `thinking`, `speed`, and `maxSteps` fields can also reference an input variable. Consumers choose values at session creation, so the same agent can be tuned per call without protocol changes:
 
 ```yaml
 input:
@@ -549,9 +550,10 @@ handlers:
     Start summary thread:
       block: start-thread
       thread: summary
-      model: anthropic/claude-sonnet-4-5 # Different model
+      model: anthropic/claude-opus-4-8 # Different model
       backupModel: openai/gpt-4o # Failover model
       thinking: low # Different thinking
+      speed: fast # Fast mode for this thread (supported Opus models only)
       cache: off # Different cache mode (does not inherit from agent)
       maxSteps: 1 # Limit tool calls
       system: escalation-summary # Different prompt
@@ -563,7 +565,7 @@ handlers:
       todoList: true # Thread-specific task list
 ```
 
-Each thread can have its own model, backup model, cache mode, MCP servers, skills, references, image model, web search setting, and task list setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section.
+Each thread can have its own model, backup model, thinking level, speed, cache mode, MCP servers, skills, references, image model, web search setting, and task list setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section - which is how a worker enables fast mode.
 
 ## Full Example
 
