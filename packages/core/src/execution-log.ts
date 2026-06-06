@@ -85,6 +85,12 @@ export interface StepStatsTrace {
    * Undefined on image rows and on providers that don't apply caching.
    */
   cacheMode?: 'auto' | 'extended' | 'off';
+  /**
+   * Inference speed the request actually ran at. `'fast'` only when the
+   * provider emitted the fast-mode param on the wire (Anthropic Opus).
+   * Undefined means standard speed.
+   */
+  speed?: 'fast' | 'standard';
 }
 
 /**
