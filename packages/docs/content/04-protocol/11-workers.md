@@ -468,10 +468,11 @@ All standard events (text-delta, tool calls, etc.) are also emitted.
 
 ## Calling Workers from Interactive Agents
 
-Interactive agents can call workers in two ways:
+Interactive agents can call workers in three ways:
 
 1. **Deterministically** - Using the `run-worker` block
 2. **Agentically** - LLM calls worker as a tool
+3. **Automatically** - Octavus invokes the worker as part of a built-in capability, not the model. Context management's `summarizerWorker` (see [Context Management](/docs/protocol/context-management)) works this way: declare it in `workers:` but leave it out of `agent.workers` so the model never sees it as a tool.
 
 ### Worker Declaration
 
