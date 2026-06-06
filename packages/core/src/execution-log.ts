@@ -120,6 +120,7 @@ export type ExecutionLogEntryType =
   | 'step-stats'
   | 'worker-execution'
   | 'worker-output'
+  | 'compaction'
   | 'abort'
   | 'error';
 
@@ -229,6 +230,36 @@ export interface WorkerOutputLogEntry extends ExecutionLogEntryBase {
   workerOutput?: unknown;
 }
 
+/**
+ * Records a context-window compaction at the main-agent level, so a trace
+ * explains itself ("compacted proactively at 82%, summarized m1-m180, 820K ->
+ * 45K"). The summarizer worker run is logged separately as worker-execution /
+ * worker-output and linked via `summarizerWorkerId`.
+ */
+export interface CompactionLogEntry extends ExecutionLogEntryBase {
+  type: 'compaction';
+  /** What drove this compaction: a proactive budget cross or a reactive overflow catch. */
+  compactionTrigger?: 'proactive' | 'reactive';
+  /** Human-readable reason, e.g. "820000 / 1000000 at 0.8" or "1000022 > 1000000". */
+  reason?: string;
+  /** Watermark message id before this compaction (undefined on the first compaction). */
+  watermarkFrom?: string;
+  /** Watermark message id after this compaction. */
+  watermarkTo?: string;
+  /** Number of stored messages folded into the running summary this cycle. */
+  turnsSummarized?: number;
+  /** Map-reduce passes used to fold the slice (1 unless the slice was chunked). */
+  passes?: number;
+  /** Approximate prompt size before reduction. */
+  tokensBefore?: number;
+  /** Approximate prompt size after reduction. */
+  tokensAfter?: number;
+  /** Which reduction layers ran (reasoning strip / tool-result thinning / summarization). */
+  layersApplied?: string[];
+  /** Worker run id of the summarizer, linking to its worker-execution entry. */
+  summarizerWorkerId?: string;
+}
+
 export interface AbortLogEntry extends ExecutionLogEntryBase {
   type: 'abort';
   abortedAtBlock?: string;
@@ -257,5 +288,6 @@ export type ExecutionLogEntry =
   | StepStatsLogEntry
   | WorkerExecutionLogEntry
   | WorkerOutputLogEntry
+  | CompactionLogEntry
   | AbortLogEntry
   | ErrorLogEntry;

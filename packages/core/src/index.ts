@@ -199,6 +199,7 @@ export type {
   StepStatsLogEntry,
   WorkerExecutionLogEntry,
   WorkerOutputLogEntry,
+  CompactionLogEntry,
   AbortLogEntry,
   ErrorLogEntry,
   ExecutionLogEntry,
