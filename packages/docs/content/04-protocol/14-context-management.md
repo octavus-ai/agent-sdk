@@ -38,7 +38,7 @@ agent:
 
 - When the prompt crosses `thresholdPercent` of the context window, the oldest turns are folded into a **running summary** while the original task and the most recent turns (the `recentWindow`) are kept verbatim - so the agent keeps the goal and full fidelity on what it is doing now.
 - Compaction is **incremental**: each cycle only summarizes the newly-expired turns and folds them into the existing summary, so cost stays bounded no matter how long the session runs.
-- If the model rejects a request for being too long anyway, the agent recovers automatically (it reduces context and retries) rather than failing - so the session never hard-fails on a context-limit error.
+- If the model rejects a request for being too long anyway, the agent recovers automatically (it reduces context and retries) rather than failing the session.
 
 ## The summarizer worker
 
@@ -46,7 +46,7 @@ agent:
 
 Declare it in the top-level `workers:` section so it can be resolved, but keep it **out** of `agent.workers`: that list is what the model can call as a tool, and the summarizer is invoked automatically, never chosen by the model.
 
-Without a `summarizerWorker`, the agent still won't hard-fail on a context overflow - it reduces older context to recover - but it won't produce a summary of earlier turns.
+Without a `summarizerWorker`, the agent still recovers from a context overflow by reducing older tool results, but it won't produce a summary of earlier turns.
 
 ## What users see
 
