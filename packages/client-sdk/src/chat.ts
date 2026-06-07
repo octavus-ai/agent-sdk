@@ -537,6 +537,13 @@ export class OctavusChat {
   // crossed (see beginReplayBatch / endReplayBatch).
   private _batching = false;
 
+  // True between `replay-start` and the first replayed event. The drop of the
+  // partially-built turn is deferred until the replay actually delivers content
+  // (resetForReplay), so a replay that turns out to be empty - e.g. the session
+  // completed during a reconnect and the buffer was already cleared - leaves the
+  // already-visible content intact instead of discarding it.
+  private _replayResetPending = false;
+
   // Last trigger snapshot for retry support
   private _lastTrigger: {
     triggerName: string;
@@ -849,6 +856,7 @@ export class OctavusChat {
     this.setError(null);
     this.streamingState = createEmptyStreamingState();
     this._batching = false;
+    this._replayResetPending = false;
 
     // Clear any previous client tool state
     this._pendingToolsByName.clear();
@@ -873,6 +881,7 @@ export class OctavusChat {
           continue;
         }
 
+        if (this._replayResetPending) this.resetForReplay();
         this.handleStreamEvent(item, this.streamingState);
       }
       // Stream ended without an explicit `live` marker (e.g. the session ended
@@ -1025,6 +1034,7 @@ export class OctavusChat {
     this._readyToContinue = false;
     this._finishEventReceived = false;
     this._batching = false;
+    this._replayResetPending = false;
     this.updatePendingClientToolsCache();
 
     this.transport.stop();
@@ -1999,11 +2009,24 @@ export class OctavusChat {
 
   /**
    * Enter replay-batch mode: the events that follow re-describe content already
-   * produced this turn (late join or reconnect). Drop the partially-built
-   * current-turn message and rebuild from the replay, suppressing per-event
-   * notifications until the `live` boundary flushes a single update.
+   * produced this turn (late join or reconnect). Per-event notifications are
+   * suppressed until the `live` boundary flushes a single update. The drop and
+   * rebuild of the current turn is deferred to the first replayed event
+   * (resetForReplay) so an empty replay does not discard visible content.
    */
   private beginReplayBatch(): void {
+    this._batching = true;
+    this._replayResetPending = true;
+  }
+
+  /**
+   * Drop the partially-built current-turn message and start a fresh streaming
+   * state, so the replay rebuilds the turn from scratch with no duplication.
+   * Runs on the first event of a replay batch - not in beginReplayBatch - so a
+   * replay that delivers no events leaves the existing content untouched.
+   */
+  private resetForReplay(): void {
+    this._replayResetPending = false;
     const state = this.streamingState;
     if (state) {
       const lastMsg = this._messages[this._messages.length - 1];
@@ -2012,7 +2035,6 @@ export class OctavusChat {
       }
     }
     this.streamingState = createEmptyStreamingState();
-    this._batching = true;
   }
 
   /**
@@ -2023,6 +2045,7 @@ export class OctavusChat {
   private endReplayBatch(): void {
     if (!this._batching) return;
     this._batching = false;
+    this._replayResetPending = false;
     this.notifyListeners();
   }
 
@@ -2132,6 +2155,7 @@ export class OctavusChat {
           this.endReplayBatch();
           continue;
         }
+        if (this._replayResetPending) this.resetForReplay();
         this.handleStreamEvent(item, this.streamingState);
       }
       this.endReplayBatch();
