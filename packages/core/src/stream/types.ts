@@ -896,6 +896,13 @@ export interface ChatMessage {
    * tool-call iteration skip the parts filter.
    */
   toolCalls?: ToolCallInfo[];
+  /**
+   * Human author of a `role: 'user'` message, when the turn was triggered by a
+   * person. Set by the runtime from the trigger's sender metadata; absent for
+   * agent-initiated user turns (scheduled actions, notifications) and for
+   * assistant/system messages. Mirrored onto `UIMessage.sender` for rendering.
+   */
+  sender?: UIMessageSender;
 }
 
 // =============================================================================

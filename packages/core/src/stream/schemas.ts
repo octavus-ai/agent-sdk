@@ -507,6 +507,12 @@ export const messagePartSchema = z.object({
   providerMetadata: providerMetadataSchema,
 });
 
+export const uiMessageSenderSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  image: z.string().optional(),
+});
+
 export const chatMessageSchema = z.object({
   id: z.string(),
   role: messageRoleSchema,
@@ -514,6 +520,7 @@ export const chatMessageSchema = z.object({
   createdAt: z.string(),
   content: z.string(),
   toolCalls: z.array(toolCallInfoSchema).optional(),
+  sender: uiMessageSenderSchema.optional(),
 });
 
 // =============================================================================
@@ -675,12 +682,6 @@ export const uiMessagePartSchema = z.union([
   uiTodoPartSchema,
   uiStepStartPartSchema,
 ]);
-
-export const uiMessageSenderSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().optional(),
-  image: z.string().optional(),
-});
 
 export const uiMessageSchema = z.object({
   id: z.string(),
