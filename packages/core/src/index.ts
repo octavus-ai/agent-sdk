@@ -38,6 +38,7 @@ export {
   toolResultSchema,
   fileReferenceSchema,
   uiMessageSchema,
+  uiMessageSenderSchema,
   uiMessagePartSchema,
   uiWorkerPartSchema,
   uiWorkerStatusSchema,
