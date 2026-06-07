@@ -126,7 +126,7 @@ Skills that have [secrets](#skill-secrets) configured run in **secure mode**, wh
 
 ## Device Execution
 
-By default, skills run in an isolated sandbox. When `execution: device` is set, the skill runs on the agent's computer (VM or desktop) instead.
+By default, skills run in an isolated sandbox. When `execution: device` is set, the skill runs on the agent's computer instead.
 
 ```yaml
 skills:
@@ -154,7 +154,7 @@ The generic workspace tools (`octavus_code_run`, `octavus_file_write`, `octavus_
 
 | Aspect              | Sandbox (default)                  | Device                                                 |
 | ------------------- | ---------------------------------- | ------------------------------------------------------ |
-| **Environment**     | Isolated sandbox                   | Agent's computer (VM or desktop)                       |
+| **Environment**     | Isolated sandbox                   | The agent's computer                                   |
 | **Available tools** | All 6 skill tools                  | `skill_read`, `skill_list`, `skill_run`, `skill_setup` |
 | **File access**     | Via `octavus_file_read/write`      | Via device filesystem MCP                              |
 | **Code execution**  | Via `octavus_code_run`             | Via device shell MCP                                   |

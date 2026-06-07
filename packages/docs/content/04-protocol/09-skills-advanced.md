@@ -333,7 +333,7 @@ When a skill declares secrets and an organization configures them, the skill run
 
 | Aspect              | Standard Skills          | Secure Skills                                       | Device Skills                                          |
 | ------------------- | ------------------------ | --------------------------------------------------- | ------------------------------------------------------ |
-| **Environment**     | Shared sandbox           | Isolated sandbox (one per skill)                    | Agent's computer (VM or desktop)                       |
+| **Environment**     | Shared sandbox           | Isolated sandbox (one per skill)                    | The agent's computer                                   |
 | **Available tools** | All 6 skill tools        | `skill_read`, `skill_list`, `skill_run` only        | `skill_read`, `skill_list`, `skill_run`, `skill_setup` |
 | **Script input**    | CLI arguments via `args` | JSON via stdin (use `input` parameter)              | CLI arguments via `args`                               |
 | **Secrets**         | No secrets               | Secrets as env vars                                 | No secrets                                             |
