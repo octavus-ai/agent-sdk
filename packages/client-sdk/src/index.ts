@@ -23,6 +23,8 @@ export {
   type SocketTransport,
   type ConnectionState,
   type ConnectionStateListener,
+  type ChatControlSignal,
+  type ChatStreamItem,
   type HttpTransportOptions,
   type HttpRequestOptions,
   type HttpRequest,
