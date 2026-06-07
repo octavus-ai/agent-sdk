@@ -153,6 +153,7 @@ export type {
   UIStepStartPart,
   UIMessagePart,
   UIMessage,
+  UIMessageSender,
 } from './stream/types';
 
 export { safeParseStreamEvent, safeParseUIMessage, safeParseUIMessages } from './stream/schemas';

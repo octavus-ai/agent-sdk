@@ -1149,6 +1149,23 @@ export type UIMessagePart =
   | UIStepStartPart;
 
 /**
+ * Identity of the human who sent a user message.
+ *
+ * Optional and only meaningful on `role: 'user'` messages. Apps where
+ * several people share one conversation with an agent can populate this so
+ * the UI can attribute each message to its author (name + avatar). Assistant
+ * messages never carry a sender.
+ */
+export interface UIMessageSender {
+  /** Stable identifier for the author (e.g. the platform user id). */
+  id?: string;
+  /** Display name shown next to the message. */
+  name?: string;
+  /** Avatar image URL. */
+  image?: string;
+}
+
+/**
  * UI Message - the client-facing message format
  * All complexity is handled by the SDK, this is what consumers render
  */
@@ -1158,4 +1175,11 @@ export interface UIMessage {
   parts: UIMessagePart[];
   status: UIMessageStatus;
   createdAt: Date;
+  /**
+   * Author of a `role: 'user'` message, when known. Lets multi-user
+   * conversations show who sent each message. Undefined for agent-initiated
+   * user turns (e.g. scheduled or notification triggers) and assistant
+   * messages.
+   */
+  sender?: UIMessageSender;
 }

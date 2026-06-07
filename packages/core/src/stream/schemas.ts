@@ -676,12 +676,19 @@ export const uiMessagePartSchema = z.union([
   uiStepStartPartSchema,
 ]);
 
+export const uiMessageSenderSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  image: z.string().optional(),
+});
+
 export const uiMessageSchema = z.object({
   id: z.string(),
   role: z.enum(['user', 'assistant']),
   parts: z.array(uiMessagePartSchema),
   status: uiMessageStatusSchema,
   createdAt: z.coerce.date(),
+  sender: uiMessageSenderSchema.optional(),
 });
 
 export function safeParseStreamEvent(data: unknown) {
