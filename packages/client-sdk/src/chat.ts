@@ -20,6 +20,7 @@ import {
   type FileReference,
   type PendingToolCall,
   type ToolResult,
+  type UIMessageSender,
 } from '@octavus/core';
 import type { Transport, TriggerOptions, ChatStreamItem } from './transports/types';
 import { uploadFiles, type UploadFilesOptions } from './files';
@@ -121,6 +122,11 @@ export interface UserMessageInput {
    * - FileReference[]: Already uploaded files (used directly)
    */
   files?: FileList | File[] | FileReference[];
+  /**
+   * Author of this message. Set in apps where multiple people share a
+   * conversation so the optimistic bubble shows who sent it immediately.
+   */
+  sender?: UIMessageSender;
 }
 
 export interface OctavusChatOptions {
@@ -322,6 +328,7 @@ function createUserMessage(input: UserMessageInput, files?: FileReference[]): UI
     parts,
     status: 'done',
     createdAt: new Date(),
+    ...(input.sender ? { sender: input.sender } : {}),
   };
 }
 
@@ -769,7 +776,13 @@ export class OctavusChat {
       triggerName,
       input: processedInput,
       sendOptions: sendOptions?.userMessage
-        ? { userMessage: { content: sendOptions.userMessage.content, files: fileRefs } }
+        ? {
+            userMessage: {
+              content: sendOptions.userMessage.content,
+              files: fileRefs,
+              sender: sendOptions.userMessage.sender,
+            },
+          }
         : undefined,
       rollbackAfterMessageId: currentMessages[currentMessages.length - 1]?.id ?? null,
       messageCount: currentMessages.length,

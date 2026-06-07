@@ -7,6 +7,7 @@ import {
   type ToolProvider,
   type ToolResult,
   type ToolSchema,
+  type UIMessageSender,
 } from '@octavus/core';
 import type { ApiClientConfig } from '@/base-api-client.js';
 import type { Resource } from '@/resource.js';
@@ -24,6 +25,13 @@ export interface TriggerRequest {
   input?: Record<string, unknown>;
   /** ID of the last message to keep. Messages after this are removed before execution. `null` = truncate all. */
   rollbackAfterMessageId?: string | null;
+  /**
+   * Author of this turn, for multi-user conversations. Set it server-side from
+   * your authenticated user for trustworthy attribution - the runtime stamps it
+   * onto the user message and it is returned on `UIMessage.sender`. Travels as
+   * turn metadata, not as a protocol input variable.
+   */
+  sender?: UIMessageSender;
 }
 
 /** Continue execution after client-side tool handling */
@@ -211,6 +219,7 @@ export class AgentSession {
           triggerName: request.triggerName,
           input: request.input,
           rollbackAfterMessageId: request.rollbackAfterMessageId,
+          sender: request.sender,
         },
         options?.signal,
       );
@@ -312,6 +321,7 @@ export class AgentSession {
       executionId?: string;
       toolResults?: ToolResult[];
       rollbackAfterMessageId?: string | null;
+      sender?: UIMessageSender;
     },
     signal?: AbortSignal,
   ): AsyncGenerator<StreamEvent> {
@@ -326,6 +336,7 @@ export class AgentSession {
           if (payload.input !== undefined) body.input = payload.input;
           if (payload.rollbackAfterMessageId !== undefined)
             body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
+          if (payload.sender !== undefined) body.sender = payload.sender;
           if (executionId !== undefined) body.executionId = executionId;
           if (toolResults !== undefined) body.toolResults = toolResults;
           const allDynamicSchemas = this.collectDynamicSchemas();

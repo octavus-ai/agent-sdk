@@ -194,6 +194,7 @@ interface TriggerRequest {
   triggerName: string;
   input?: Record<string, unknown>;
   rollbackAfterMessageId?: string | null; // For retry: truncate messages after this ID
+  sender?: UIMessageSender; // Author of this turn, for multi-user attribution
 }
 
 // Continue after client-side tool handling
@@ -222,6 +223,40 @@ export async function POST(request: Request) {
   return new Response(toSSEStream(events));
 }
 ```
+
+### Attributing Messages in Multi-User Chats
+
+When several people share one conversation, set `sender` on the trigger so each user message is attributed to its author. Set it **server-side from your authenticated user** - never trust a client-supplied identity:
+
+```typescript
+interface UIMessageSender {
+  id?: string;
+  name?: string;
+  image?: string; // Avatar URL
+}
+
+export async function POST(request: Request) {
+  const user = await authenticate(request); // your auth
+  const { sessionId, ...payload } = await request.json();
+
+  const session = client.agentSessions.attach(sessionId, {
+    tools: {
+      /* ... */
+    },
+  });
+  const events = session.execute(
+    {
+      ...payload,
+      sender: { id: user.id, name: user.name, image: user.avatarUrl },
+    },
+    { signal: request.signal },
+  );
+
+  return new Response(toSSEStream(events));
+}
+```
+
+The runtime stamps the sender onto the user message it creates, so it comes back on `UIMessage.sender` from `getMessages()` and survives restore. `sender` is turn metadata - it is never added to your protocol's trigger `input`, and agent-initiated turns (no `sender`) stay unattributed. For instant optimistic display in the browser, also pass it on the client `send()` (see [Client SDK Messages](/docs/client-sdk/messages)).
 
 ### Stop Support
 

@@ -16,6 +16,13 @@ interface UIMessage {
   parts: UIMessagePart[];
   status: 'streaming' | 'done';
   createdAt: Date;
+  sender?: UIMessageSender; // Author of a user message, in multi-user chats
+}
+
+interface UIMessageSender {
+  id?: string;
+  name?: string;
+  image?: string; // Avatar URL
 }
 ```
 
@@ -224,6 +231,22 @@ async function handleSend(text: string, files?: FileReference[]) {
 ```
 
 See [File Uploads](/docs/client-sdk/file-uploads) for complete upload flow.
+
+### Attributing the Sender (Multi-User Chats)
+
+In conversations shared by several people, pass `sender` so the optimistic bubble shows who sent the message immediately:
+
+```tsx
+await send(
+  'user-message',
+  { USER_MESSAGE: text },
+  {
+    userMessage: { content: text, sender: { id: user.id, name: user.name, image: user.avatarUrl } },
+  },
+);
+```
+
+This `sender` is for instant local display only. For attribution that persists and is visible to other participants, set the authoritative sender server-side on the trigger (see [Server SDK Sessions](/docs/server-sdk/sessions)). The persisted value comes back on `message.sender` from `getMessages()`, so render from `message.sender` and treat the value you passed to `send()` as the optimistic placeholder.
 
 ## Rendering Messages
 

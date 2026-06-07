@@ -38,6 +38,7 @@ export {
   toolResultSchema,
   fileReferenceSchema,
   uiMessageSchema,
+  uiMessageSenderSchema,
   uiMessagePartSchema,
   uiWorkerPartSchema,
   uiWorkerStatusSchema,
@@ -153,6 +154,7 @@ export type {
   UIStepStartPart,
   UIMessagePart,
   UIMessage,
+  UIMessageSender,
 } from './stream/types';
 
 export { safeParseStreamEvent, safeParseUIMessage, safeParseUIMessages } from './stream/schemas';

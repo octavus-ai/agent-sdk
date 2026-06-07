@@ -507,6 +507,12 @@ export const messagePartSchema = z.object({
   providerMetadata: providerMetadataSchema,
 });
 
+export const uiMessageSenderSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  image: z.string().optional(),
+});
+
 export const chatMessageSchema = z.object({
   id: z.string(),
   role: messageRoleSchema,
@@ -514,6 +520,7 @@ export const chatMessageSchema = z.object({
   createdAt: z.string(),
   content: z.string(),
   toolCalls: z.array(toolCallInfoSchema).optional(),
+  sender: uiMessageSenderSchema.optional(),
 });
 
 // =============================================================================
@@ -682,6 +689,7 @@ export const uiMessageSchema = z.object({
   parts: z.array(uiMessagePartSchema),
   status: uiMessageStatusSchema,
   createdAt: z.coerce.date(),
+  sender: uiMessageSenderSchema.optional(),
 });
 
 export function safeParseStreamEvent(data: unknown) {
