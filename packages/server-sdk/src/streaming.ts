@@ -20,6 +20,18 @@ const RETRY_INITIAL_DELAY_MS = 1_000;
 const RETRY_MAX_DELAY_MS = 8_000;
 const RETRY_JITTER_FACTOR = 0.25;
 
+/**
+ * Default idle timeout for the streaming connection. The platform emits an SSE
+ * heartbeat (`: heartbeat`) every 15s, so a healthy connection is never silent
+ * for longer than that. If no bytes (data or heartbeat) arrive for this long,
+ * the connection is treated as dead: the generator ends like a real transport
+ * drop - without a `finish` or `error` event - so the caller's retry path
+ * recovers (re-trigger -> the runtime injects synthetic cancelled tool results
+ * for the orphaned tool calls -> the agent re-issues them) instead of hanging
+ * indefinitely. The same bound guards the connect/headers phase.
+ */
+const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 60_000;
+
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status === 502 || status === 503 || status === 504;
 }
@@ -142,6 +154,11 @@ export async function* executeStream(
   let executionId = payload.executionId;
   let continueLoop = true;
 
+  const idleTimeoutMs = Math.max(
+    0,
+    config.config.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+  );
+
   while (continueLoop) {
     if (signal?.aborted) {
       yield { type: 'finish', finishReason: 'stop' };
@@ -152,126 +169,214 @@ export async function* executeStream(
     const maxRetries = Math.max(0, config.config.maxRetries ?? DEFAULT_MAX_RETRIES);
 
     let response!: Response;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      if (signal?.aborted) {
-        yield { type: 'finish', finishReason: 'stop' };
-        return;
-      }
+    let haveResponse = false;
+    // The controller bound to the response we end up reading. The caller's
+    // abort is forwarded onto it so a user Stop still interrupts a blocked
+    // read; it is detached in the outer `finally` once this request's body is
+    // fully consumed (or the iteration unwinds).
+    let bodyController: AbortController | undefined;
+    let bodyAbortListener: (() => void) | undefined;
+    // Captured from the trigger/continue stream; read after the body is fully
+    // consumed to decide whether to execute pending tools and continue.
+    let pendingToolCalls: PendingToolCall[] | null = null;
 
-      try {
-        response = await fetch(config.url, {
-          method: 'POST',
-          headers: config.config.getHeaders(),
-          body: JSON.stringify(body),
-          signal,
-        });
-
-        if (isRetryableStatus(response.status) && attempt < maxRetries) {
-          // Release the socket promptly; the body is unused before we retry.
-          await response.body?.cancel().catch(() => {});
-          await retryDelay(attempt, response, signal);
-          continue;
-        }
-
-        break;
-      } catch (err) {
-        if (isAbortError(err)) {
+    try {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        if (signal?.aborted) {
           yield { type: 'finish', finishReason: 'stop' };
           return;
         }
-        if (attempt < maxRetries && isRetryableNetworkError(err)) {
-          await retryDelay(attempt, null, signal);
-          continue;
+
+        // Per-attempt controller: it forwards the caller abort and is aborted
+        // by a connect/headers timeout, so a frozen connection can never hang
+        // the request before the first byte arrives. A successful attempt keeps
+        // its controller alive for the body-read phase.
+        const attemptController = new AbortController();
+        const onAbort = () => attemptController.abort(signal?.reason);
+        if (signal) {
+          if (signal.aborted) attemptController.abort(signal.reason);
+          else signal.addEventListener('abort', onAbort, { once: true });
         }
-        throw err;
+        let connectTimedOut = false;
+        const connectTimer =
+          idleTimeoutMs > 0
+            ? setTimeout(() => {
+                connectTimedOut = true;
+                attemptController.abort();
+              }, idleTimeoutMs)
+            : undefined;
+
+        let keepController = false;
+        try {
+          response = await fetch(config.url, {
+            method: 'POST',
+            headers: config.config.getHeaders(),
+            body: JSON.stringify(body),
+            signal: attemptController.signal,
+          });
+
+          if (isRetryableStatus(response.status) && attempt < maxRetries) {
+            // Release the socket promptly; the body is unused before we retry.
+            await response.body?.cancel().catch(() => {});
+            await retryDelay(attempt, response, signal);
+            continue;
+          }
+
+          haveResponse = true;
+          keepController = true;
+          bodyController = attemptController;
+          bodyAbortListener = onAbort;
+          break;
+        } catch (err) {
+          // A caller-driven abort always wins and ends the stream cleanly.
+          if (signal?.aborted) {
+            yield { type: 'finish', finishReason: 'stop' };
+            return;
+          }
+          // Our own connect-timeout abort: retry, then fall through to a
+          // transport drop (return without a terminal event) so the caller's
+          // retry path can recover.
+          if (connectTimedOut) {
+            if (attempt < maxRetries) {
+              await retryDelay(attempt, null, signal);
+              continue;
+            }
+            return;
+          }
+          if (attempt < maxRetries && isRetryableNetworkError(err)) {
+            await retryDelay(attempt, null, signal);
+            continue;
+          }
+          throw err;
+        } finally {
+          if (connectTimer) clearTimeout(connectTimer);
+          // Detach the listener for any attempt we are not keeping; the kept
+          // attempt's listener is removed in the outer `finally`.
+          if (!keepController && signal) signal.removeEventListener('abort', onAbort);
+        }
       }
-    }
 
-    if (!response.ok) {
-      const { message } = await parseApiError(response, config.errorContext ?? 'Request failed');
-      yield createApiErrorEvent(response.status, message);
-      return;
-    }
+      if (!haveResponse) return;
 
-    if (!response.body) {
-      yield createInternalErrorEvent('Response body is not readable');
-      return;
-    }
-
-    toolResults = undefined;
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let pendingToolCalls: PendingToolCall[] | null = null;
-
-    let streamDone = false;
-    while (!streamDone) {
-      if (signal?.aborted) {
-        reader.releaseLock();
-        yield { type: 'finish', finishReason: 'stop' };
+      if (!response.ok) {
+        const { message } = await parseApiError(response, config.errorContext ?? 'Request failed');
+        yield createApiErrorEvent(response.status, message);
         return;
       }
 
-      let readResult: ReadableStreamReadResult<Uint8Array>;
-      try {
-        readResult = await reader.read();
-      } catch (err) {
-        if (isAbortError(err)) {
+      if (!response.body) {
+        yield createInternalErrorEvent('Response body is not readable');
+        return;
+      }
+
+      toolResults = undefined;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      let streamDone = false;
+      while (!streamDone) {
+        if (signal?.aborted) {
           reader.releaseLock();
           yield { type: 'finish', finishReason: 'stop' };
           return;
         }
-        throw err;
-      }
 
-      const { done, value } = readResult;
+        // Race the read against an inactivity timer (reset each read). The
+        // platform heartbeats every 15s, so no bytes for `idleTimeoutMs` means
+        // the connection is dead (frozen socket, dropped continuation,
+        // dark-wake). End the generator like a real drop so the caller's retry
+        // path recovers instead of hanging forever.
+        const readPromise = reader.read();
+        let idleTimer: ReturnType<typeof setTimeout> | undefined;
+        let outcome: ReadableStreamReadResult<Uint8Array> | 'idle';
+        try {
+          if (idleTimeoutMs > 0) {
+            const idlePromise = new Promise<'idle'>((resolve) => {
+              idleTimer = setTimeout(() => resolve('idle'), idleTimeoutMs);
+            });
+            outcome = await Promise.race([readPromise, idlePromise]);
+          } else {
+            outcome = await readPromise;
+          }
+        } catch (err) {
+          if (idleTimer) clearTimeout(idleTimer);
+          if (isAbortError(err)) {
+            reader.releaseLock();
+            yield { type: 'finish', finishReason: 'stop' };
+            return;
+          }
+          throw err;
+        }
+        if (idleTimer) clearTimeout(idleTimer);
 
-      if (done) {
-        streamDone = true;
-        continue;
-      }
+        if (outcome === 'idle') {
+          // Swallow the abandoned read's eventual settlement so cancelling the
+          // body does not surface an unhandled rejection.
+          void readPromise.then(
+            () => undefined,
+            () => undefined,
+          );
+          await reader.cancel().catch(() => {});
+          return;
+        }
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
+        const { done, value } = outcome;
 
-      for (const line of lines) {
-        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-          try {
-            const parsed = safeParseStreamEvent(JSON.parse(line.slice(6)));
-            if (!parsed.success) {
-              continue;
-            }
-            const event = parsed.data;
+        if (done) {
+          streamDone = true;
+          continue;
+        }
 
-            if (event.type === 'start' && event.executionId) {
-              executionId = event.executionId;
-            }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
 
-            if (event.type === 'tool-request') {
-              pendingToolCalls = event.toolCalls;
-              continue;
-            }
-
-            if (event.type === 'finish') {
-              if (event.finishReason === 'tool-calls' && pendingToolCalls) {
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+            try {
+              const parsed = safeParseStreamEvent(JSON.parse(line.slice(6)));
+              if (!parsed.success) {
                 continue;
               }
+              const event = parsed.data;
+
+              if (event.type === 'start' && event.executionId) {
+                executionId = event.executionId;
+              }
+
+              if (event.type === 'tool-request') {
+                pendingToolCalls = event.toolCalls;
+                continue;
+              }
+
+              if (event.type === 'finish') {
+                if (event.finishReason === 'tool-calls' && pendingToolCalls) {
+                  continue;
+                }
+                yield event;
+                continueLoop = false;
+                continue;
+              }
+
+              if (event.type === 'resource-update' && config.onResourceUpdate) {
+                config.onResourceUpdate(event.name, event.value);
+              }
+
               yield event;
-              continueLoop = false;
-              continue;
+            } catch {
+              // Skip malformed JSON
             }
-
-            if (event.type === 'resource-update' && config.onResourceUpdate) {
-              config.onResourceUpdate(event.name, event.value);
-            }
-
-            yield event;
-          } catch {
-            // Skip malformed JSON
           }
         }
+      }
+    } finally {
+      // Detach the caller-abort listener bound to this request's body so a
+      // long session with many continuation rounds doesn't accumulate one
+      // listener per round on the caller's signal.
+      if (bodyController && bodyAbortListener && signal) {
+        signal.removeEventListener('abort', bodyAbortListener);
       }
     }
 
