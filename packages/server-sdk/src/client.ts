@@ -23,6 +23,14 @@ export interface OctavusClientConfig {
    * execution (tool continuation). Set to 0 to disable retries. Default: 2.
    */
   maxRetries?: number;
+  /**
+   * Idle timeout (ms) for the streaming read loop. The platform emits an SSE
+   * heartbeat every 15s, so a live connection is never silent for longer than
+   * that; if no bytes arrive within this window the stream is treated as a
+   * transport drop so the caller can retry instead of hanging indefinitely.
+   * Set to 0 to disable. Default: 60000.
+   */
+  streamIdleTimeoutMs?: number;
 }
 
 /** Client for interacting with the Octavus platform API */
@@ -44,6 +52,7 @@ export class OctavusClient {
       baseUrl: this.baseUrl,
       getHeaders: () => this.getHeaders(),
       maxRetries: config.maxRetries,
+      streamIdleTimeoutMs: config.streamIdleTimeoutMs,
     };
 
     this.agents = new AgentsApi(apiConfig);

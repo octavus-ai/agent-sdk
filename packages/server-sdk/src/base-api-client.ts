@@ -8,6 +8,14 @@ export interface ApiClientConfig {
   getHeaders: () => Record<string, string>;
   /** Maximum retries for transient network failures during streaming execution. */
   maxRetries?: number;
+  /**
+   * Idle timeout (ms) for the streaming read loop. The platform emits an SSE
+   * heartbeat every 15s, so a live connection is never silent for longer than
+   * that; if no bytes arrive within this window the connection is treated as
+   * dead and the stream ends like a transport drop so the caller can retry.
+   * Set to 0 to disable. Defaults to 60s.
+   */
+  streamIdleTimeoutMs?: number;
 }
 
 /** Base class for API clients with shared HTTP utilities */

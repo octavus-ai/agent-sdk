@@ -8,6 +8,19 @@ import { NAMESPACE_SEPARATOR, type StdioConfig, type HttpConfig } from './entrie
 const MCP_CLIENT_NAME = 'octavus-computer';
 const MCP_CLIENT_VERSION = '1.0.0';
 
+/**
+ * Upper bound for a single device tool call. A wedged tool (frozen browser
+ * tab, hung STDIO MCP) otherwise never returns, stalling the whole run with no
+ * result. On timeout the MCP client rejects, the caller turns that into a tool
+ * error, and the agent recovers (retry/move on) instead of hanging. `timeout`
+ * caps an idle call; `maxTotalTimeout` is the hard ceiling so streamed progress
+ * notifications can never extend it indefinitely (`resetTimeoutOnProgress`
+ * stays off as well). Shell runs in-process with its own timeout, so this only
+ * bounds MCP-backed device tools; the server SDK's stream inactivity watchdog
+ * separately covers the platform round-trip.
+ */
+const TOOL_CALL_TIMEOUT_MS = 120_000;
+
 export interface McpConnection {
   client: Client;
   namespace: string;
@@ -106,7 +119,11 @@ async function discoverTools(
     });
 
     handlers[nsName] = async (args: Record<string, unknown>) => {
-      const result = await client.callTool({ name: originalName, arguments: args });
+      const result = await client.callTool({ name: originalName, arguments: args }, undefined, {
+        timeout: TOOL_CALL_TIMEOUT_MS,
+        maxTotalTimeout: TOOL_CALL_TIMEOUT_MS,
+        resetTimeoutOnProgress: false,
+      });
       return formatCallToolResult(result as CallToolResult);
     };
   }
