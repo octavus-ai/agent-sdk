@@ -50,6 +50,8 @@ Some tool calls return very large output - a big file read, a full-page extract,
 
 There is no default: bounding only happens when you set `maxToolOutputTokens`, so the runtime never silently truncates output you did not ask it to. When a result is truncated, the model is always told what was omitted and how to retrieve it, so it can decide to narrow the request, paginate, or read a specific range.
 
+Bounding is never hidden: each time a tool result first crosses the budget, a `tool-output-bounded` entry is recorded in the session's execution logs with the tool name, the original size, and the cap. The full, untruncated result stays in the corresponding `tool-result` entry, so you can always see both what the model saw and the complete output.
+
 ## The summarizer worker
 
 `summarizerWorker` points at a worker you define and ship like any other (see [Workers](/docs/protocol/workers)). It takes two inputs - `PREVIOUS_SUMMARY` (the running summary so far) and `CONVERSATION` (the older turns to fold in) - and returns the updated summary.
