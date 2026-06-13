@@ -127,6 +127,7 @@ export type ExecutionLogEntryType =
   | 'worker-execution'
   | 'worker-output'
   | 'compaction'
+  | 'tool-output-bounded'
   | 'abort'
   | 'error';
 
@@ -266,6 +267,28 @@ export interface CompactionLogEntry extends ExecutionLogEntryBase {
   summarizerWorkerId?: string;
 }
 
+/**
+ * Records that a single tool result was too large for the model's context view
+ * and was replaced with a head+tail preview before being sent to the model.
+ * Emitted only when the agent opts in via `contextManagement.maxToolOutputTokens`
+ * (no default), so the runtime's bounding is never hidden from the consumer.
+ *
+ * This is a model-view transform only: the full, untruncated result stays in the
+ * corresponding `tool-result` entry and the session trace. Emitted once per tool
+ * call when its result first crosses the budget.
+ */
+export interface ToolOutputBoundedLogEntry extends ExecutionLogEntryBase {
+  type: 'tool-output-bounded';
+  /** Id of the tool call whose result was bounded. */
+  toolCallId?: string;
+  /** Name of the tool whose result was bounded. */
+  toolName?: string;
+  /** Character length of the full result before bounding. */
+  originalChars: number;
+  /** The configured per-result token cap that triggered the bound. */
+  maxToolOutputTokens: number;
+}
+
 export interface AbortLogEntry extends ExecutionLogEntryBase {
   type: 'abort';
   abortedAtBlock?: string;
@@ -295,5 +318,6 @@ export type ExecutionLogEntry =
   | WorkerExecutionLogEntry
   | WorkerOutputLogEntry
   | CompactionLogEntry
+  | ToolOutputBoundedLogEntry
   | AbortLogEntry
   | ErrorLogEntry;
