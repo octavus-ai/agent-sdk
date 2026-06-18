@@ -5,7 +5,7 @@ description: Automatic context-window compaction so long sessions keep running p
 
 # Context Management
 
-Long-running sessions accumulate history - messages, tool results, screenshots, file reads. Once that history approaches the model's context window, the provider rejects the request and the session would otherwise fail. `contextManagement` (set in the [agent config](/docs/protocol/agent-config)) makes the agent robust to both pressures: it automatically compacts older history as it fills up, and - when you set `maxToolOutputTokens` - it caps how much any single tool result puts into context, so a long task, a long conversation, or one oversized tool output keeps the session running.
+Long-running sessions accumulate history - messages, tool results, screenshots, file reads. Once that history approaches the model's context window, the provider rejects the request and the session would otherwise fail. Two [agent config](/docs/protocol/agent-config) knobs make the agent robust to this: `maxToolOutputTokens` caps how much any single tool result puts into context, and `contextManagement` automatically compacts older history as it fills up. Together they keep a long task, a long conversation, or one oversized tool output from ending the session.
 
 Compaction and bounding transform only what the **model sees** on each request. The stored conversation is never changed - the complete history is always preserved.
 
@@ -20,22 +20,23 @@ workers:
 agent:
   model: anthropic/claude-sonnet-4-5
   system: system
+  maxToolOutputTokens: 300000 # safety cap on a single tool result (no default)
   # context-summarizer is intentionally NOT listed in agent.workers,
   # so the model never sees it as a callable tool.
   contextManagement:
     summarizerWorker: context-summarizer
     thresholdPercent: 0.8 # proactive trigger (no default; omit = reactive only)
     recentPercent: 0.3 # recent window kept verbatim (no default; omit = no summarization)
-    maxToolOutputTokens: 300000 # safety cap on a single tool result (no default)
 ```
 
-| Field                 | Required | Description                                                                                                          |
-| --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `summarizerWorker`    | No       | Slug of a worker (declared in `workers:`) that produces the running summary. Enables summarization-based compaction. |
-| `thresholdPercent`    | No       | Fraction of the model's context window at which compaction starts. No default; omit to disable proactive compaction. |
-| `recentPercent`       | No       | Fraction of the context window kept verbatim as the recent window. No default; omit to disable summarization.        |
-| `maxToolOutputTokens` | No       | Max tokens a single tool result may add to the model's view (see below). No default - bounding is off unless set.    |
-| `recentWindow`        | No       | Deprecated and ignored. Superseded by `recentPercent` (a context-window fraction).                                   |
+`maxToolOutputTokens` is a top-level `agent` field (a sibling of `model` and `system`), because bounding a single tool result is independent of history compaction. Workers set the same cap per thread on their [`start-thread`](/docs/protocol/workers) block. `contextManagement` groups the compaction knobs:
+
+| Field              | Required | Description                                                                                                          |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `summarizerWorker` | No       | Slug of a worker (declared in `workers:`) that produces the running summary. Enables summarization-based compaction. |
+| `thresholdPercent` | No       | Fraction of the model's context window at which compaction starts. No default; omit to disable proactive compaction. |
+| `recentPercent`    | No       | Fraction of the context window kept verbatim as the recent window. No default; omit to disable summarization.        |
+| `recentWindow`     | No       | Deprecated and ignored. Superseded by `recentPercent` (a context-window fraction).                                   |
 
 ## How it works
 
@@ -46,7 +47,7 @@ agent:
 
 ## Bounded tool output
 
-Some tool calls return very large output - a big file read, a full-page extract, a large MCP or skill result. Left unbounded, one such call can blow past the context window in a single step. Set `maxToolOutputTokens` to cap how much of any single result reaches the model, while the full result stays in the stored conversation and the trace.
+Some tool calls return very large output - a big file read, a full-page extract, a large MCP or skill result. Left unbounded, one such call can blow past the context window in a single step. Set `maxToolOutputTokens` on the agent (or, for a worker, on its `start-thread` block) to cap how much of any single result reaches the model, while the full result stays in the stored conversation and the trace.
 
 There is no default: bounding only happens when you set `maxToolOutputTokens`, so the runtime never silently truncates output you did not ask it to. When a result is truncated, the model is always told what was omitted and how to retrieve it, so it can decide to narrow the request, paginate, or read a specific range.
 

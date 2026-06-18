@@ -270,8 +270,9 @@ export interface CompactionLogEntry extends ExecutionLogEntryBase {
 /**
  * Records that a single tool result was too large for the model's context view
  * and was replaced with a head+tail preview before being sent to the model.
- * Emitted only when the agent opts in via `contextManagement.maxToolOutputTokens`
- * (no default), so the runtime's bounding is never hidden from the consumer.
+ * Emitted only when the agent opts in via `agent.maxToolOutputTokens` (or, for a
+ * worker, its `start-thread.maxToolOutputTokens`) - no default, so the runtime's
+ * bounding is never hidden from the consumer.
  *
  * This is a model-view transform only: the full, untruncated result stays in the
  * corresponding `tool-result` entry and the session trace. Emitted once per tool

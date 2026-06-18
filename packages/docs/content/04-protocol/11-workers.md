@@ -219,21 +219,22 @@ steps:
 
 All LLM configuration goes here:
 
-| Field         | Description                                                                            |
-| ------------- | -------------------------------------------------------------------------------------- |
-| `thread`      | Thread name (defaults to block name)                                                   |
-| `model`       | LLM model to use                                                                       |
-| `system`      | System prompt filename (required)                                                      |
-| `input`       | Variables for system prompt                                                            |
-| `tools`       | Tools available in this thread                                                         |
-| `skills`      | Octavus skills available in this thread                                                |
-| `mcpServers`  | MCP servers available in this thread                                                   |
-| `imageModel`  | Image generation model                                                                 |
-| `webSearch`   | Enable built-in web search tool                                                        |
-| `thinking`    | Extended reasoning level (`low`/`medium`/`high`/`max`), `"off"`, or variable reference |
-| `cache`       | Prompt caching mode: `auto` (default), `extended`, or `off`                            |
-| `temperature` | Model temperature (0-2), `"off"`, or variable reference                                |
-| `maxSteps`    | Maximum tool call cycles (enables agentic if > 1), or variable reference               |
+| Field                 | Description                                                                                                                             |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `thread`              | Thread name (defaults to block name)                                                                                                    |
+| `model`               | LLM model to use                                                                                                                        |
+| `system`              | System prompt filename (required)                                                                                                       |
+| `input`               | Variables for system prompt                                                                                                             |
+| `tools`               | Tools available in this thread                                                                                                          |
+| `skills`              | Octavus skills available in this thread                                                                                                 |
+| `mcpServers`          | MCP servers available in this thread                                                                                                    |
+| `imageModel`          | Image generation model                                                                                                                  |
+| `webSearch`           | Enable built-in web search tool                                                                                                         |
+| `thinking`            | Extended reasoning level (`low`/`medium`/`high`/`max`), `"off"`, or variable reference                                                  |
+| `cache`               | Prompt caching mode: `auto` (default), `extended`, or `off`                                                                             |
+| `temperature`         | Model temperature (0-2), `"off"`, or variable reference                                                                                 |
+| `maxSteps`            | Maximum tool call cycles (enables agentic if > 1), or variable reference                                                                |
+| `maxToolOutputTokens` | Cap a single tool result at this many tokens in the thread's model view (head+tail preview + note). Omit to leave tool output unbounded |
 
 ## Simple Example
 
