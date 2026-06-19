@@ -209,3 +209,13 @@ export type {
   TrimmedValue,
 } from './execution-log';
 export { isTrimmedValue } from './execution-log';
+
+// Inline media handling for MCP tool results
+export {
+  isInlineMediaPart,
+  findInlineMediaParts,
+  extensionForMediaType,
+  base64ByteLength,
+  stripInlineMediaData,
+} from './media-tool-result';
+export type { InlineMediaKind, InlineMediaPart, InlineMediaLocation } from './media-tool-result';
