@@ -42,7 +42,7 @@ export { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
 export { createInlineMcpServer, defineInlineMcpTool } from '@/inline-mcp.js';
-export { normalizeToolResultImages } from '@/normalize-images.js';
+export { normalizeToolResultMedia } from '@/normalize-media.js';
 export { normalizeToolResultOutputFiles } from '@/normalize-output-files.js';
 
 // Agent types (read-only - use @octavus/cli for agent management)

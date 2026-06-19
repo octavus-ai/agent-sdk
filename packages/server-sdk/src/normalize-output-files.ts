@@ -67,7 +67,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * Upload `outputFiles` payloads embedded in tool results via presigned URLs
  * and replace them with download-only summaries.
  *
- * Mirrors the `normalizeToolResultImages` flow: runs server-side at the
+ * Mirrors the `normalizeToolResultMedia` flow: runs server-side at the
  * `onToolResults` callback so file contents never travel over the
  * tool-result wire (which would inflate continue payloads and bypass S3).
  *
