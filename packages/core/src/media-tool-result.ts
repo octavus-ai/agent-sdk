@@ -38,6 +38,17 @@ export function isInlineMediaPart(part: unknown): part is InlineMediaPart {
 }
 
 /**
+ * Effective IANA media type for an inline media part. When the tool omits the
+ * media type, an image falls back to `image/png` so it still reaches the model
+ * as vision (delivery keys off an `image/*` type); audio and other blobs fall
+ * back to a generic binary type.
+ */
+export function inlineMediaType(part: InlineMediaPart): string {
+  if (part.mimeType) return part.mimeType;
+  return part.type === 'image' ? 'image/png' : 'application/octet-stream';
+}
+
+/**
  * The content-parts array of a tool result plus a way to rebuild the result
  * from replacement parts, preserving the result's original shape.
  */
@@ -118,7 +129,7 @@ export function stripInlineMediaData(result: unknown): unknown {
     if (!isInlineMediaPart(part)) return part;
     return {
       type: part.type,
-      mediaType: part.mimeType ?? 'application/octet-stream',
+      mediaType: inlineMediaType(part),
       size: base64ByteLength(part.data),
       omitted: true,
     };

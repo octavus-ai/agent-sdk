@@ -2,6 +2,7 @@ import {
   generateId,
   findInlineMediaParts,
   isInlineMediaPart,
+  inlineMediaType,
   extensionForMediaType,
   type InlineMediaKind,
   type ToolResult,
@@ -59,7 +60,7 @@ export async function normalizeToolResultMedia(
     location.parts.forEach((part, index) => {
       if (!isInlineMediaPart(part)) return;
       const buffer = base64ToArrayBuffer(part.data);
-      const mediaType = part.mimeType || 'application/octet-stream';
+      const mediaType = inlineMediaType(part);
       partIndices.push(index);
       kinds.push(part.type);
       buffers.push(buffer);
