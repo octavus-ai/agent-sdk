@@ -15,11 +15,20 @@ import type { StreamEvent, ToolResult } from '@octavus/core';
  *   does not notify subscribers per event.
  * - `live`: replay is finished. The chat flushes the rebuilt turn in a single
  *   update, then resumes per-event notifications for genuinely new output.
+ * - `reset-turn`: discard the partially-streamed current turn and continue live.
+ *   Unlike `replay-start`, the events that follow are genuinely new (not a
+ *   replay) and render per-event. Used when the executor restarts a turn from
+ *   scratch (e.g. it re-issued the trigger after a dropped stream) so the
+ *   abandoned partial output does not linger in the bubble the new attempt
+ *   streams into.
  *
  * Transports that do not support late join simply never emit these, so the chat
  * stays in normal per-event mode.
  */
-export type ChatControlSignal = { type: 'replay-start' } | { type: 'live' };
+export type ChatControlSignal =
+  | { type: 'replay-start' }
+  | { type: 'live' }
+  | { type: 'reset-turn' };
 
 /**
  * The values a transport stream yields: protocol `StreamEvent`s plus the

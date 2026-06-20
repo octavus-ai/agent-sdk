@@ -893,6 +893,10 @@ export class OctavusChat {
           this.endReplayBatch();
           continue;
         }
+        if (item.type === 'reset-turn') {
+          this.resetCurrentTurn();
+          continue;
+        }
 
         if (this._replayResetPending) this.resetForReplay();
         this.handleStreamEvent(item, this.streamingState);
@@ -2051,6 +2055,28 @@ export class OctavusChat {
   }
 
   /**
+   * Drop the partially-streamed current turn and start a fresh streaming state,
+   * staying live. Used when the transport signals `reset-turn` because the
+   * executor restarted the turn from scratch (e.g. it re-issued the trigger
+   * after a dropped stream): the abandoned partial output must not remain in the
+   * bubble the retried attempt will stream into. Unlike `resetForReplay`, this
+   * is not a replay - it paints immediately (when not batching) so the stale
+   * partial clears at once, and the genuinely-new events that follow render
+   * per-event.
+   */
+  private resetCurrentTurn(): void {
+    const state = this.streamingState;
+    if (state) {
+      const lastMsg = this._messages[this._messages.length - 1];
+      if (lastMsg?.id === state.messageId) {
+        this._messages = this._messages.slice(0, -1);
+      }
+    }
+    this.streamingState = createEmptyStreamingState();
+    if (!this._batching) this.notifyListeners();
+  }
+
+  /**
    * Exit replay-batch mode and paint the rebuilt turn in a single update.
    * Idempotent: a no-op when not batching, so terminal/safety callers can call
    * it unconditionally.
@@ -2166,6 +2192,10 @@ export class OctavusChat {
         }
         if (item.type === 'live') {
           this.endReplayBatch();
+          continue;
+        }
+        if (item.type === 'reset-turn') {
+          this.resetCurrentTurn();
           continue;
         }
         if (this._replayResetPending) this.resetForReplay();
