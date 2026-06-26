@@ -45,11 +45,12 @@ skills:
 
 ### Skill Fields
 
-| Field         | Required | Description                                                                           |
-| ------------- | -------- | ------------------------------------------------------------------------------------- |
-| `display`     | No       | How to show in UI: `hidden`, `name`, `description`, `stream` (default: `description`) |
-| `description` | No       | Custom description shown to users (overrides skill's built-in description)            |
-| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                 |
+| Field         | Required | Description                                                                                    |
+| ------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `display`     | No       | How to show in UI: `hidden`, `name`, `description`, `stream`, `title` (default: `description`) |
+| `title`       | No       | UI label shown when `display: title` (hides the description and arguments)                     |
+| `description` | No       | Custom description shown to users (overrides skill's built-in description)                     |
+| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                          |
 
 ### Display Modes
 

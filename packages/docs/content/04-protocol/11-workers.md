@@ -530,6 +530,7 @@ Controls how worker execution appears to users. The default for workers is `stre
 | `name`        | Shows a running/done indicator with the worker name. No nested content (text, tool calls, reasoning) is forwarded.                 |
 | `description` | Shows a running/done indicator with the worker description. No nested content is forwarded.                                        |
 | `stream`      | Full visibility. All nested events are forwarded - text, reasoning, tool calls, sources, files. Worker input is included on start. |
+| `title`       | Like `description`, but shows the worker's `title` field instead of its description. No nested content or input is forwarded.      |
 
 **Progressive input streaming:** When a worker with `display: stream` is invoked agentically (LLM calls it as a tool), the `UIWorkerPart` appears in the UI immediately as the LLM starts generating the worker's arguments. The worker input streams progressively into the worker part, the same way text tokens stream into a text part. Once input finishes, worker execution begins and nested content flows into the same worker part. There is no intermediate tool card.
 

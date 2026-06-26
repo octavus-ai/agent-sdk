@@ -34,22 +34,24 @@ tools:
 
 ### Tool Fields
 
-| Field         | Required | Description                                                  |
-| ------------- | -------- | ------------------------------------------------------------ |
-| `description` | Yes      | What the tool does (shown to LLM and optionally user)        |
-| `display`     | No       | How to show in UI: `hidden`, `name`, `description`, `stream` |
-| `parameters`  | No       | Input parameters the tool accepts                            |
+| Field         | Required | Description                                                                |
+| ------------- | -------- | -------------------------------------------------------------------------- |
+| `description` | Yes      | What the tool does (shown to LLM and optionally user)                      |
+| `display`     | No       | How to show in UI: `hidden`, `name`, `description`, `stream`, `title`      |
+| `title`       | No       | UI label shown when `display: title` (hides the description and arguments) |
+| `parameters`  | No       | Input parameters the tool accepts                                          |
 
 ### Display Modes
 
 Controls what the client sees about tool execution. The default is `description`.
 
-| Mode          | Behavior                                                                                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `hidden`      | No UI events emitted. The tool executes silently and the user has no awareness it was called. Use for internal plumbing tools (title setting, context management). |
-| `name`        | Shows the raw tool name while executing. Arguments and result are not displayed.                                                                                   |
-| `description` | Shows the tool's description while executing (default). Arguments are visible during live streaming but the result is not preserved after page refresh.            |
-| `stream`      | Full visibility. Arguments stream progressively as the LLM generates them, and the result is shown after execution. The result is preserved after page refresh.    |
+| Mode          | Behavior                                                                                                                                                                                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hidden`      | No UI events emitted. The tool executes silently and the user has no awareness it was called. Use for internal plumbing tools (title setting, context management).                                                                                               |
+| `name`        | Shows the raw tool name while executing. Arguments and result are not displayed.                                                                                                                                                                                 |
+| `description` | Shows the tool's description while executing (default). Arguments are visible during live streaming but the result is not preserved after page refresh.                                                                                                          |
+| `stream`      | Full visibility. Arguments stream progressively as the LLM generates them, and the result is shown after execution. The result is preserved after page refresh.                                                                                                  |
+| `title`       | Shows the tool's `title` plus the tool name only. The description, arguments, and result are hidden in the UI; the `description` is still sent to the LLM. Use for server-side tools that should appear as a labeled step without exposing their inputs/outputs. |
 
 **When to use `stream`:**
 
