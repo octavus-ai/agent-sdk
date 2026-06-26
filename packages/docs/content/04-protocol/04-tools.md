@@ -66,6 +66,14 @@ Controls what the client sees about tool execution. The default is `description`
 - Context-setting tools that would clutter the UI
 - Tools that are implementation details of the agent's protocol
 
+**When to use `title`:**
+
+- Server-side tools that should appear in the UI as a clean, labeled step (e.g. "Looking up your account") without exposing their arguments or result
+- Tools whose `description` is written for the LLM and shouldn't be shown verbatim to the user
+- This is the recommended mode for server-executed tools that should be visible: give them a human-readable `title` for the UI and keep `description` focused on instructing the model
+
+`title` is the preferred choice for server-side tools that should surface in the UI. `name` and `description` remain supported for backward compatibility, but for new server-side tools prefer `title` (a clean UI label) - or `stream` for client tools where the user benefits from seeing the arguments and result.
+
 **Refresh and restore behavior:**
 
 `stream` is the only mode that preserves the tool result after a page refresh. For all other modes, the result is available during the live session but stripped on refresh. On session restore (when the session expires and is rebuilt from stored `UIMessage[]`), `stream` tools retain their original result while other modes receive a placeholder.
