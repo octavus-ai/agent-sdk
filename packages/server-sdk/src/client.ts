@@ -3,6 +3,7 @@ import { AgentsApi } from '@/agents.js';
 import { AgentSessionsApi } from '@/agent-sessions.js';
 import { FilesApi } from '@/files.js';
 import { WorkersApi } from '@/workers.js';
+import { WorkforceApi } from '@/workforce.js';
 
 /**
  * Wire-format major version this SDK can parse.
@@ -39,6 +40,8 @@ export class OctavusClient {
   readonly agentSessions: AgentSessionsApi;
   readonly files: FilesApi;
   readonly workers: WorkersApi;
+  /** Workforce Agents API - drive an OctoAgent with a per-agent key (oct_agt_*). */
+  readonly workforce: WorkforceApi;
   readonly baseUrl: string;
   private readonly apiKey?: string;
   private readonly traceModelRequests: boolean;
@@ -59,6 +62,7 @@ export class OctavusClient {
     this.agentSessions = new AgentSessionsApi(apiConfig);
     this.files = new FilesApi(apiConfig);
     this.workers = new WorkersApi(apiConfig);
+    this.workforce = new WorkforceApi(apiConfig);
   }
 
   /** Returns the platform URL for viewing a session's activity. */

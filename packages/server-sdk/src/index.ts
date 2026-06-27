@@ -38,6 +38,16 @@ export {
   type WorkerExecuteOptions,
   type WorkerGenerateResult,
 } from '@/workers.js';
+export {
+  WorkforceApi,
+  isTerminalThreadStatus,
+  type WorkforceThreadStatus,
+  type WorkforceDispatchResult,
+  type WorkforceThread,
+  type WorkforceDispatchOptions,
+  type WorkforceWaitOptions,
+  type WorkforceRunOptions,
+} from '@/workforce.js';
 export { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
