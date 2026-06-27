@@ -8,7 +8,7 @@
 
 import { z } from 'zod';
 
-export const displayModeSchema = z.enum(['hidden', 'name', 'description', 'stream']);
+export const displayModeSchema = z.enum(['hidden', 'name', 'description', 'stream', 'title']);
 export const messageRoleSchema = z.enum(['user', 'assistant', 'system']);
 export const toolCallStatusSchema = z.enum(['pending', 'streaming', 'available', 'error']);
 export const finishReasonSchema = z.enum([
@@ -145,6 +145,7 @@ export const toolInputStartEventSchema = z.object({
   toolCallId: z.string(),
   toolName: z.string(),
   title: z.string().optional(),
+  display: displayModeSchema.optional(),
   workerId: z.string().optional(),
 });
 
@@ -555,6 +556,7 @@ export const uiToolCallPartSchema = z.object({
   result: z.unknown().optional(),
   error: z.string().optional(),
   status: uiToolCallStatusSchema,
+  display: displayModeSchema.optional(),
   thread: z.string().optional(),
   providerMetadata: z.record(z.string(), z.unknown()).optional(),
 });

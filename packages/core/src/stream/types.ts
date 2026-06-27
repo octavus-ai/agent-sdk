@@ -12,10 +12,12 @@
  * - name: Shows block/tool name
  * - description: Shows description
  * - stream: Shows live streaming content
+ * - title: Shows a custom UI title plus the tool name only; description,
+ *   arguments, and result are hidden. The `description` still goes to the LLM.
  */
 import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from '@/errors/types';
 
-export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream';
+export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream' | 'title';
 
 export type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 export type ToolHandlers = Record<string, ToolHandler>;
@@ -338,6 +340,8 @@ export interface ToolInputStartEvent {
   toolName: string;
   /** Human-readable title/description for the tool call */
   title?: string;
+  /** Display mode for this tool call. Lets the client render `title` mode (title + name, no args/result). */
+  display?: DisplayMode;
   /** Worker ID if this event originated from a worker execution */
   workerId?: string;
 }
@@ -959,12 +963,21 @@ export interface UIToolCallPart {
   type: 'tool-call';
   toolCallId: string;
   toolName: string;
-  /** Human-readable display name (from protocol description) */
+  /**
+   * Human-readable display name. Holds the protocol `description` for
+   * `description`/`stream` modes, and the protocol `title` for `title` mode.
+   */
   displayName?: string;
   args: Record<string, unknown>;
   result?: unknown;
   error?: string;
   status: UIToolCallStatus;
+  /**
+   * Display mode for this tool call. In `title` mode the UI should show
+   * `displayName` (the title) + `toolName` only - `args` is `{}` and `result`
+   * is omitted. Undefined for tool calls persisted before this field existed.
+   */
+  display?: DisplayMode;
   /** Thread name (undefined or 'main' for main thread) */
   thread?: string;
   /**

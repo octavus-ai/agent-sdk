@@ -1475,6 +1475,7 @@ export class OctavusChat {
           toolCallId: event.toolCallId,
           toolName: event.toolName,
           displayName: event.title,
+          display: event.display,
           args: {},
           result: undefined,
           error: undefined,
@@ -1575,7 +1576,7 @@ export class OctavusChat {
             const updatedParts = [...workerPart.parts];
             updatedParts[toolPartIndex] = {
               ...part,
-              args: event.input as Record<string, unknown>,
+              args: part.display === 'title' ? {} : (event.input as Record<string, unknown>),
               status: 'running',
             };
             state.parts[workerState.partIndex] = { ...workerPart, parts: updatedParts };
@@ -1592,7 +1593,7 @@ export class OctavusChat {
             const part = state.parts[toolPartIndex] as UIToolCallPart;
             state.parts[toolPartIndex] = {
               ...part,
-              args: event.input as Record<string, unknown>,
+              args: part.display === 'title' ? {} : (event.input as Record<string, unknown>),
               status: 'running',
             };
             this.updateStreamingMessage();
@@ -1615,7 +1616,7 @@ export class OctavusChat {
             const updatedParts = [...workerPart.parts];
             updatedParts[toolPartIndex] = {
               ...part,
-              result: event.output,
+              result: part.display === 'title' ? undefined : event.output,
               status: 'done',
             };
             state.parts[workerState.partIndex] = { ...workerPart, parts: updatedParts };
@@ -1629,7 +1630,7 @@ export class OctavusChat {
             const part = state.parts[toolPartIndex] as UIToolCallPart;
             state.parts[toolPartIndex] = {
               ...part,
-              result: event.output,
+              result: part.display === 'title' ? undefined : event.output,
               status: 'done',
             };
             this.updateStreamingMessage();
@@ -2124,7 +2125,7 @@ export class OctavusChat {
       const part = state.parts[toolPartIndex] as UIToolCallPart;
       state.parts[toolPartIndex] = {
         ...part,
-        result: output,
+        result: part.display === 'title' ? undefined : output,
         status: 'done',
       };
       this.updateStreamingMessage();

@@ -224,12 +224,13 @@ For agentic image generation where the LLM decides when to generate, configure `
 
 Every block has a `display` property:
 
-| Mode          | Default For               | Behavior          |
-| ------------- | ------------------------- | ----------------- |
-| `hidden`      | add-message               | Not shown to user |
-| `name`        | set-resource              | Shows block name  |
-| `description` | tool-call, generate-image | Shows description |
-| `stream`      | next-message              | Streams content   |
+| Mode          | Default For               | Behavior                        |
+| ------------- | ------------------------- | ------------------------------- |
+| `hidden`      | add-message               | Not shown to user               |
+| `name`        | set-resource              | Shows block name                |
+| `description` | tool-call, generate-image | Shows description               |
+| `stream`      | next-message              | Streams content                 |
+| `title`       | -                         | Shows the block's `title` field |
 
 ## Complete Example
 
