@@ -21,28 +21,30 @@ agent:
 
 ## Configuration Options
 
-| Field                 | Required | Description                                                                                                                    |
-| --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `model`               | Yes      | Model identifier or variable reference                                                                                         |
-| `backupModel`         | No       | Backup model for automatic failover on provider errors                                                                         |
-| `system`              | Yes      | System prompt filename (without .md)                                                                                           |
-| `input`               | No       | Variables to pass to the system prompt                                                                                         |
-| `tools`               | No       | List of tools the LLM can call                                                                                                 |
-| `mcpServers`          | No       | List of MCP servers to connect (see [MCP Servers](/docs/protocol/mcp-servers))                                                 |
-| `skills`              | No       | List of Octavus skills the LLM can use                                                                                         |
-| `references`          | No       | List of references the LLM can fetch on demand                                                                                 |
-| `sandboxTimeout`      | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                                                                      |
-| `imageModel`          | No       | Image generation model (enables agentic image generation)                                                                      |
-| `webSearch`           | No       | Enable built-in web search tool (provider-agnostic)                                                                            |
-| `agentic`             | No       | Allow multiple tool call cycles                                                                                                |
-| `maxSteps`            | No       | Maximum agentic steps (default: 10) - literal or variable reference                                                            |
-| `temperature`         | No       | Model temperature (0-2), `"off"`, or a variable reference                                                                      |
-| `thinking`            | No       | Extended reasoning level (`low`/`medium`/`high`/`max`), `"off"`, or a variable reference                                       |
-| `speed`               | No       | Inference speed for supported Opus models: `fast`/`standard` (see [Fast Mode](/docs/protocol/fast-mode))                       |
-| `cache`               | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                                                                    |
-| `maxToolOutputTokens` | No       | Cap a single tool result at this many tokens in the model view (head+tail preview + note). Omit to leave tool output unbounded |
-| `contextManagement`   | No       | Automatic context-window compaction (see [Context Management](/docs/protocol/context-management))                              |
-| `anthropic`           | No       | Anthropic-specific options (tools, skills)                                                                                     |
+| Field                 | Required | Description                                                                                                                                                            |
+| --------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`               | Yes      | Model identifier or variable reference                                                                                                                                 |
+| `backupModel`         | No       | Backup model for automatic failover on provider errors                                                                                                                 |
+| `system`              | Yes      | System prompt filename (without .md)                                                                                                                                   |
+| `input`               | No       | Variables to pass to the system prompt                                                                                                                                 |
+| `tools`               | No       | List of tools the LLM can call                                                                                                                                         |
+| `mcpServers`          | No       | List of MCP servers to connect (see [MCP Servers](/docs/protocol/mcp-servers))                                                                                         |
+| `skills`              | No       | List of Octavus skills the LLM can use                                                                                                                                 |
+| `references`          | No       | List of references the LLM can fetch on demand                                                                                                                         |
+| `sandboxTimeout`      | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                                                                                                              |
+| `imageModel`          | No       | Image generation model (enables agentic image generation)                                                                                                              |
+| `webSearch`           | No       | Enable built-in web search tool (provider-agnostic)                                                                                                                    |
+| `agentic`             | No       | Allow multiple tool call cycles                                                                                                                                        |
+| `maxSteps`            | No       | Maximum agentic steps (default: 10) - literal or variable reference                                                                                                    |
+| `temperature`         | No       | Model temperature (0-2), `"off"`, or a variable reference                                                                                                              |
+| `thinking`            | No       | Extended reasoning level (`low`/`medium`/`high`/`max`), `"off"`, or a variable reference                                                                               |
+| `speed`               | No       | Inference speed for supported Opus models: `fast`/`standard` (see [Fast Mode](/docs/protocol/fast-mode))                                                               |
+| `cache`               | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                                                                                                            |
+| `maxToolOutputTokens` | No       | Cap a single tool result at this many tokens in the model view (head+tail preview + note). Omit to leave tool output unbounded                                         |
+| `maxOutputTokens`     | No       | Cap output tokens for a single generation (one agentic step). Omit to use the provider/SDK default (see [Output Limits and Loop Guard](#output-limits-and-loop-guard)) |
+| `loopGuard`           | No       | `true` to abort a generation that degenerates into a repeated string (see [Output Limits and Loop Guard](#output-limits-and-loop-guard))                               |
+| `contextManagement`   | No       | Automatic context-window compaction (see [Context Management](/docs/protocol/context-management))                                                                      |
+| `anthropic`           | No       | Anthropic-specific options (tools, skills)                                                                                                                             |
 
 ## Models
 
@@ -217,6 +219,30 @@ agent:
 3. Tool executes, result returned to LLM
 4. LLM decides if more tools needed
 5. Repeat until LLM responds or maxSteps reached
+
+## Output Limits and Loop Guard
+
+Two optional safeguards bound the cost of a single LLM generation. Both apply **per generation** (one agentic step), not across the whole run - `maxSteps` is what bounds how many steps a run can take.
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  system: system
+  maxOutputTokens: 32000 # hard cap on output tokens per generation
+  loopGuard: true # abort a generation that degenerates into a repeated string
+```
+
+### maxOutputTokens
+
+Caps the output tokens of a single generation, passed straight through to the provider's `max_tokens`. When omitted, the provider/SDK default applies - it varies by model and can be very large. Setting an explicit value gives you a predictable, model-independent ceiling on the cost of any one generation.
+
+This is a **per-step** cap, not a budget for the whole run. A long agentic run makes many generations, each capped independently; use `maxSteps` to bound the number of steps.
+
+### loopGuard
+
+Autoregressive models can occasionally degenerate into a repetition loop - emitting the same short string thousands of times until the output budget is exhausted. Set `loopGuard: true` to watch the streamed output and abort a generation as soon as it detects a short unit repeating past a threshold, so a degenerate turn stops after a few hundred tokens instead of burning the full output cap. The runaway tail is trimmed out of the stored message so it does not pollute later turns.
+
+It is a plain on/off flag - the detection thresholds (how many consecutive repeats trip it, the longest unit considered) are fixed, conservative defaults, since they describe a degeneration detector rather than anything worth tuning per agent. Omit `loopGuard` (or set it to `false`) to disable it.
 
 ## Extended Thinking
 

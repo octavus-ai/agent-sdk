@@ -235,6 +235,8 @@ All LLM configuration goes here:
 | `temperature`         | Model temperature (0-2), `"off"`, or variable reference                                                                                 |
 | `maxSteps`            | Maximum tool call cycles (enables agentic if > 1), or variable reference                                                                |
 | `maxToolOutputTokens` | Cap a single tool result at this many tokens in the thread's model view (head+tail preview + note). Omit to leave tool output unbounded |
+| `maxOutputTokens`     | Cap output tokens for a single generation in this thread (per step, not a whole-thread budget). Omit to use the provider/SDK default    |
+| `loopGuard`           | `true` to abort a generation that degenerates into a repeated string (see [Output Limits and Loop Guard](/docs/protocol/agent-config))  |
 
 ## Simple Example
 
