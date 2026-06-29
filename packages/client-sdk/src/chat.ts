@@ -904,6 +904,17 @@ export class OctavusChat {
       // Stream ended without an explicit `live` marker (e.g. the session ended
       // during replay). Flush so a silent batch can never strand the UI.
       this.endReplayBatch();
+      // A stream can also end with no terminal `finish`/`error` event: the
+      // transport closed it cleanly after exhausting reconnects on a dropped
+      // relay. Settle out of `streaming` (the run is server-side; the caller
+      // reconciles the real outcome) instead of stranding the chat as
+      // perpetually in-progress. Guarded on `streaming` so an `awaiting-input`
+      // pause is left untouched.
+      if (this._status === 'streaming' && this.streamingState !== null) {
+        this.commitInterruptedTurn();
+        this.streamingState = null;
+        this.setStatus('idle');
+      }
     } catch (err) {
       // Paint whatever was rebuilt during a replay batch before surfacing the error.
       this.endReplayBatch();
@@ -918,40 +929,48 @@ export class OctavusChat {
             cause: err,
           });
 
-      // Finalize any streaming message before setting error state
-      const state = this.streamingState;
-      if (state !== null) {
-        const messages = [...this._messages];
-        const lastMsg = messages[messages.length - 1];
-
-        if (state.parts.length > 0) {
-          const finalParts = finalizeParts(state.parts);
-
-          const finalMessage: UIMessage = {
-            id: state.messageId,
-            role: 'assistant',
-            parts: finalParts,
-            status: 'done',
-            createdAt: new Date(),
-          };
-
-          if (lastMsg?.id === state.messageId) {
-            messages[messages.length - 1] = finalMessage;
-          } else {
-            messages.push(finalMessage);
-          }
-          this.setMessages(messages);
-        } else if (lastMsg?.id === state.messageId) {
-          // No parts yet - remove the empty streaming message
-          messages.pop();
-          this.setMessages(messages);
-        }
-      }
+      this.commitInterruptedTurn();
 
       this.setError(errorObj);
       this.setStatus('error');
       this.streamingState = null;
       this.options.onError?.(errorObj);
+    }
+  }
+
+  /**
+   * Commit the in-flight assistant turn when a stream ends without a terminal
+   * `finish` event - it either errored or the transport gave up (e.g. the live
+   * relay dropped and reconnection was exhausted). Marks streaming parts done
+   * and commits the partial message, or drops it if the turn produced nothing.
+   * Leaves `status` and `streamingState` for the caller to settle.
+   */
+  private commitInterruptedTurn(): void {
+    const state = this.streamingState;
+    if (state === null) return;
+
+    const messages = [...this._messages];
+    const lastMsg = messages[messages.length - 1];
+
+    if (state.parts.length > 0) {
+      const finalMessage: UIMessage = {
+        id: state.messageId,
+        role: 'assistant',
+        parts: finalizeParts(state.parts),
+        status: 'done',
+        createdAt: new Date(),
+      };
+
+      if (lastMsg?.id === state.messageId) {
+        messages[messages.length - 1] = finalMessage;
+      } else {
+        messages.push(finalMessage);
+      }
+      this.setMessages(messages);
+    } else if (lastMsg?.id === state.messageId) {
+      // Produced nothing - drop the empty streaming placeholder.
+      messages.pop();
+      this.setMessages(messages);
     }
   }
 
@@ -2203,6 +2222,13 @@ export class OctavusChat {
         this.handleStreamEvent(item, this.streamingState);
       }
       this.endReplayBatch();
+      // Same settle as the primary stream path: a continuation that ends with
+      // no terminal event (dropped relay) must not strand the chat at `streaming`.
+      if (this._status === 'streaming' && this.streamingState !== null) {
+        this.commitInterruptedTurn();
+        this.streamingState = null;
+        this.setStatus('idle');
+      }
     } catch (err) {
       this.endReplayBatch();
       const errorObj = OctavusError.isInstance(err)
