@@ -61,11 +61,19 @@ function executeCommand(
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const { shell, args } = getLoginShell();
+    const isWindows = platform() === 'win32';
     const child = spawn(shell, [...args, command], {
       cwd,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: true,
+      // POSIX: detach into a new process group so the whole tree (subshells,
+      // nohup'd jobs sharing the pgroup) can be signalled via the negative-pid
+      // group kill below. Windows: do NOT detach - a detached cmd.exe gets its own
+      // console and a child's stdout stops reaching our pipe, so `python -c ...`
+      // (and even `python --version`) come back with an empty stdout. windowsHide
+      // suppresses the console window; the tree is killed with taskkill on timeout.
+      detached: !isWindows,
+      windowsHide: true,
     });
 
     let stdout = '';
@@ -88,14 +96,21 @@ function executeCommand(
     };
 
     timerRef.handle = setTimeout(() => {
-      // Kill the whole process group so grandchildren (subshells, nohup'd jobs
-      // sharing the pgroup) die too. The built-in spawn `timeout` only reaches
-      // bash itself, which is why we manage it here.
+      // Kill the whole process tree so grandchildren (subshells, nohup'd jobs, the
+      // command running under cmd.exe) die too - the built-in spawn `timeout` only
+      // reaches the shell itself. The negative-pid group kill is POSIX-only; on
+      // Windows there is no process group to signal, so walk the tree with taskkill.
       if (child.pid !== undefined) {
         try {
-          process.kill(-child.pid, 'SIGKILL');
+          if (isWindows) {
+            // A spawn failure arrives as an async 'error' event that crashes the
+            // process if unhandled; taskkill always exists on Windows, but guard anyway.
+            spawn('taskkill', ['/pid', String(child.pid), '/t', '/f']).on('error', () => {});
+          } else {
+            process.kill(-child.pid, 'SIGKILL');
+          }
         } catch {
-          // Group may already be gone.
+          // Tree may already be gone.
         }
       }
       settle({
