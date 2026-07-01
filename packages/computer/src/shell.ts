@@ -74,6 +74,11 @@ function executeCommand(
       // suppresses the console window; the tree is killed with taskkill on timeout.
       detached: !isWindows,
       windowsHide: true,
+      // Windows: pass the `cmd.exe /c <command>` line through verbatim. Otherwise libuv
+      // backslash-escapes the command arg, cmd.exe mishandles the resulting `\"`, and the
+      // stray backslashes leak into quoted tokens - a quoted URL reaches curl malformed.
+      // Ignored on POSIX.
+      windowsVerbatimArguments: isWindows,
     });
 
     let stdout = '';
