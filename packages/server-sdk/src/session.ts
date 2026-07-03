@@ -12,6 +12,7 @@ import {
 import type { ApiClientConfig } from '@/base-api-client.js';
 import type { Resource } from '@/resource.js';
 import { executeStream } from '@/streaming.js';
+import type { ToolResultTruncation } from '@/tool-result-size.js';
 import { resolveMcpServers } from '@/resolve-mcp-servers.js';
 
 // =============================================================================
@@ -130,6 +131,8 @@ export interface SessionConfig {
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
   rejectClientToolCalls?: boolean;
+  /** Called for each tool result reduced to a preview because it was too large to send. */
+  onToolResultTruncated?: (info: ToolResultTruncation) => void;
 }
 
 /**
@@ -159,12 +162,14 @@ export class AgentSession {
   private dynamicToolSchemas: ToolSchema[] | undefined;
   private socketAbortController: AbortController | null = null;
   private onToolResults?: (results: ToolResult[]) => Promise<void>;
+  private onToolResultTruncated?: (info: ToolResultTruncation) => void;
   private rejectClientToolCalls: boolean;
 
   constructor(sessionConfig: SessionConfig) {
     this.sessionId = sessionConfig.sessionId;
     this.config = sessionConfig.config;
     this.onToolResults = sessionConfig.onToolResults;
+    this.onToolResultTruncated = sessionConfig.onToolResultTruncated;
     this.rejectClientToolCalls = sessionConfig.rejectClientToolCalls ?? false;
     this.resourceMap = new Map();
 
@@ -347,6 +352,7 @@ export class AgentSession {
         },
         onResourceUpdate: (name, value) => this.handleResourceUpdate(name, value),
         onToolResults: this.onToolResults,
+        onToolResultTruncated: this.onToolResultTruncated,
         rejectClientToolCalls: this.rejectClientToolCalls,
         errorContext: 'Failed to trigger',
       },
