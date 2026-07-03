@@ -10,6 +10,7 @@ import { BaseApiClient } from '@/base-api-client.js';
 import { throwApiError } from '@/api-error.js';
 import { AgentSession } from '@/session.js';
 import type { Resource } from '@/resource.js';
+import type { ToolResultTruncation } from '@/tool-result-size.js';
 import {
   createSessionResponseSchema,
   sessionStateSchema,
@@ -83,6 +84,8 @@ export interface SessionAttachOptions {
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** When true, unhandled tool calls return errors instead of being emitted as client-tool-request events. */
   rejectClientToolCalls?: boolean;
+  /** Called for each tool result reduced to a preview because it was too large to send. */
+  onToolResultTruncated?: (info: ToolResultTruncation) => void;
 }
 
 /** API for managing agent sessions */
@@ -236,6 +239,7 @@ export class AgentSessionsApi extends BaseApiClient {
       resources: options.resources,
       mcpServers: options.mcpServers,
       onToolResults: options.onToolResults,
+      onToolResultTruncated: options.onToolResultTruncated,
       rejectClientToolCalls: options.rejectClientToolCalls,
     });
   }

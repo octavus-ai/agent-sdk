@@ -16,6 +16,13 @@ export interface ApiClientConfig {
    * Set to 0 to disable. Defaults to 60s.
    */
   streamIdleTimeoutMs?: number;
+  /**
+   * Maximum size (bytes) of a continuation request body. Oversized tool results
+   * are reduced to a preview before sending so a large payload can't be rejected
+   * with a 413 that fails the run. Defaults to 4 MiB, sized under the platform's
+   * request-body limit.
+   */
+  maxContinuationBytes?: number;
 }
 
 /** Base class for API clients with shared HTTP utilities */

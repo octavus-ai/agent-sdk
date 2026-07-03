@@ -54,6 +54,13 @@ export { ApiError } from '@/api-error.js';
 export { createInlineMcpServer, defineInlineMcpTool } from '@/inline-mcp.js';
 export { normalizeToolResultMedia } from '@/normalize-media.js';
 export { normalizeToolResultOutputFiles } from '@/normalize-output-files.js';
+export {
+  enforceToolResultsSize,
+  MAX_CONTINUATION_BODY_BYTES,
+  CONTINUATION_BODY_RESERVE_BYTES,
+  type ToolResultTruncation,
+  type EnforceToolResultsSizeResult,
+} from '@/tool-result-size.js';
 
 // Agent types (read-only - use @octavus/cli for agent management)
 export type {

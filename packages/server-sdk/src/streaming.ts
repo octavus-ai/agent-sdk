@@ -10,6 +10,14 @@ import {
 } from '@octavus/core';
 import { parseApiError } from '@/api-error.js';
 import type { ApiClientConfig } from '@/base-api-client.js';
+import {
+  MAX_CONTINUATION_BODY_BYTES,
+  CONTINUATION_BODY_RESERVE_BYTES,
+  enforceToolResultsSize,
+  utf8ByteLength,
+  formatBytes,
+  type ToolResultTruncation,
+} from '@/tool-result-size.js';
 
 // =============================================================================
 // Retry helpers
@@ -122,6 +130,12 @@ export interface StreamExecutionConfig {
    * no client-side tool executor.
    */
   rejectClientToolCalls?: boolean;
+  /**
+   * Called for each tool result that was too large to send and was reduced to a
+   * preview before the continuation POST. Optional hook for logging/telemetry -
+   * the reduction happens regardless of whether it is set.
+   */
+  onToolResultTruncated?: (info: ToolResultTruncation) => void;
 }
 
 /**
@@ -159,13 +173,48 @@ export async function* executeStream(
     config.config.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS,
   );
 
+  const maxBodyBytes = config.config.maxContinuationBytes ?? MAX_CONTINUATION_BODY_BYTES;
+  // Never reserve more than half the cap, so a small custom `maxContinuationBytes`
+  // still leaves a positive budget for the tool results instead of forcing every
+  // continuation straight into the overflow path.
+  const toolResultsBudget =
+    maxBodyBytes - Math.min(CONTINUATION_BODY_RESERVE_BYTES, Math.floor(maxBodyBytes / 2));
+
   while (continueLoop) {
     if (signal?.aborted) {
       yield { type: 'finish', finishReason: 'stop' };
       return;
     }
 
+    // Transport-safety guard: keep the continuation body under the platform's
+    // request-body limit. A tool result larger than the limit (e.g. a big query
+    // dump) would otherwise be rejected with a 413 before it reaches the
+    // platform, failing the whole run invisibly. Instead we reduce
+    // oversized results to a head+tail preview with actionable guidance so the
+    // run continues and the model can self-correct. Media/file outputs are
+    // already offloaded to S3 by `onToolResults` at the end of the prior loop.
+    const sized = enforceToolResultsSize(toolResults, toolResultsBudget);
+    toolResults = sized.results;
+    if (config.onToolResultTruncated) {
+      for (const truncation of sized.truncations) {
+        config.onToolResultTruncated(truncation);
+      }
+    }
+
     const body = config.buildBody({ executionId, toolResults });
+
+    // Extremely rare: the results could not be reduced under the limit (e.g. a
+    // huge number of results, or oversized non-result body fields). Fail loudly
+    // with an actionable message rather than POSTing a body that will 413.
+    if (sized.overflow || utf8ByteLength(JSON.stringify(body)) > maxBodyBytes) {
+      yield createApiErrorEvent(
+        413,
+        `${config.errorContext ?? 'Request'}: the results are too large to send (over ` +
+          `${formatBytes(maxBodyBytes)}) and could not be reduced enough. Return less data - ` +
+          `filter, limit, or paginate the results, or write them to a file and return a reference.`,
+      );
+      return;
+    }
     const maxRetries = Math.max(0, config.config.maxRetries ?? DEFAULT_MAX_RETRIES);
 
     let response!: Response;
