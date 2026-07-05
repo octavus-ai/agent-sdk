@@ -37,16 +37,16 @@ Traces are available while the session log is warm (about 24 hours after the run
 
 ## Octavus Agents
 
-| Tool                | Access | Description                                                                                 |
-| ------------------- | ------ | ------------------------------------------------------------------------------------------- |
-| `list_octoagents`   | read   | List the Octavus Agents you can access.                                                     |
-| `list_threads`      | read   | List an agent's chat threads.                                                               |
-| `read_thread`       | read   | Read a thread's messages and status. Pass `wait: true` to long-poll until the run finishes. |
-| `send_to_octoagent` | write  | Send a message to an agent by id or name, starting or continuing a thread.                  |
+| Tool                      | Access | Description                                                                                 |
+| ------------------------- | ------ | ------------------------------------------------------------------------------------------- |
+| `list_workforce_agents`   | read   | List the Octavus Agents you can access.                                                     |
+| `list_workforce_threads`  | read   | List an agent's chat threads.                                                               |
+| `read_workforce_thread`   | read   | Read a thread's messages and status. Pass `wait: true` to long-poll until the run finishes. |
+| `send_to_workforce_agent` | write  | Send a message to an agent by id or name, starting or continuing a thread.                  |
 
 ### Sending a task and reading the result
 
 Because agent runs are asynchronous, driving one is a two-step pattern:
 
-1. `send_to_octoagent` with the agent name (e.g. `"Anna BDR"`) and your message. It returns a `threadId`.
-2. `read_thread` with that `threadId` and `wait: true`. It waits up to ~25 seconds for the run to finish and returns the messages; if the run is still going, it returns `isRunning: true` and you call `read_thread` again.
+1. `send_to_workforce_agent` with the agent name (e.g. `"Anna BDR"`) and your message. It returns a `threadId`.
+2. `read_workforce_thread` with that `threadId` and `wait: true`. It waits up to ~25 seconds for the run to finish and returns the messages; if the run is still going, it returns `isRunning: true` and you call `read_workforce_thread` again.
