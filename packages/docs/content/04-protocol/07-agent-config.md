@@ -391,13 +391,25 @@ When `imageModel` is configured, the `octavus_generate_image` tool becomes avail
 
 > **Note**: Google has two image generation approaches. Gemini "native" models (containing "image" in the ID) generate images using the language model API with `responseModalities`. Imagen models (starting with "imagen") use a dedicated image generation API.
 
-### Image Sizes
+### Aspect Ratios and Resolution
 
-The tool supports three image sizes:
+The tool advertises `aspectRatio` - and, for models that support it, `resolution` - narrowed to what the configured model can actually produce. `aspectRatio` defaults to `1:1`; a ratio outside a model's set is clamped to the nearest supported one.
 
-- `1024x1024` (default) - Square
-- `1792x1024` - Landscape (16:9)
-- `1024x1792` - Portrait (9:16)
+Supported aspect ratios by model family:
+
+| Model family                     | Supported aspect ratios                                                 |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| Gemini native (`gemini-*-image`) | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` |
+| Imagen (`imagen-*`)              | `1:1`, `3:4`, `4:3`, `9:16`, `16:9`                                     |
+| `gpt-image-*`                    | `1:1`, `3:2`, `2:3`                                                     |
+| `dall-e-3`                       | `1:1`, `16:9`, `9:16`                                                   |
+
+Resolution is a Gemini 3 image feature. When a model has no resolution axis, the `resolution` field is not offered and any value is ignored (the model produces its default 1K output).
+
+| Model                  | Supported resolutions      |
+| ---------------------- | -------------------------- |
+| `gemini-3-*-image`     | `1K` (default), `2K`, `4K` |
+| All other image models | none (effectively 1K)      |
 
 ### Image Editing with Reference Images
 

@@ -59,6 +59,11 @@ export interface ModelRequestTrace {
   /** Raw HTTP request body sent to the provider */
   requestBody?: unknown;
   prompt?: string;
+  /** Aspect ratio requested for an image generation (e.g. `16:9`). */
+  aspectRatio?: string;
+  /** Output resolution requested for an image generation (e.g. `2K`). */
+  resolution?: string;
+  /** @deprecated Legacy pixel size on older stored image traces. */
   size?: string;
   hasReferenceImages?: boolean;
 }
