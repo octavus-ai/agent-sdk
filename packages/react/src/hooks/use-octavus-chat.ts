@@ -262,6 +262,7 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
       sessionIdSetterRef.current(id);
       options.onStart?.(id);
     },
+    onSessionCreated: options.onSessionCreated,
     requestUploadUrls: options.requestUploadUrls,
     uploadOptions: options.uploadOptions,
   });
