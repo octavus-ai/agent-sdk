@@ -152,6 +152,11 @@ export interface FileReference {
   /** File size in bytes */
   size?: number;
 }
+// Deprecated via prose, not an `@deprecated` tag - see ResourceUpdateEvent.
+/**
+ * Callback for `resource-update` events. Deprecated - resources are superseded
+ * by tools; persist state with a tool instead.
+ */
 export type ResourceUpdateHandler = (name: string, value: unknown) => Promise<void> | void;
 export type MessageRole = 'user' | 'assistant' | 'system';
 export type ToolCallStatus = 'pending' | 'streaming' | 'available' | 'error';
@@ -482,7 +487,14 @@ export interface BlockEndEvent {
   workerId?: string;
 }
 
-/** Resource value updated */
+// Deprecated via prose, not an `@deprecated` tag: this is a `StreamEvent` union
+// member, so the tag would cascade `no-deprecated` disables across the union and
+// its handlers. The tagged, consumer-facing signals are `Resource` and
+// `onResourceUpdate`.
+/**
+ * Resource value updated. Deprecated - resources are superseded by tools;
+ * persist state with a tool instead.
+ */
 export interface ResourceUpdateEvent {
   type: 'resource-update';
   name: string;

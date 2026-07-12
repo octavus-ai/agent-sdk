@@ -29,6 +29,10 @@ export interface SessionState {
   agentId: string;
   input: Record<string, unknown>;
   variables: Record<string, unknown>;
+  /**
+   * @deprecated Resources are superseded by tools. Persist state with a
+   * consumer-defined tool (or MCP tool) instead.
+   */
   resources: Record<string, unknown>;
   messages: ChatMessage[];
   status?: 'active';
@@ -77,6 +81,11 @@ export interface ExecutionLogsResult {
 
 export interface SessionAttachOptions {
   tools?: ToolHandlers;
+  /**
+   * @deprecated Resources are superseded by tools. Persist state with a
+   * consumer-defined tool (or MCP tool) instead.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- Resource type retained for the deprecated resources option
   resources?: Resource[];
   /** Inline MCP servers providing namespaced, typed tool groups */
   mcpServers?: InlineMcpServer[];
@@ -253,6 +262,7 @@ export class AgentSessionsApi extends BaseApiClient {
       sessionId,
       config: this.config,
       tools: options.tools,
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- forwards the deprecated resources option
       resources: options.resources,
       mcpServers: options.mcpServers,
       onToolResults: options.onToolResults,
@@ -284,6 +294,7 @@ export class AgentSessionsApi extends BaseApiClient {
         onSessionCreated: options.onSessionCreated,
       },
       tools: options.tools,
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- forwards the deprecated resources option
       resources: options.resources,
       mcpServers: options.mcpServers,
       onToolResults: options.onToolResults,

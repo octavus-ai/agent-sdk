@@ -216,7 +216,7 @@ const session = client.agentSessions.attach(sessionId, {
 | Option                  | Type                              | Description                                                                     |
 | ----------------------- | --------------------------------- | ------------------------------------------------------------------------------- |
 | `tools`                 | `ToolHandlers`                    | Server-side tool handler functions                                              |
-| `resources`             | `Resource[]`                      | Resource watchers for real-time updates                                         |
+| `resources`             | `Resource[]`                      | Deprecated - resource watchers for real-time updates. Use tools instead.        |
 | `onToolResults`         | `(results: ToolResult[]) => void` | Callback invoked after server-side tool results are produced                    |
 | `rejectClientToolCalls` | `boolean`                         | If `true`, reject tool calls that have no server handler (no client forwarding) |
 

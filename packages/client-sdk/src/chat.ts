@@ -215,7 +215,11 @@ export interface OctavusChatOptions {
   onFinish?: () => void;
   /** Callback when streaming is stopped by user */
   onStop?: () => void;
-  /** Callback when a resource is updated */
+  /**
+   * Callback when a resource is updated.
+   * @deprecated Resources are superseded by tools. Persist state with a
+   * consumer-defined tool (or MCP tool) instead.
+   */
   onResourceUpdate?: (name: string, value: unknown) => void;
   /**
    * Callback when execution starts with the session/execution ID.
@@ -1788,6 +1792,7 @@ export class OctavusChat {
       }
 
       case 'resource-update':
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- dispatches the deprecated resource-update callback
         this.options.onResourceUpdate?.(event.name, event.value);
         break;
 
