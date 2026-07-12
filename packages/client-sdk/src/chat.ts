@@ -229,6 +229,20 @@ export interface OctavusChatOptions {
    * ```
    */
   onStart?: (sessionId: string) => void;
+  /**
+   * Callback with the platform session id, fired once when a stream first
+   * reports one (and again only if it changes). Use it with create-and-trigger
+   * flows where the session is created lazily on the first message: persist the
+   * id and include it in subsequent requests.
+   *
+   * @example
+   * ```typescript
+   * onSessionCreated: (sessionId) => {
+   *   sessionIdRef.current = sessionId; // subsequent sends attach to it
+   * }
+   * ```
+   */
+  onSessionCreated?: (sessionId: string) => void;
 }
 
 // =============================================================================
@@ -537,6 +551,11 @@ export class OctavusChat {
   // Tracks whether the rollback anchor has been synced for the current trigger execution.
   // Prevents continuation start events from overwriting the pre-trigger rollback point.
   private _rollbackSynced = false;
+
+  // Platform session id learned from `start` events. Used to fire
+  // onSessionCreated only when the id first appears (or changes), not on every
+  // turn - the start event carries the session id on every execution.
+  private _sessionId: string | null = null;
 
   // While true (late-join / reconnect replay), stream handlers mutate the
   // streaming state but do not notify subscribers per event. The whole
@@ -1132,6 +1151,10 @@ export class OctavusChat {
       case 'start':
         if (event.executionId) {
           this.options.onStart?.(event.executionId);
+        }
+        if (event.sessionId && event.sessionId !== this._sessionId) {
+          this._sessionId = event.sessionId;
+          this.options.onSessionCreated?.(event.sessionId);
         }
         // Lock the rollback anchor on the first start event only. Continuation
         // streams (after client tool handling) also emit start events with a

@@ -9,6 +9,7 @@ export {
   type ClearSessionResult,
   type SessionStatus,
   type SessionAttachOptions,
+  type StartSessionOptions,
   type GetLogsOptions,
   type ExecutionLogsResult,
 } from '@/agent-sessions.js';
@@ -22,6 +23,7 @@ export {
   AgentSession,
   toSSEStream,
   type SessionConfig,
+  type DeferredStartConfig,
   type TriggerOptions,
   type SessionRequest,
   type TriggerRequest,

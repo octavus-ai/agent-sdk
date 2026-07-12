@@ -88,6 +88,23 @@ export interface SessionAttachOptions {
   onToolResultTruncated?: (info: ToolResultTruncation) => void;
 }
 
+export interface StartSessionOptions extends SessionAttachOptions {
+  /** Agent to start a session for. */
+  agentId: string;
+  /** Immutable session input, captured at the first trigger (not at this call). */
+  input?: Record<string, unknown>;
+  /**
+   * Idempotency key so a transient retry of the first request resolves to the
+   * same session instead of creating a duplicate. Auto-generated if omitted.
+   */
+  idempotencyKey?: string;
+  /**
+   * Called with the server-assigned session id as soon as it is known (before
+   * events stream). Use it to persist your own mapping (e.g. chat -> session).
+   */
+  onSessionCreated?: (sessionId: string) => void;
+}
+
 /** API for managing agent sessions */
 export class AgentSessionsApi extends BaseApiClient {
   /** Create a new session for an agent */
@@ -235,6 +252,37 @@ export class AgentSessionsApi extends BaseApiClient {
     return new AgentSession({
       sessionId,
       config: this.config,
+      tools: options.tools,
+      resources: options.resources,
+      mcpServers: options.mcpServers,
+      onToolResults: options.onToolResults,
+      onToolResultTruncated: options.onToolResultTruncated,
+      rejectClientToolCalls: options.rejectClientToolCalls,
+    });
+  }
+
+  /**
+   * Start a session and run its first trigger in a single streaming request.
+   *
+   * No server-side session exists until the first `execute({ type: 'trigger' })`;
+   * that call creates the session (capturing `input` at that moment), runs the
+   * trigger, and streams the result. The created session id is delivered via
+   * `onSessionCreated` and on the first `start` event. After the first trigger
+   * the handle behaves exactly like one returned from `attach()`.
+   *
+   * Use this to avoid a wasted pre-created session and to capture per-session
+   * configuration (model, system-prompt inputs) at the first message rather than
+   * ahead of time.
+   */
+  start(options: StartSessionOptions): AgentSession {
+    return new AgentSession({
+      config: this.config,
+      deferredStart: {
+        agentId: options.agentId,
+        input: options.input,
+        idempotencyKey: options.idempotencyKey,
+        onSessionCreated: options.onSessionCreated,
+      },
       tools: options.tools,
       resources: options.resources,
       mcpServers: options.mcpServers,

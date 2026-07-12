@@ -192,6 +192,12 @@ export interface StartEvent {
   executionId?: string;
   /** ID of the last ChatMessage in session state before this execution. Used by client SDK for retry rollback. */
   lastMessageId?: string;
+  /**
+   * Platform session id. Lets create-and-trigger callers (and transports that
+   * don't surface response headers) learn a freshly created session id from the
+   * first event of the stream.
+   */
+  sessionId?: string;
 }
 
 /** Signals completion of streaming */

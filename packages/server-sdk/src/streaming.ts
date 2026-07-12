@@ -110,13 +110,31 @@ export interface StreamExecutionConfig {
   config: ApiClientConfig;
   /** Tool handlers for server-side execution. Resolved on each continuation loop. */
   getToolHandlers: () => ToolHandlers;
-  /** Full URL to make the request to */
-  url: string;
+  /**
+   * Full URL to make the request to. May be a function so it can change between
+   * legs of the same execution - e.g. a deferred session posts its first leg to
+   * the create-and-trigger endpoint and later legs to the per-session endpoint
+   * once the id is known. Resolved on every POST.
+   */
+  url: string | (() => string);
   /** Build the request body for this execution */
   buildBody: (state: {
     executionId?: string;
     toolResults?: ToolResult[];
   }) => Record<string, unknown>;
+  /**
+   * Called once for each successful (2xx) response, after headers arrive and
+   * before the body is consumed. Lets a caller read response headers (e.g. a
+   * server-assigned session id) before streaming begins.
+   */
+  onResponse?: (response: Response) => void;
+  /**
+   * Called with the session id carried on a `start` event. A fallback id channel
+   * for a deferred start when the response header is unavailable (e.g. a proxy
+   * strips it, or a header-less transport); the caller's own guard keeps this a
+   * no-op when the header already latched the id.
+   */
+  onSessionId?: (sessionId: string) => void;
   /** Called when a resource-update event is received (optional) */
   onResourceUpdate?: (name: string, value: unknown) => void;
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
@@ -257,7 +275,8 @@ export async function* executeStream(
 
         let keepController = false;
         try {
-          response = await fetch(config.url, {
+          const url = typeof config.url === 'function' ? config.url() : config.url;
+          response = await fetch(url, {
             method: 'POST',
             headers: config.config.getHeaders(),
             body: JSON.stringify(body),
@@ -317,6 +336,10 @@ export async function* executeStream(
         yield createInternalErrorEvent('Response body is not readable');
         return;
       }
+
+      // Surface response headers (e.g. a server-assigned session id) before the
+      // body is consumed, so the caller can latch them for subsequent legs.
+      config.onResponse?.(response);
 
       toolResults = undefined;
 
@@ -393,6 +416,10 @@ export async function* executeStream(
 
               if (event.type === 'start' && event.executionId) {
                 executionId = event.executionId;
+              }
+
+              if (event.type === 'start' && event.sessionId) {
+                config.onSessionId?.(event.sessionId);
               }
 
               if (event.type === 'tool-request') {

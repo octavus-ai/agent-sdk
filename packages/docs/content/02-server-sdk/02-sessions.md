@@ -29,6 +29,66 @@ const sessionId = await client.agentSessions.create('support-chat', {
 console.log('Session created:', sessionId);
 ```
 
+## Create and Trigger in One Call
+
+`create()` followed by `attach().execute()` is two round trips, and it forces you to create the session before you know whether the user will ever send a message. `agentSessions.start()` does both in a single streaming request: it creates the session **and** runs its first trigger, so per-session configuration (model, system-prompt inputs, anything routed through session `input`) is captured at the moment of the first message, and no session is created for a conversation that never starts.
+
+```typescript
+import { toSSEStream } from '@octavus/server-sdk';
+
+export async function POST(request: Request) {
+  const { chatId, message, model } = await request.json();
+
+  // No session exists yet. The first execute() creates it and runs the trigger.
+  const session = client.agentSessions.start({
+    agentId: 'support-chat',
+    input: { COMPANY_NAME: 'Acme Corp', MODEL: model }, // captured now, not earlier
+    idempotencyKey: chatId, // a retry resolves to the same session
+    onSessionCreated: (sessionId) => {
+      // Persist your own mapping so later messages attach to this session.
+      void db.chats.update({ where: { id: chatId }, data: { sessionId } });
+    },
+  });
+
+  const events = session.execute(
+    { type: 'trigger', triggerName: 'user-message', input: { USER_MESSAGE: message } },
+    { signal: request.signal },
+  );
+
+  return new Response(toSSEStream(events), {
+    headers: { 'Content-Type': 'text/event-stream' },
+  });
+}
+```
+
+After the first trigger, the handle behaves exactly like one from `attach()` - continuations and later triggers automatically target the now-created session. Calling `execute()` with a `continue` request before the first trigger throws, since there is no session to continue yet.
+
+### Learning the session id
+
+The created session id reaches you through two channels:
+
+- **`onSessionCreated(sessionId)`** - fired as soon as the id is known, before events stream. This is the ergonomic way to persist your chat-to-session mapping.
+- **The first `start` event** - carries `sessionId`, which the client SDK also surfaces (see [Client SDK Overview](/docs/client-sdk/overview)). Useful when the browser needs the id, or for transports that do not expose response headers.
+
+`getSessionId()` returns `undefined` on a deferred handle until the first trigger creates the session, then returns the id.
+
+### Retry safety
+
+`start()` sends a client-supplied `idempotencyKey` (auto-generated if you omit it). A transient retry of the first request resolves to the same session instead of creating a duplicate or double-counting session usage, so it is safe to retry. Using a stable, meaningful key such as your `chatId` guarantees one session per chat even across retries or double submits.
+
+### Start Options
+
+| Option             | Type                          | Description                                                       |
+| ------------------ | ----------------------------- | ----------------------------------------------------------------- |
+| `agentId`          | `string`                      | Agent to start a session for                                      |
+| `input`            | `Record<string, unknown>`     | Immutable session input, captured at the first trigger            |
+| `idempotencyKey`   | `string`                      | Makes a retried start resolve to the same session; auto-generated |
+| `onSessionCreated` | `(sessionId: string) => void` | Called with the session id as soon as it is assigned              |
+
+`start()` also accepts the same `tools`, `resources`, `mcpServers`, `onToolResults`, and `rejectClientToolCalls` options as `attach()`.
+
+> The two-step `create()` + `attach()` flow is unchanged and fully supported. `start()` is additive - reach for it when you want to defer creation to the first message.
+
 ## Getting Session Messages
 
 To restore a conversation on page load, use `getMessages()` to retrieve UI-ready messages:

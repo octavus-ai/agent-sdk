@@ -1,5 +1,6 @@
 import {
   createInternalErrorEvent,
+  generateId,
   type DynamicTool,
   type InlineMcpServer,
   type StreamEvent,
@@ -120,8 +121,33 @@ function resolveDynamicTools(provider: ToolProvider): DynamicTool[] {
     .map((s) => ({ schema: s, handler: handlers[s.name]! }));
 }
 
+/**
+ * Deferred create-and-trigger configuration. When present (and `sessionId` is
+ * omitted), the session has no server-side session yet: its first `execute()`
+ * of a trigger creates the session and runs that trigger in one request, then
+ * the handle behaves exactly like an attached session for continuations and
+ * later triggers.
+ */
+export interface DeferredStartConfig {
+  agentId: string;
+  /** Immutable session input, captured at the moment of the first trigger. */
+  input?: Record<string, unknown>;
+  /**
+   * Idempotency key so a transient retry of the first request resolves to the
+   * same session instead of creating a duplicate. Auto-generated when omitted.
+   */
+  idempotencyKey?: string;
+  /**
+   * Called once with the server-assigned session id, as soon as it is known
+   * (before events stream). Use it to persist your own mapping (e.g. chat ->
+   * session) and to drive continuations, retries, and restore afterwards.
+   */
+  onSessionCreated?: (sessionId: string) => void;
+}
+
 export interface SessionConfig {
-  sessionId: string;
+  /** Existing session to attach to. Omit and pass `deferredStart` for a deferred start. */
+  sessionId?: string;
   config: ApiClientConfig;
   tools?: ToolHandlers;
   resources?: Resource[];
@@ -133,6 +159,8 @@ export interface SessionConfig {
   rejectClientToolCalls?: boolean;
   /** Called for each tool result reduced to a preview because it was too large to send. */
   onToolResultTruncated?: (info: ToolResultTruncation) => void;
+  /** Deferred create-and-trigger config (mutually exclusive with `sessionId`). */
+  deferredStart?: DeferredStartConfig;
 }
 
 /**
@@ -145,8 +173,13 @@ export interface TriggerOptions {
 
 /** Handles streaming and tool continuation for agent sessions */
 export class AgentSession {
-  private sessionId: string;
+  /** Undefined only for a deferred handle before its first trigger creates the session. */
+  private sessionId: string | undefined;
   private config: ApiClientConfig;
+  /** Present when this handle was created via a deferred start (undefined for an attached handle). */
+  private deferredStart?: DeferredStartConfig;
+  /** Idempotency key for the deferred first leg (auto-generated when not supplied). */
+  private idempotencyKey?: string;
   /**
    * Stable handlers from construction (static tools + MCP-namespaced tools).
    * `setDynamicTools` rebuilds {@link toolHandlers} from this snapshot every
@@ -168,6 +201,10 @@ export class AgentSession {
   constructor(sessionConfig: SessionConfig) {
     this.sessionId = sessionConfig.sessionId;
     this.config = sessionConfig.config;
+    this.deferredStart = sessionConfig.deferredStart;
+    this.idempotencyKey = sessionConfig.deferredStart
+      ? (sessionConfig.deferredStart.idempotencyKey ?? generateId())
+      : undefined;
     this.onToolResults = sessionConfig.onToolResults;
     this.onToolResultTruncated = sessionConfig.onToolResultTruncated;
     this.rejectClientToolCalls = sessionConfig.rejectClientToolCalls ?? false;
@@ -214,6 +251,11 @@ export class AgentSession {
    */
   async *execute(request: SessionRequest, options?: TriggerOptions): AsyncGenerator<StreamEvent> {
     if (request.type === 'continue') {
+      if (!this.sessionId) {
+        throw new Error(
+          'Cannot continue a session before it exists. Run a trigger first to create the session.',
+        );
+      }
       yield* this.executeStream(
         { executionId: request.executionId, toolResults: request.toolResults },
         options?.signal,
@@ -231,7 +273,12 @@ export class AgentSession {
     }
   }
 
-  getSessionId(): string {
+  /**
+   * The server session id. `undefined` only for a deferred handle whose first
+   * trigger has not created the session yet; use `onSessionCreated` (or the
+   * `start` event's `sessionId`) to learn it as soon as it is assigned.
+   */
+  getSessionId(): string | undefined {
     return this.sessionId;
   }
 
@@ -334,22 +381,19 @@ export class AgentSession {
       {
         config: this.config,
         getToolHandlers: () => this.toolHandlers,
-        url: `${this.config.baseUrl}/api/agent-sessions/${this.sessionId}/trigger`,
-        buildBody: ({ executionId, toolResults }) => {
-          const body: Record<string, unknown> = {};
-          if (payload.triggerName !== undefined) body.triggerName = payload.triggerName;
-          if (payload.input !== undefined) body.input = payload.input;
-          if (payload.rollbackAfterMessageId !== undefined)
-            body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
-          if (payload.sender !== undefined) body.sender = payload.sender;
-          if (executionId !== undefined) body.executionId = executionId;
-          if (toolResults !== undefined) body.toolResults = toolResults;
-          const allDynamicSchemas = this.collectDynamicSchemas();
-          if (allDynamicSchemas !== undefined) {
-            body.dynamicToolSchemas = allDynamicSchemas;
-          }
-          return body;
-        },
+        // The first leg of a deferred start posts to the create-and-trigger
+        // endpoint; every later leg (and every attached session) uses the
+        // per-session endpoint. Resolved on each POST.
+        url: () =>
+          this.sessionId
+            ? `${this.config.baseUrl}/api/agent-sessions/${this.sessionId}/trigger`
+            : `${this.config.baseUrl}/api/agent-sessions/start`,
+        buildBody: ({ executionId, toolResults }) =>
+          this.buildRequestBody(payload, executionId, toolResults),
+        onResponse: this.deferredStart
+          ? (response) => this.latchSessionIdFromHeader(response)
+          : undefined,
+        onSessionId: this.deferredStart ? (id) => this.latchSessionId(id) : undefined,
         onResourceUpdate: (name, value) => this.handleResourceUpdate(name, value),
         onToolResults: this.onToolResults,
         onToolResultTruncated: this.onToolResultTruncated,
@@ -359,6 +403,69 @@ export class AgentSession {
       { executionId: payload.executionId, toolResults: payload.toolResults },
       signal,
     );
+  }
+
+  /**
+   * Build the request body for a leg. For the first leg of a deferred start (no
+   * session id yet, not a continuation) this is the nested create-and-trigger
+   * body; otherwise it is the per-session trigger/continue body.
+   */
+  private buildRequestBody(
+    payload: {
+      triggerName?: string;
+      input?: Record<string, unknown>;
+      rollbackAfterMessageId?: string | null;
+      sender?: UIMessageSender;
+    },
+    executionId?: string,
+    toolResults?: ToolResult[],
+  ): Record<string, unknown> {
+    const dynamicToolSchemas = this.collectDynamicSchemas();
+
+    if (this.deferredStart && this.sessionId === undefined && executionId === undefined) {
+      const trigger: Record<string, unknown> = {};
+      if (payload.triggerName !== undefined) trigger.triggerName = payload.triggerName;
+      if (payload.input !== undefined) trigger.input = payload.input;
+      if (payload.sender !== undefined) trigger.sender = payload.sender;
+      if (dynamicToolSchemas !== undefined) trigger.dynamicToolSchemas = dynamicToolSchemas;
+
+      const body: Record<string, unknown> = { agentId: this.deferredStart.agentId, trigger };
+      if (this.deferredStart.input !== undefined) body.input = this.deferredStart.input;
+      if (this.idempotencyKey !== undefined) body.idempotencyKey = this.idempotencyKey;
+      return body;
+    }
+
+    const body: Record<string, unknown> = {};
+    if (payload.triggerName !== undefined) body.triggerName = payload.triggerName;
+    if (payload.input !== undefined) body.input = payload.input;
+    if (payload.rollbackAfterMessageId !== undefined)
+      body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
+    if (payload.sender !== undefined) body.sender = payload.sender;
+    if (executionId !== undefined) body.executionId = executionId;
+    if (toolResults !== undefined) body.toolResults = toolResults;
+    if (dynamicToolSchemas !== undefined) body.dynamicToolSchemas = dynamicToolSchemas;
+    return body;
+  }
+
+  /**
+   * Latch the server-assigned session id for a deferred start so continuations
+   * and later triggers target the per-session endpoint, firing `onSessionCreated`
+   * exactly once. The id reaches us on two channels: the `X-Octavus-Session-Id`
+   * response header (read before the body, so it wins in the normal HTTP case)
+   * and the first `start` event's `sessionId` (a fallback for when the header is
+   * unavailable). Whichever arrives first latches; the guard makes the other a
+   * no-op.
+   */
+  private latchSessionId(id: string): void {
+    if (this.sessionId) return;
+    this.sessionId = id;
+    this.deferredStart?.onSessionCreated?.(id);
+  }
+
+  private latchSessionIdFromHeader(response: Response): void {
+    if (this.sessionId) return;
+    const id = response.headers.get('X-Octavus-Session-Id');
+    if (id) this.latchSessionId(id);
   }
 
   private handleResourceUpdate(name: string, value: unknown): void {
