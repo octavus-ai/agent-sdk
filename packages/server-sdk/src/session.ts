@@ -150,6 +150,11 @@ export interface SessionConfig {
   sessionId?: string;
   config: ApiClientConfig;
   tools?: ToolHandlers;
+  /**
+   * @deprecated Resources are superseded by tools. Persist state with a
+   * consumer-defined tool (or MCP tool) instead.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- Resource type retained for the deprecated resources option
   resources?: Resource[];
   /** Inline MCP servers providing namespaced, typed tool groups */
   mcpServers?: InlineMcpServer[];
@@ -188,6 +193,7 @@ export class AgentSession {
   private baseHandlers: ToolHandlers;
   /** Active handler set: {@link baseHandlers} merged with the latest dynamic tools (which override on name collision). */
   private toolHandlers: ToolHandlers;
+  // eslint-disable-next-line @typescript-eslint/no-deprecated -- Resource type retained for the deprecated resources feature
   private resourceMap: Map<string, Resource>;
   /** Schemas from inline MCP servers passed at construction. Stable for the session's lifetime. */
   private mcpToolSchemas: ToolSchema[] = [];
@@ -219,6 +225,7 @@ export class AgentSession {
     }
     this.toolHandlers = { ...this.baseHandlers };
 
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- reads the deprecated resources option to wire up watchers
     for (const resource of sessionConfig.resources ?? []) {
       this.resourceMap.set(resource.name, resource);
     }

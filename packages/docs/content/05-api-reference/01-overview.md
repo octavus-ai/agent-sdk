@@ -26,7 +26,7 @@ API keys can be created in the Octavus Platform under your project's **API Keys*
 
 ## Wire-Format Versioning
 
-The platform negotiates wire shape via the `X-Octavus-Sdk-Version` header. The Server SDK sets this automatically; direct API users only need to send it when they want the latest format.
+The Server SDK advertises the wire shape it understands via the `X-Octavus-Sdk-Version` header (set automatically). The platform currently serves the same shape to every request, so direct API users don't need to send it - the header exists so a future wire-incompatible change can be negotiated per client.
 
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
@@ -34,12 +34,12 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
   https://octavus.ai/api/agent-sessions/SESSION_ID
 ```
 
-| Header value | Wire shape                                                                                               |
-| ------------ | -------------------------------------------------------------------------------------------------------- |
-| (missing)    | Legacy (v3) - matches `@octavus/server-sdk@^3`                                                           |
-| `4`          | Current (v4) - matches `@octavus/server-sdk@^4`. Adds `step-start` parts to `UIMessage` / `ChatMessage`. |
+| Header value | Wire shape                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| (missing)    | Current (v4) - the platform serves the current shape when no version is advertised.                                    |
+| `4`          | Current (v4) - matches `@octavus/server-sdk@^4` and later. Includes `step-start` parts in `UIMessage` / `ChatMessage`. |
 
-The header value is the major version the client can parse, not the SDK release version. Future wire-incompatible additions bump it again.
+The header value is the wire-format major the client can parse, not the SDK release version. A future wire-incompatible change bumps it again, and the platform will downgrade the shape for clients still on `4`.
 
 ## API Key Permissions
 

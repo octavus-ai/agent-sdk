@@ -8,9 +8,10 @@ import { WorkforceApi } from '@/workforce.js';
 /**
  * Wire-format major version this SDK can parse.
  *
- * Sent on every request as `X-Octavus-Sdk-Version` so the platform
- * serves a shape we understand. Bump together with the SDK's major
- * version whenever a wire-incompatible change lands.
+ * Sent on every request as `X-Octavus-Sdk-Version` so the platform serves a
+ * shape we understand. Decoupled from this SDK's semver major: bump it only
+ * when a change to `UIMessage` / `ChatMessage` is not safely parsable by an
+ * older SDK (e.g. a new `MessagePart` variant), not on every SDK major.
  */
 const SDK_WIRE_VERSION = '4';
 

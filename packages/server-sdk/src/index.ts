@@ -51,6 +51,7 @@ export {
   type WorkforceRunOptions,
 } from '@/workforce.js';
 export { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
+// eslint-disable-next-line @typescript-eslint/no-deprecated -- re-exporting the deprecated Resource so existing consumers keep compiling
 export { Resource } from '@/resource.js';
 export { ApiError } from '@/api-error.js';
 export { createInlineMcpServer, defineInlineMcpTool } from '@/inline-mcp.js';

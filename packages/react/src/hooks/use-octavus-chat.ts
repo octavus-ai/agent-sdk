@@ -257,6 +257,7 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     onError: options.onError,
     onFinish: options.onFinish,
     onStop: options.onStop,
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- forwards the deprecated onResourceUpdate callback
     onResourceUpdate: options.onResourceUpdate,
     onStart: (id) => {
       sessionIdSetterRef.current(id);

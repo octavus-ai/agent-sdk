@@ -144,6 +144,8 @@ Tool call lifecycle:
 
 ### Resource Events
 
+> **Deprecated:** Resources (and `resource-update` events) are superseded by [tools](/docs/protocol/tools). Persist state with a consumer-defined tool instead. Still emitted for now.
+
 Resource updates:
 
 ```typescript

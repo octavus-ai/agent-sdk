@@ -63,8 +63,6 @@ export interface ModelRequestTrace {
   aspectRatio?: string;
   /** Output resolution requested for an image generation (e.g. `2K`). */
   resolution?: string;
-  /** @deprecated Legacy pixel size on older stored image traces. */
-  size?: string;
   hasReferenceImages?: boolean;
 }
 

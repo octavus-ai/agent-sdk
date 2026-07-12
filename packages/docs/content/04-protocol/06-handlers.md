@@ -125,6 +125,8 @@ Create ticket:
 
 ### set-resource
 
+> **Deprecated:** Resources are superseded by [tools](/docs/protocol/tools). Persist state with a tool call to a consumer-defined tool instead. Still executed for now, but protocol validation emits a deprecation warning.
+
 Update a persistent resource:
 
 ```yaml

@@ -90,6 +90,8 @@ To use a variable in a prompt, pass it through the `input` mapping on the [agent
 
 ## Resources
 
+> **Deprecated:** Resources are deprecated and superseded by [tools](/docs/protocol/tools). Persist state with a consumer-defined tool (or MCP tool) that writes the value in your own application instead - that keeps state ownership in your app with no separate resource concept to maintain. Resources still work for now, but protocol validation emits a non-blocking deprecation warning and they may be removed in a future major version.
+
 Resources are persistent state that:
 
 - Survive across triggers
