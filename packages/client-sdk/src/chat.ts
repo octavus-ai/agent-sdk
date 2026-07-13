@@ -555,6 +555,15 @@ export class OctavusChat {
   // Tracks whether the rollback anchor has been synced for the current trigger execution.
   // Prevents continuation start events from overwriting the pre-trigger rollback point.
   private _rollbackSynced = false;
+  // Number of client-tool continuations that are expected or in flight. A
+  // `client-tool-request` increments it (a continuation will run once the tools
+  // resolve); each continuation decrements it when its own stream ends. While it
+  // is above zero a continuation owns `streamingState`, so the "settle out of
+  // streaming" safety net in both the trigger and continuation loops must not
+  // tear that state down - doing so would silently discard the continuation's
+  // reply. A counter (not a boolean) so nested multi-round client tools, where
+  // an inner continuation is pending as the outer one ends, stay tracked.
+  private _pendingClientToolContinuations = 0;
 
   // Platform session id learned from `start` events. Used to fire
   // onSessionCreated only when the id first appears (or changes), not on every
@@ -903,6 +912,7 @@ export class OctavusChat {
     this._readyToContinue = false;
     this._finishEventReceived = false;
     this._rollbackSynced = false;
+    this._pendingClientToolContinuations = 0;
     this.updatePendingClientToolsCache();
 
     try {
@@ -933,7 +943,17 @@ export class OctavusChat {
       // reconciles the real outcome) instead of stranding the chat as
       // perpetually in-progress. Guarded on `streaming` so an `awaiting-input`
       // pause is left untouched.
-      if (this._status === 'streaming' && this.streamingState !== null) {
+      //
+      // Skipped when a client-tool continuation is pending: the trigger stream
+      // ends (with a `client-tool-calls` finish) while `continueWithClientToolResults`
+      // is already streaming into the same `streamingState`. Settling here would
+      // null that state mid-flight and drop the continuation's assistant text;
+      // the continuation's own lifecycle settles the final status instead.
+      if (
+        this._status === 'streaming' &&
+        this.streamingState !== null &&
+        this._pendingClientToolContinuations === 0
+      ) {
         this.commitInterruptedTurn();
         this.streamingState = null;
         this.setStatus('idle');
@@ -957,6 +977,7 @@ export class OctavusChat {
       this.setError(errorObj);
       this.setStatus('error');
       this.streamingState = null;
+      this._pendingClientToolContinuations = 0;
       this.options.onError?.(errorObj);
     }
   }
@@ -1092,6 +1113,7 @@ export class OctavusChat {
     this._pendingExecutionId = null;
     this._readyToContinue = false;
     this._finishEventReceived = false;
+    this._pendingClientToolContinuations = 0;
     this._batching = false;
     this._replayResetPending = false;
     this.updatePendingClientToolsCache();
@@ -2066,6 +2088,12 @@ export class OctavusChat {
         // Store execution ID and server tool results for continuation
         this._pendingExecutionId = event.executionId;
         this._serverToolResults = event.serverToolResults ?? [];
+        // A continuation will follow once the client tools resolve. Count it so
+        // neither the trigger loop's nor an outer continuation's post-loop settle
+        // discards the shared streaming state while that continuation is in
+        // flight. This event also arrives mid-continuation for multi-round client
+        // tools, stacking the count for each nested round.
+        this._pendingClientToolContinuations += 1;
         // Handle client-side tool execution
         void this.handleClientToolRequest(event.toolCalls, state);
         break;
@@ -2216,6 +2244,7 @@ export class OctavusChat {
       });
       this.setError(errorObj);
       this.setStatus('error');
+      this._pendingClientToolContinuations = 0;
       this.options.onError?.(errorObj);
       return;
     }
@@ -2250,9 +2279,19 @@ export class OctavusChat {
         this.handleStreamEvent(item, this.streamingState);
       }
       this.endReplayBatch();
+      // This continuation is no longer in flight. Decrement before the settle
+      // check so a genuinely dropped continuation (count back to zero) still
+      // recovers to `idle`, while an inner continuation still pending (count
+      // above zero, multi-round client tools) keeps ownership of `streamingState`
+      // and settles the final status itself.
+      this._pendingClientToolContinuations = Math.max(0, this._pendingClientToolContinuations - 1);
       // Same settle as the primary stream path: a continuation that ends with
       // no terminal event (dropped relay) must not strand the chat at `streaming`.
-      if (this._status === 'streaming' && this.streamingState !== null) {
+      if (
+        this._status === 'streaming' &&
+        this.streamingState !== null &&
+        this._pendingClientToolContinuations === 0
+      ) {
         this.commitInterruptedTurn();
         this.streamingState = null;
         this.setStatus('idle');
@@ -2272,6 +2311,7 @@ export class OctavusChat {
       this.setError(errorObj);
       this.setStatus('error');
       this.streamingState = null;
+      this._pendingClientToolContinuations = 0;
       this.options.onError?.(errorObj);
     }
   }
