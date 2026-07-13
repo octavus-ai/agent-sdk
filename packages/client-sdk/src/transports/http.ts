@@ -1,4 +1,4 @@
-import { isAbortError, type ToolResult } from '@octavus/core';
+import { createApiErrorEvent, isAbortError, type ToolResult } from '@octavus/core';
 import { parseSSEStream } from '@/stream/reader';
 import type { Transport, TriggerOptions } from './types';
 
@@ -90,7 +90,10 @@ export function createHttpTransport(options: HttpTransportOptions): Transport {
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => `Request failed: ${response.status}`);
-        throw new Error(errorText);
+        // Surface a non-ok response as a typed error event so consumer onError
+        // type guards and the retryable flag work. Matches the server-SDK stream.
+        yield createApiErrorEvent(response.status, errorText);
+        return;
       }
 
       if (!response.body) {
