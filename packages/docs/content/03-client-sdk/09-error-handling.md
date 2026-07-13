@@ -64,6 +64,7 @@ Use type guards to handle specific error types:
 import {
   useOctavusChat,
   isRateLimitError,
+  isQuotaExceededError,
   isAuthenticationError,
   isProviderError,
   isToolError,
@@ -74,8 +75,14 @@ const { error } = useOctavusChat({
   transport,
   onError: (err) => {
     if (isRateLimitError(err)) {
-      // Show countdown timer
+      // Transient rate limit (429) - show a countdown and retry
       showRetryTimer(err.retryAfter ?? 60);
+      return;
+    }
+
+    if (isQuotaExceededError(err)) {
+      // Terminal allowance block (402) - prompt an upgrade, do not retry
+      showUpgradePrompt(err.message);
       return;
     }
 
@@ -145,6 +152,7 @@ if (canRetry) {
 import {
   useOctavusChat,
   isRateLimitError,
+  isQuotaExceededError,
   isAuthenticationError,
   isProviderError,
 } from '@octavus/react';
@@ -177,6 +185,7 @@ function Chat() {
 
 function getErrorTitle(error: OctavusError): string {
   if (isRateLimitError(error)) return 'Service is busy';
+  if (isQuotaExceededError(error)) return 'Usage limit reached';
   if (isAuthenticationError(error)) return 'Configuration error';
   if (isProviderError(error)) return 'AI service unavailable';
   return 'Something went wrong';

@@ -33,6 +33,7 @@ export {
   OctavusError,
   // Error type guards
   isRateLimitError,
+  isQuotaExceededError,
   isAuthenticationError,
   isProviderError,
   isToolError,

@@ -72,6 +72,8 @@ function mapStatusCodeToErrorType(statusCode: number): ErrorType {
       return 'validation_error';
     case 401:
       return 'authentication_error';
+    case 402:
+      return 'quota_exceeded_error';
     case 403:
       return 'permission_error';
     case 404:
