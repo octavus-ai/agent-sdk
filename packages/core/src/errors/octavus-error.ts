@@ -116,13 +116,24 @@ export class OctavusError extends Error {
 // =============================================================================
 
 /**
- * Check if an error is a rate limit error.
+ * Check if an error is a transient rate limit (HTTP 429), retryable after a delay.
+ *
+ * This does NOT match `quota_exceeded_error` (HTTP 402), which is a terminal
+ * plan/usage allowance block - use {@link isQuotaExceededError} for that.
  */
 export function isRateLimitError(error: unknown): error is OctavusError {
-  return (
-    OctavusError.isInstance(error) &&
-    (error.errorType === 'rate_limit_error' || error.errorType === 'quota_exceeded_error')
-  );
+  return OctavusError.isInstance(error) && error.errorType === 'rate_limit_error';
+}
+
+/**
+ * Check if an error is a plan/usage allowance block (HTTP 402).
+ *
+ * Terminal, not retryable: the caller must resolve the underlying limit (upgrade
+ * the plan or top up) before the request can succeed. Prompt the user to upgrade
+ * rather than retrying automatically.
+ */
+export function isQuotaExceededError(error: unknown): error is OctavusError {
+  return OctavusError.isInstance(error) && error.errorType === 'quota_exceeded_error';
 }
 
 /**

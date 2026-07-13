@@ -9,6 +9,7 @@ export type {
 export {
   OctavusError,
   isRateLimitError,
+  isQuotaExceededError,
   isAuthenticationError,
   isProviderError,
   isToolError,

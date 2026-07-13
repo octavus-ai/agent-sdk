@@ -12,8 +12,8 @@ export type ErrorType =
   | 'not_found_error' // 404 - Resource not found
 
   // Rate Limiting
-  | 'rate_limit_error' // 429 - Rate limit exceeded
-  | 'quota_exceeded_error' // 429 - Usage quota exceeded
+  | 'rate_limit_error' // 429 - Rate limit exceeded (transient, retryable)
+  | 'quota_exceeded_error' // 402 - Plan/usage allowance exhausted (terminal, not retried)
 
   // Provider Issues
   | 'provider_error' // 5xx - Provider-side failure
