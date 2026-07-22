@@ -9,26 +9,34 @@ export function generateId(): string {
 /**
  * Normalizes a tool JSON Schema so every LLM provider accepts it, acting as a
  * safety net for schemas coming from MCP servers or hand-crafted definitions.
- * Two independent concerns, both of which can otherwise 400 a whole request:
+ * Three independent concerns, each of which can otherwise 400 a whole request -
+ * every tool schema is sent to the provider in one array, so a single offending
+ * tool takes down the entire agent loop, not just that tool:
  *
  * 1. Top-level `oneOf`/`anyOf`/`allOf` - rejected by Anthropic. Flattened into
- *    a plain object schema (see {@link flattenTopLevelCombinators}) so a single
- *    MCP tool can never take down the agent loop.
+ *    a plain object schema (see {@link flattenTopLevelCombinators}).
  * 2. A `type: "object"` node missing `properties` - rejected by OpenAI
- *    (Anthropic and Google are lenient). A `properties: {}` is filled in on the
- *    root and on every nested object reachable through `properties`.
+ *    (Anthropic and Google are lenient). A `properties: {}` is filled in.
+ * 3. A `pattern` whose regex uses a feature the provider's validator can't
+ *    compile - OpenAI's RE2-style validator (and Anthropic in strict mode)
+ *    reject lookaround and backreferences with "regex lookaround is not
+ *    supported", even though JSON Schema (ECMA-262) permits them. The offending
+ *    `pattern` is stripped (see {@link UNSUPPORTED_PATTERN_FEATURES}); it is
+ *    advisory, so nothing is lost at execution time - the MCP server still
+ *    validates the argument when the tool is actually called.
  *
  * Applies equally to tool `inputSchema` and `outputSchema` - the body is
  * schema-shape agnostic; the name reflects the original use site only.
  *
- * Scope for the `properties` pass: walks `type: "object"` nodes through the
- * `properties` map only. It does not descend into `items`,
- * `additionalProperties`, or `$defs`, and it deliberately leaves *nested*
- * combinators untouched (the provider supports them). Expand here if a
- * real-world schema surfaces a gap.
+ * Concerns 2 and 3 walk the ENTIRE schema tree: every subschema reachable
+ * through `properties`, `items`/`prefixItems`, `additionalProperties`,
+ * `patternProperties`, `$defs`/`definitions`, the `allOf`/`anyOf`/`oneOf`
+ * branches, `not`, `if`/`then`/`else`, `contains`, `propertyNames`, and
+ * `dependentSchemas`. Only the ROOT combinator is flattened (for Anthropic);
+ * nested combinators are left intact because every provider supports them.
  */
 export function normalizeToolInputSchema(schema: Record<string, unknown>): Record<string, unknown> {
-  return normalizeObjectProperties(flattenTopLevelCombinators(schema));
+  return sanitizeSchemaNode(flattenTopLevelCombinators(schema)) as Record<string, unknown>;
 }
 
 /**
@@ -119,28 +127,106 @@ function flattenTopLevelCombinators(schema: Record<string, unknown>): Record<str
   return result;
 }
 
-function normalizeObjectProperties(schema: Record<string, unknown>): Record<string, unknown> {
-  if (schema.type !== 'object') return schema;
+/**
+ * Regex features that OpenAI's tool-schema validator (an RE2-style subset) and
+ * other constrained decoders (e.g. Anthropic in strict mode) reject outright,
+ * 400-ing the whole request. JSON Schema (ECMA-262) permits them, but a tool
+ * `pattern` that uses one - most commonly an email-format regex with a
+ * lookahead - makes the tool unusable with those providers. Matched as
+ * substrings of the pattern, so the check is cheap and provider-agnostic; a
+ * rare false positive only drops an advisory constraint the MCP server still
+ * enforces at call time. Extend this list if a new unsupported construct
+ * surfaces in the wild.
+ */
+const UNSUPPORTED_PATTERN_FEATURES: readonly RegExp[] = [
+  /\(\?=/, // positive lookahead
+  /\(\?!/, // negative lookahead
+  /\(\?<=/, // positive lookbehind
+  /\(\?<!/, // negative lookbehind
+  /\\[1-9]/, // numeric backreference
+  /\\k[<']/, // named backreference
+];
 
-  const normalized = { ...schema };
+function hasUnsupportedRegexFeature(pattern: string): boolean {
+  return UNSUPPORTED_PATTERN_FEATURES.some((feature) => feature.test(pattern));
+}
 
-  if (!('properties' in normalized)) {
-    normalized.properties = {};
+/** Keywords whose value is a single subschema. */
+const SUBSCHEMA_KEYS = [
+  'items',
+  'additionalProperties',
+  'contains',
+  'propertyNames',
+  'if',
+  'then',
+  'else',
+  'not',
+  'unevaluatedItems',
+  'unevaluatedProperties',
+] as const;
+
+/** Keywords whose value is an array of subschemas. */
+const SUBSCHEMA_LIST_KEYS = ['allOf', 'anyOf', 'oneOf', 'prefixItems'] as const;
+
+/** Keywords whose value is a map of name -> subschema. */
+const SUBSCHEMA_MAP_KEYS = [
+  'properties',
+  'patternProperties',
+  '$defs',
+  'definitions',
+  'dependentSchemas',
+] as const;
+
+/**
+ * Recursively normalize a schema node: fill missing `properties` on object
+ * nodes (concern 2) and strip provider-incompatible `pattern`s (concern 3),
+ * then descend through every subschema-bearing keyword. Structural only - it
+ * never resolves `$ref`, so `$ref` cycles cannot loop it. Non-object/array
+ * values pass through untouched.
+ */
+function sanitizeSchemaNode(node: unknown): unknown {
+  if (Array.isArray(node)) {
+    return node.map(sanitizeSchemaNode);
+  }
+  if (typeof node !== 'object' || node === null) {
+    return node;
   }
 
-  if (typeof normalized.properties === 'object' && normalized.properties !== null) {
-    const props = normalized.properties as Record<string, unknown>;
-    const normalizedProps: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(props)) {
-      normalizedProps[key] =
-        typeof value === 'object' && value !== null
-          ? normalizeObjectProperties(value as Record<string, unknown>)
-          : value;
+  const result = { ...(node as Record<string, unknown>) };
+
+  if (result.type === 'object' && !('properties' in result)) {
+    result.properties = {};
+  }
+
+  if (typeof result.pattern === 'string' && hasUnsupportedRegexFeature(result.pattern)) {
+    delete result.pattern;
+  }
+
+  for (const key of SUBSCHEMA_KEYS) {
+    if (key in result) {
+      result[key] = sanitizeSchemaNode(result[key]);
     }
-    normalized.properties = normalizedProps;
   }
 
-  return normalized;
+  for (const key of SUBSCHEMA_LIST_KEYS) {
+    const value = result[key];
+    if (Array.isArray(value)) {
+      result[key] = value.map(sanitizeSchemaNode);
+    }
+  }
+
+  for (const key of SUBSCHEMA_MAP_KEYS) {
+    const value = result[key];
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      const sanitized: Record<string, unknown> = {};
+      for (const [name, subSchema] of Object.entries(value as Record<string, unknown>)) {
+        sanitized[name] = sanitizeSchemaNode(subSchema);
+      }
+      result[key] = sanitized;
+    }
+  }
+
+  return result;
 }
 
 /**
