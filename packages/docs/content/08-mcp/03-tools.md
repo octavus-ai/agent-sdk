@@ -59,3 +59,14 @@ Because agent runs are asynchronous, driving one is a two-step pattern:
 
 1. `send_to_workforce_agent` with the `agentId` (from `list_workforce_agents`) and your message. It returns a `threadId`.
 2. `read_workforce_thread` with that agent's `agentId`, the `threadId`, and `wait: true`. The wait is bounded (~25 seconds): it returns the messages as soon as the run finishes, but if the run is still going it returns `isRunning: true` and you must call `read_workforce_thread` again - repeat until `isRunning` is false.
+
+## Documentation
+
+Read the Octavus documentation from inside your AI tool, so it can answer from the real docs instead of guessing or browsing the web. Both tools are available on any connection.
+
+| Tool                   | Access | Description                                                                                            |
+| ---------------------- | ------ | ------------------------------------------------------------------------------------------------------ |
+| `search_documentation` | read   | Search the docs for matching pages (slug, title, section, excerpt). Omit the query to list every page. |
+| `fetch_documentation`  | read   | Fetch a full documentation page as markdown by its `slug` (from `search_documentation`).               |
+
+A typical loop is two steps: `search_documentation` with a query to find the right page, then `fetch_documentation` with the returned `slug` to read it.

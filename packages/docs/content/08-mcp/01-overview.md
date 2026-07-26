@@ -12,6 +12,7 @@ Once connected, your tool can:
 - **Inspect and debug platform agents** - list your projects and agents, read an agent's full definition, and read a session's execution trace to see exactly what happened during a run.
 - **Deploy changes to platform agents** - edit an agent's files locally and push them back, the same way the `octavus` CLI syncs.
 - **Read and drive your Octavus Agents** - list your agents and their chat threads, read a thread, and send a new message ("Ask Anna BDR to draft the follow-up email"), then read the response.
+- **Read the documentation** - search the Octavus docs and fetch any page as markdown, so your tool answers from the real docs instead of guessing.
 
 ## How it works
 
