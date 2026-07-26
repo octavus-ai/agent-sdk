@@ -1,6 +1,6 @@
 'use client';
 
-import { type RefObject, useRef, useCallback } from 'react';
+import { type RefObject, type WheelEvent, type TouchEvent, useRef, useCallback } from 'react';
 
 const DEFAULT_THRESHOLD_PX = 80;
 
@@ -27,14 +27,30 @@ export interface UseAutoScrollOptions {
  *
  * @example
  * ```tsx
- * const { scrollRef, handleScroll, scrollOnUpdate, resetAutoScroll } = useAutoScroll();
+ * const {
+ *   scrollRef,
+ *   handleScroll,
+ *   handleWheel,
+ *   handleTouchStart,
+ *   handleTouchMove,
+ *   scrollOnUpdate,
+ *   resetAutoScroll,
+ * } = useAutoScroll();
  *
  * useEffect(() => {
  *   const id = requestAnimationFrame(scrollOnUpdate);
  *   return () => cancelAnimationFrame(id);
  * }, [messages, scrollOnUpdate]);
  *
- * <div ref={scrollRef} onScroll={handleScroll}>...</div>
+ * <div
+ *   ref={scrollRef}
+ *   onScroll={handleScroll}
+ *   onWheel={handleWheel}
+ *   onTouchStart={handleTouchStart}
+ *   onTouchMove={handleTouchMove}
+ * >
+ *   ...
+ * </div>
  *
  * // On send: resetAutoScroll() to force-scroll on next update
  * ```
@@ -48,6 +64,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
   // can't falsely disable auto-scroll when content height grows between the
   // write and the event.
   const isProgrammaticScrollRef = useRef(false);
+  const lastTouchYRef = useRef(0);
 
   const handleScroll = useCallback(() => {
     if (isProgrammaticScrollRef.current) {
@@ -59,6 +76,25 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     shouldAutoScrollRef.current = distanceFromBottom <= threshold;
   }, [scrollRef, threshold]);
+
+  // A wheel/touch scroll up is an unambiguous intent to leave the bottom, so it
+  // authoritatively pauses auto-scroll. Unlike the onScroll position check, the
+  // input event exists regardless of where the per-frame programmatic write left
+  // scrollTop, so it can never be mistaken for (or swallowed by) an auto-scroll.
+  const handleWheel = useCallback((event: WheelEvent<HTMLElement>) => {
+    if (event.deltaY < 0) shouldAutoScrollRef.current = false;
+  }, []);
+
+  const handleTouchStart = useCallback((event: TouchEvent<HTMLElement>) => {
+    lastTouchYRef.current = event.touches[0]?.clientY ?? 0;
+  }, []);
+
+  const handleTouchMove = useCallback((event: TouchEvent<HTMLElement>) => {
+    const y = event.touches[0]?.clientY ?? 0;
+    // A finger dragging down pulls earlier content into view (scrolling up).
+    if (y > lastTouchYRef.current) shouldAutoScrollRef.current = false;
+    lastTouchYRef.current = y;
+  }, []);
 
   const scrollOnUpdate = useCallback(() => {
     const el = scrollRef.current;
@@ -84,5 +120,13 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     shouldAutoScrollRef.current = true;
   }, []);
 
-  return { scrollRef, handleScroll, scrollOnUpdate, resetAutoScroll };
+  return {
+    scrollRef,
+    handleScroll,
+    handleWheel,
+    handleTouchStart,
+    handleTouchMove,
+    scrollOnUpdate,
+    resetAutoScroll,
+  };
 }

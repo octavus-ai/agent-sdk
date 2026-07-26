@@ -9,7 +9,7 @@ Fast mode runs a supported Anthropic Opus model with a faster inference configur
 
 ```yaml
 agent:
-  model: anthropic/claude-opus-4-8
+  model: anthropic/claude-opus-5
   speed: fast # fast | standard (default)
 ```
 
@@ -22,7 +22,7 @@ Fast mode is orthogonal to thinking - it's a speed/price knob, not an intelligen
 
 ## Supported models
 
-Fast mode only applies to **Anthropic Opus 4.8, 4.7, and 4.6**. On any other model or provider it is a **no-op**: the request runs at standard speed and price, and never errors. This makes it safe to leave `speed: fast` set when using a dynamic model (resolved from input) that might turn out not to support it.
+Fast mode only applies to **Anthropic Opus 5, 4.8, 4.7, and 4.6**. On any other model or provider it is a **no-op**: the request runs at standard speed and price, and never errors. This makes it safe to leave `speed: fast` set when using a dynamic model (resolved from input) that might turn out not to support it.
 
 When you set `speed: fast` on a literal model that does not support it, the protocol validator surfaces a non-fatal warning in the dashboard.
 
@@ -32,7 +32,7 @@ Fast mode applies a per-model multiplier over the model's standard rates, to bot
 
 | Model          | Fast-mode cost |
 | -------------- | -------------- |
-| Opus 4.8       | ~2x standard   |
+| Opus 5 / 4.8   | ~2x standard   |
 | Opus 4.7 / 4.6 | ~6x standard   |
 
 Prompt-caching costs continue to apply on top of the fast-mode base rates. Billing always reflects the speed a request **actually** ran at: a request that falls back to standard speed (see below) is billed at standard rates, so requesting fast never by itself triggers premium billing.
