@@ -225,7 +225,15 @@ import { useOctavusChat, useAutoScroll, createHttpTransport } from '@octavus/rea
 function Chat({ sessionId }: { sessionId: string }) {
   const transport = useMemo(/* ... */, [sessionId]);
   const { messages, status, send } = useOctavusChat({ transport });
-  const { scrollRef, handleScroll, scrollOnUpdate, resetAutoScroll } = useAutoScroll();
+  const {
+    scrollRef,
+    handleScroll,
+    handleWheel,
+    handleTouchStart,
+    handleTouchMove,
+    scrollOnUpdate,
+    resetAutoScroll,
+  } = useAutoScroll();
 
   // Scroll to bottom when messages change (only if user hasn't scrolled up)
   useEffect(() => {
@@ -240,7 +248,14 @@ function Chat({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="flex flex-col h-screen">
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        className="flex-1 overflow-y-auto"
+      >
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
@@ -251,14 +266,19 @@ function Chat({ sessionId }: { sessionId: string }) {
 }
 ```
 
-The hook returns four values:
+The hook returns these values:
 
-| Return Value      | Purpose                                                                                           |
-| ----------------- | ------------------------------------------------------------------------------------------------- |
-| `scrollRef`       | Attach to the scrollable container's `ref`                                                        |
-| `handleScroll`    | Attach to the container's `onScroll` - tracks whether the user is near the bottom                 |
-| `scrollOnUpdate`  | Call inside a `useEffect` when messages change - scrolls to bottom if the user hasn't scrolled up |
-| `resetAutoScroll` | Call when the user sends a message - forces the next update to scroll to bottom                   |
+| Return Value       | Purpose                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| `scrollRef`        | Attach to the scrollable container's `ref`                                                        |
+| `handleScroll`     | Attach to the container's `onScroll` - tracks whether the user is near the bottom                 |
+| `handleWheel`      | Attach to the container's `onWheel` - pauses auto-scroll the instant the user wheels up           |
+| `handleTouchStart` | Attach to the container's `onTouchStart` - baseline for touch drag detection                      |
+| `handleTouchMove`  | Attach to the container's `onTouchMove` - pauses auto-scroll when the user drags up (touch)       |
+| `scrollOnUpdate`   | Call inside a `useEffect` when messages change - scrolls to bottom if the user hasn't scrolled up |
+| `resetAutoScroll`  | Call when the user sends a message - forces the next update to scroll to bottom                   |
+
+Wiring `onWheel`/`onTouchStart`/`onTouchMove` makes the "pause on scroll up" reliable during fast streaming: a wheel or touch gesture is an unambiguous signal of user intent, so auto-scroll never fights the user or yanks them back to the bottom while a tool streams a long payload.
 
 You can customize the hook with options:
 

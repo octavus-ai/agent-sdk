@@ -277,6 +277,9 @@ Smart auto-scroll for chat containers. Scrolls to bottom when content updates, b
 function useAutoScroll(options?: UseAutoScrollOptions): {
   scrollRef: RefObject<HTMLDivElement | null>;
   handleScroll: () => void;
+  handleWheel: (event: WheelEvent<HTMLElement>) => void;
+  handleTouchStart: (event: TouchEvent<HTMLElement>) => void;
+  handleTouchMove: (event: TouchEvent<HTMLElement>) => void;
   scrollOnUpdate: () => void;
   resetAutoScroll: () => void;
 };
