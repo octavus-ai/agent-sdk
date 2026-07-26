@@ -52,6 +52,10 @@ export const OCTAVUS_INTERNAL_TOOLS = {
   /** Generate images using AI models */
   GENERATE_IMAGE: 'octavus_generate_image',
 
+  // === Video Generation ===
+  /** Generate short video clips using AI models */
+  GENERATE_VIDEO: 'octavus_generate_video',
+
   // === Web Search ===
   /** Search the web for current information */
   WEB_SEARCH: 'octavus_web_search',
