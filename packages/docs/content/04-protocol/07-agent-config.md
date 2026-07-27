@@ -33,6 +33,7 @@ agent:
 | `references`          | No       | List of references the LLM can fetch on demand                                                                                                                         |
 | `sandboxTimeout`      | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                                                                                                              |
 | `imageModel`          | No       | Image generation model (enables agentic image generation)                                                                                                              |
+| `videoModel`          | No       | Short-clip video generation model (enables agentic video generation, Google-only)                                                                                      |
 | `webSearch`           | No       | Enable built-in web search tool (provider-agnostic)                                                                                                                    |
 | `agentic`             | No       | Allow multiple tool call cycles                                                                                                                                        |
 | `maxSteps`            | No       | Maximum agentic steps (default: 10) - literal or variable reference                                                                                                    |
@@ -433,6 +434,46 @@ Use `generate-image` block (see [Handlers](/docs/protocol/handlers#generate-imag
 - You want explicit control over image generation or editing
 - Building prompt engineering pipelines
 - Images are generated at specific handler steps
+
+## Video
+
+Video is two separate capabilities: understanding video (as model input) and generating video (as model output). Both are Google-centric today.
+
+### Understanding video
+
+To let an agent watch video - summarize a recording, transcribe it, answer questions, or cite timestamps - run it on a Google Gemini model and pass the video as a file input. Gemini reads both the visual and audio track natively.
+
+```yaml
+agent:
+  model: google/gemini-3.5-flash
+  system: system
+```
+
+Video understanding is model-dependent, and only Gemini reads video today. If you send a video file to a model that cannot see it (Anthropic, OpenAI), the platform does not silently hand over a useless URL - it tells the model the file is a video it cannot watch, and validation warns you at authoring time. The idiomatic pattern for an agent whose main model cannot see video is to define a **worker** on a Gemini model and delegate video files to it (see [Workers](/docs/protocol/workers)); the video is read once inside the worker, and only the text result returns to the parent.
+
+Uploaded videos up to 100MB (mp4, webm, quicktime, mpeg) are delivered to Gemini by URL - no size handling on your side.
+
+### Generating video
+
+Set `videoModel` to enable the agentic `octavus_generate_video` tool, exactly like `imageModel` enables `octavus_generate_image`:
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-5
+  system: system
+  videoModel: google/veo-3.1-fast-generate-preview
+  agentic: true
+```
+
+The tool generates a short clip (a few seconds) from a text prompt, and optionally from a starting image (image-to-video). It supports `aspectRatio` (landscape `16:9` or portrait `9:16`), an optional `durationSeconds`, and an optional native-audio track. The clip is stored in Octavus storage and delivered into the conversation as a playable file, exactly like a generated image.
+
+Video generation is Google-only today (Veo). Generation runs a slow provider job (tens of seconds to a couple of minutes) inside the turn, so the tool call stays pending until the clip is ready. Cancelling the run abandons it without delivering a partial clip.
+
+| Provider | Model examples                                                                                                       |
+| -------- | -------------------------------------------------------------------------------------------------------------------- |
+| Google   | `veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`, `veo-3.0-generate-001` |
+
+Use the `generate-video` block (see [Handlers](/docs/protocol/handlers)) for deterministic, pipeline-style generation, the same way `generate-image` mirrors `imageModel`.
 
 ## Web Search
 
