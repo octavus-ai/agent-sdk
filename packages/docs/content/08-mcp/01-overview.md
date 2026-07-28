@@ -29,11 +29,4 @@ Every action the MCP server takes runs **as you**, with exactly the permissions 
 
 You can review and disconnect connected apps at any time from **Account -> Connected apps**.
 
-## Environments
-
-| Environment | MCP URL                   |
-| ----------- | ------------------------- |
-| Production  | `https://octavus.ai/mcp`  |
-| Staging     | `https://octavus.dev/mcp` |
-
 Continue to [Connecting](/docs/mcp/connecting) to add the server to your client.

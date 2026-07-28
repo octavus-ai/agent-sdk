@@ -228,8 +228,8 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# Deploy to staging
-OCTAVUS_API_URL=https://staging.octavus.ai octavus sync ./agents/support-chat --json
+# Deploy to your staging project
+octavus --env .env.staging sync ./agents/support-chat --json
 ```
 
 ## Exit Codes
