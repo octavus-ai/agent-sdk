@@ -4,6 +4,15 @@ import { AgentSessionsApi } from '@/agent-sessions.js';
 import { FilesApi } from '@/files.js';
 import { WorkersApi } from '@/workers.js';
 import { WorkforceApi } from '@/workforce.js';
+import { TokensApi } from '@/tokens.js';
+
+/**
+ * The API credential. A static string (a long-lived key or a minted ephemeral
+ * token), or a provider callback resolved per request - the callback lets a
+ * client present a federated workload-identity token that is refreshed as it
+ * rotates, without recreating the client.
+ */
+export type ApiKeyProvider = string | (() => string | Promise<string>);
 
 /**
  * Wire-format major version this SDK can parse.
@@ -17,7 +26,12 @@ const SDK_WIRE_VERSION = '4';
 
 export interface OctavusClientConfig {
   baseUrl: string;
-  apiKey?: string;
+  /**
+   * The API credential: a long-lived key, a minted ephemeral token, or a
+   * provider callback that returns the current token per request (e.g. a
+   * federated workload-identity token that rotates).
+   */
+  apiKey?: ApiKeyProvider;
   /** Enable model request tracing to capture full payloads sent to providers (default: false) */
   traceModelRequests?: boolean;
   /**
@@ -43,8 +57,10 @@ export class OctavusClient {
   readonly workers: WorkersApi;
   /** Workforce Agents API - drive an OctoAgent with a per-agent key (oct_agt_*). */
   readonly workforce: WorkforceApi;
+  /** Mint short-lived, scoped ephemeral tokens from a trusted key. */
+  readonly tokens: TokensApi;
   readonly baseUrl: string;
-  private readonly apiKey?: string;
+  private readonly apiKey?: ApiKeyProvider;
   private readonly traceModelRequests: boolean;
 
   constructor(config: OctavusClientConfig) {
@@ -64,6 +80,7 @@ export class OctavusClient {
     this.files = new FilesApi(apiConfig);
     this.workers = new WorkersApi(apiConfig);
     this.workforce = new WorkforceApi(apiConfig);
+    this.tokens = new TokensApi(apiConfig);
   }
 
   /** Returns the platform URL for viewing a session's activity. */
@@ -76,14 +93,15 @@ export class OctavusClient {
     return `${this.baseUrl}/platform/agents/${agentId}`;
   }
 
-  getHeaders(): Record<string, string> {
+  async getHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Octavus-Sdk-Version': SDK_WIRE_VERSION,
     };
 
-    if (this.apiKey) {
-      headers.Authorization = `Bearer ${this.apiKey}`;
+    const apiKey = typeof this.apiKey === 'function' ? await this.apiKey() : this.apiKey;
+    if (apiKey) {
+      headers.Authorization = `Bearer ${apiKey}`;
     }
 
     if (this.traceModelRequests) {

@@ -278,7 +278,7 @@ export async function* executeStream(
           const url = typeof config.url === 'function' ? config.url() : config.url;
           response = await fetch(url, {
             method: 'POST',
-            headers: config.config.getHeaders(),
+            headers: await config.config.getHeaders(),
             body: JSON.stringify(body),
             signal: attemptController.signal,
           });

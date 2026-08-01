@@ -5,7 +5,11 @@ export { ApiError } from '@/api-error.js';
 
 export interface ApiClientConfig {
   baseUrl: string;
-  getHeaders: () => Record<string, string>;
+  /**
+   * Resolve the request headers. May be async so the credential can be sourced
+   * from a token provider (e.g. a freshly signed federated token) per request.
+   */
+  getHeaders: () => Record<string, string> | Promise<Record<string, string>>;
   /** Maximum retries for transient network failures during streaming execution. */
   maxRetries?: number;
   /**
@@ -36,7 +40,7 @@ export abstract class BaseApiClient {
   protected async httpGet<T>(path: string, schema: ZodType<T>): Promise<T> {
     const response = await fetch(`${this.config.baseUrl}${path}`, {
       method: 'GET',
-      headers: this.config.getHeaders(),
+      headers: await this.config.getHeaders(),
     });
 
     if (!response.ok) {
@@ -50,7 +54,7 @@ export abstract class BaseApiClient {
   protected async httpPost<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
     const response = await fetch(`${this.config.baseUrl}${path}`, {
       method: 'POST',
-      headers: this.config.getHeaders(),
+      headers: await this.config.getHeaders(),
       body: JSON.stringify(body),
     });
 
@@ -65,7 +69,7 @@ export abstract class BaseApiClient {
   protected async httpPatch<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
     const response = await fetch(`${this.config.baseUrl}${path}`, {
       method: 'PATCH',
-      headers: this.config.getHeaders(),
+      headers: await this.config.getHeaders(),
       body: JSON.stringify(body),
     });
 
@@ -80,7 +84,7 @@ export abstract class BaseApiClient {
   protected async httpDelete<T>(path: string, schema: ZodType<T>): Promise<T> {
     const response = await fetch(`${this.config.baseUrl}${path}`, {
       method: 'DELETE',
-      headers: this.config.getHeaders(),
+      headers: await this.config.getHeaders(),
     });
 
     if (!response.ok) {
