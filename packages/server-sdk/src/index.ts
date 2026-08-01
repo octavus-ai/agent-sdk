@@ -1,5 +1,6 @@
-export { OctavusClient, type OctavusClientConfig } from '@/client.js';
+export { OctavusClient, type OctavusClientConfig, type ApiKeyProvider } from '@/client.js';
 export { AgentsApi } from '@/agents.js';
+export { TokensApi, type MintTokenRequest, type MintTokenResponse } from '@/tokens.js';
 export {
   AgentSessionsApi,
   type SessionState,

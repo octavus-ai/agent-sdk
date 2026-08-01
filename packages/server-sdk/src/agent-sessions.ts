@@ -136,7 +136,7 @@ export class AgentSessionsApi extends BaseApiClient {
   async get(sessionId: string): Promise<SessionState | ExpiredSessionState> {
     const response = await fetch(`${this.config.baseUrl}/api/agent-sessions/${sessionId}`, {
       method: 'GET',
-      headers: this.config.getHeaders(),
+      headers: await this.config.getHeaders(),
     });
 
     if (!response.ok) {
@@ -165,7 +165,7 @@ export class AgentSessionsApi extends BaseApiClient {
       `${this.config.baseUrl}/api/agent-sessions/${sessionId}?format=ui`,
       {
         method: 'GET',
-        headers: this.config.getHeaders(),
+        headers: await this.config.getHeaders(),
       },
     );
 
@@ -239,7 +239,7 @@ export class AgentSessionsApi extends BaseApiClient {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: this.config.getHeaders(),
+      headers: await this.config.getHeaders(),
     });
 
     if (!response.ok) {

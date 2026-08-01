@@ -24,6 +24,8 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 API keys can be created in the Octavus Platform under your project's **API Keys** page.
 
+For workloads that run in ephemeral or user-reachable environments (CI runners, serverless functions, per-user sandboxes), prefer a **short-lived, scoped credential** over a long-lived key - either an Octavus-minted ephemeral token or a federated workload-identity token you sign yourself. See [Authentication](/docs/authentication/overview).
+
 ## Wire-Format Versioning
 
 The Server SDK advertises the wire shape it understands via the `X-Octavus-Sdk-Version` header (set automatically). The platform currently serves the same shape to every request, so direct API users don't need to send it - the header exists so a future wire-incompatible change can be negotiated per client.
@@ -43,14 +45,15 @@ The header value is the wire-format major the client can parse, not the SDK rele
 
 ## API Key Permissions
 
-API keys have two permission scopes:
+API keys have these permission scopes:
 
-| Permission   | Description                                              | Used By    |
-| ------------ | -------------------------------------------------------- | ---------- |
-| **Sessions** | Create and manage sessions, trigger agents, upload files | Server SDK |
-| **Agents**   | Create, update, and validate agent definitions           | CLI        |
+| Permission      | Description                                              | Used By    |
+| --------------- | -------------------------------------------------------- | ---------- |
+| **Sessions**    | Create and manage sessions, trigger agents, upload files | Server SDK |
+| **Agents**      | Create, update, and validate agent definitions           | CLI        |
+| **Mint Tokens** | Mint short-lived, scoped ephemeral credentials           | Server SDK |
 
-Both permissions allow reading agent definitions (needed by CLI for sync and Server SDK for sessions).
+Both the Sessions and Agents permissions allow reading agent definitions (needed by CLI for sync and Server SDK for sessions).
 
 **Recommended setup:** Use separate API keys for different purposes:
 
@@ -112,6 +115,15 @@ All responses are JSON. Success responses return the data directly (not wrapped 
 | POST   | `/api/agent-sessions`             | Create session        |
 | GET    | `/api/agent-sessions/:id`         | Get session state     |
 | POST   | `/api/agent-sessions/:id/trigger` | Execute trigger (SSE) |
+
+### Tokens
+
+| Method | Endpoint             | Description                                |
+| ------ | -------------------- | ------------------------------------------ |
+| POST   | `/api/tokens`        | Mint a short-lived, scoped ephemeral token |
+| POST   | `/api/tokens/revoke` | Revoke a minted token before it expires    |
+
+See [Authentication](/docs/authentication/overview) for scoping, lifetimes, and federation.
 
 ## Streaming
 
