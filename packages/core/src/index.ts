@@ -27,6 +27,7 @@ export {
   errorToStreamEvent,
   createInternalErrorEvent,
   createApiErrorEvent,
+  isTransientTransportError,
 } from './errors/helpers';
 
 export { generateId, isAbortError, normalizeToolInputSchema } from './utils';

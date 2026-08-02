@@ -23,4 +23,5 @@ export {
   errorToStreamEvent,
   createInternalErrorEvent,
   createApiErrorEvent,
+  isTransientTransportError,
 } from './helpers';

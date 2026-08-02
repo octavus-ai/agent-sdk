@@ -44,6 +44,7 @@ export {
   errorToStreamEvent,
   createInternalErrorEvent,
   createApiErrorEvent,
+  isTransientTransportError,
   // Utilities
   generateId,
   isAbortError,

@@ -51,6 +51,59 @@ export function errorToStreamEvent(error: OctavusError): ErrorEvent {
 }
 
 /**
+ * Socket-drop signatures seen when a connection to a peer is reset or closed
+ * mid-request. Matched against both `.message` and `.code`, case-insensitively.
+ * `undici`'s `fetch` wraps the real reason under `.cause` and surfaces a bare
+ * `TypeError: terminated` at the top level, so `terminated` and the `UND_ERR_*`
+ * codes belong here alongside the raw Node socket codes.
+ */
+const TRANSIENT_TRANSPORT_PATTERNS = [
+  'terminated',
+  'fetch failed',
+  'socket hang up',
+  'other side closed',
+  'connection closed',
+  'econnreset',
+  'econnrefused',
+  'epipe',
+  'etimedout',
+  'enotfound',
+  'eai_again',
+  'und_err_socket',
+  'und_err_connect_timeout',
+  'und_err_headers_timeout',
+  'und_err_body_timeout',
+];
+
+/**
+ * Whether an error is a transient network/transport failure - a socket to a
+ * peer (the platform, a provider, an MCP server) that dropped or was reset
+ * mid-request. These recover on their own, so a caller should retry / re-open
+ * the connection rather than surface them as a hard failure.
+ *
+ * Walks the `.cause` chain because `undici` nests the real reason under
+ * `cause`: a mid-stream reset arrives as `TypeError: terminated` whose
+ * top-level `.message` is only `terminated`, with the useful `read ECONNRESET`
+ * / `code: 'ECONNRESET'` one level down. Matching `.message` alone (no walk)
+ * misses it and misclassifies the drop as an opaque platform fault.
+ */
+export function isTransientTransportError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5; depth++) {
+    if (typeof current !== 'object' || current === null) break;
+    const obj = current as { message?: unknown; code?: unknown; cause?: unknown };
+    const haystack = `${typeof obj.message === 'string' ? obj.message : ''} ${
+      typeof obj.code === 'string' ? obj.code : ''
+    }`.toLowerCase();
+    if (TRANSIENT_TRANSPORT_PATTERNS.some((pattern) => haystack.includes(pattern))) {
+      return true;
+    }
+    current = obj.cause;
+  }
+  return false;
+}
+
+/**
  * Create an internal error event.
  * Convenience function for platform-level errors.
  */

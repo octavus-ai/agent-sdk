@@ -1,6 +1,7 @@
 import {
   safeParseStreamEvent,
   isAbortError,
+  isTransientTransportError,
   createInternalErrorEvent,
   createApiErrorEvent,
   type StreamEvent,
@@ -377,6 +378,16 @@ export async function* executeStream(
           if (isAbortError(err)) {
             reader.releaseLock();
             yield { type: 'finish', finishReason: 'stop' };
+            return;
+          }
+          // A transient socket reset mid-stream - undici's `TypeError: terminated`
+          // wrapping `read ECONNRESET`, a broken pipe, the peer closing - is the
+          // same recoverable transport drop as the idle-timeout below. End the
+          // generator cleanly (no `finish`/`error`) so the caller's retry path
+          // re-triggers and resumes the session, rather than re-throwing and
+          // having the drop misread as a hard failure.
+          if (isTransientTransportError(err)) {
+            await reader.cancel().catch(() => {});
             return;
           }
           throw err;
