@@ -1,13 +1,22 @@
 ---
 title: Debugging
-description: Model request tracing and debugging tools for Octavus agents.
+description: Execution log telemetry, model request tracing, and debugging tools for Octavus agents.
 ---
 
 # Debugging
 
+## Always-On Model Telemetry
+
+Every session's execution log includes lightweight model telemetry by default - no configuration needed:
+
+- **Model request markers** - a `model-request` entry for every provider call (LLM and media generation) recording when the request happened, plus the provider and model. Without tracing enabled, the entry carries no request payload, so it stays cheap even for high-volume production sessions.
+- **Step stats** - a `step-stats` entry after each LLM step with the token usage breakdown: input tokens, cache reads and writes, output tokens, and reasoning tokens, plus the prompt-cache mode the provider applied. This is the primary signal for understanding where a session's tokens and cost go.
+
+Both appear in the execution log timeline - via [`getLogs()`](/docs/server-sdk/sessions#getting-execution-logs) and in the dashboard's execution log views. To capture the full request payloads as well, enable model request tracing.
+
 ## Model Request Tracing
 
-Model request tracing captures the full payload sent to model providers (LLM and image) during agent execution. This helps you understand exactly what was sent - system prompts, messages, tool definitions, and provider options - making it easier to debug agent behavior.
+Model request tracing upgrades `model-request` entries to carry the full payload sent to model providers during agent execution. This helps you understand exactly what was sent - system prompts, messages, tool definitions, and provider options - making it easier to debug agent behavior.
 
 ### Enabling Tracing
 
@@ -45,10 +54,10 @@ const client = new OctavusClient({
 - Provider-specific options (thinking budgets, etc.)
 - Temperature, max steps, and thinking configuration
 
-**Image generation requests** include:
+**Media generation requests** (image, video, speech, transcription) include:
 
-- Image generation prompt
-- Requested size
+- The generation prompt (image and video)
+- Request parameters - aspect ratio, resolution, duration, voice, format, or language
 - Whether reference images were provided
 
 ### Where Traces Appear
@@ -64,15 +73,15 @@ Each entry shows the raw JSON payload with a copy button for easy inspection.
 
 ### Storage
 
-Traces are stored in Redis alongside other execution log entries with a 24-hour TTL. They are not permanently stored. A typical LLM trace with 10 messages and 5 tools is 10–50KB. Image traces are smaller (just prompt and metadata).
+Traces are stored in Redis alongside other execution log entries with a 24-hour TTL. They are not permanently stored. A typical LLM trace with 10 messages and 5 tools is 10-50KB; without tracing, model-request markers are a few hundred bytes. Media traces are small even when traced (just the prompt and request parameters).
 
 ### Recommendations
 
-| Environment | Recommendation                                             |
-| ----------- | ---------------------------------------------------------- |
-| Development | Enable - helps debug agent behavior during development     |
-| Staging     | Enable - useful for pre-production testing                 |
-| Production  | Disable (default) - saves storage for high-volume sessions |
+| Environment | Recommendation                                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| Development | Enable - helps debug agent behavior during development                                                             |
+| Staging     | Enable - useful for pre-production testing                                                                         |
+| Production  | Disable (default) - the always-on markers and step stats keep timing and token visibility without the storage cost |
 
 ### Preview Sessions
 

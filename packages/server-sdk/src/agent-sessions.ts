@@ -66,7 +66,11 @@ export interface ClearSessionResult {
 }
 
 export interface GetLogsOptions {
-  /** Exclude model-request entries (which contain large provider payloads) */
+  /**
+   * Exclude model-request entries. These are lightweight markers by default,
+   * but carry the full provider request payload when model request tracing
+   * is enabled.
+   */
   excludeModelRequests?: boolean;
 }
 

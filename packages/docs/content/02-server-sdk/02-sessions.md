@@ -137,7 +137,7 @@ console.log({
 
 ## Getting Execution Logs
 
-`getLogs()` returns the chronological execution trace for a session - triggers, messages, tool calls, LLM responses, errors, and other events emitted while the agent ran. Useful for debugging, observability, and building custom timeline views.
+`getLogs()` returns the chronological execution trace for a session - triggers, messages, tool calls, LLM responses, model request markers, per-step token stats, errors, and other events emitted while the agent ran. Useful for debugging, observability, and building custom timeline views. See [Debugging](/docs/server-sdk/debugging) for what the model telemetry entries contain.
 
 ```typescript
 const result = await client.agentSessions.getLogs(sessionId);
@@ -167,7 +167,7 @@ if (result.status !== 'expired') {
 
 ### Excluding Model Request Payloads
 
-Model-request entries include the full provider request body and can be large. Pass `excludeModelRequests: true` to skip them:
+Every provider call logs a `model-request` entry. By default it is a lightweight marker (request timing, provider, and model); with [model request tracing](/docs/server-sdk/debugging#model-request-tracing) enabled it also carries the full provider request body and can be large. Pass `excludeModelRequests: true` to skip these entries:
 
 ```typescript
 const result = await client.agentSessions.getLogs(sessionId, {
@@ -177,13 +177,13 @@ const result = await client.agentSessions.getLogs(sessionId, {
 
 ### Truncation
 
-Responses are capped at 1000 entries (most recent). When the log exceeds that cap, the response includes `total` and `truncated` so consumers can detect this:
+Responses are capped at 3000 entries (most recent). When the log exceeds that cap, the response includes `total` and `truncated` so consumers can detect this:
 
 ```typescript
 const result = await client.agentSessions.getLogs(sessionId);
 
 if (result.status !== 'expired' && result.truncated) {
-  console.warn(`Showing latest 1000 of ${result.total} entries`);
+  console.warn(`Showing latest 3000 of ${result.total} entries`);
 }
 ```
 
