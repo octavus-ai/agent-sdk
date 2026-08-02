@@ -34,6 +34,9 @@ agent:
 | `sandboxTimeout`      | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                                                                                                                                                  |
 | `imageModel`          | No       | Image generation model (enables agentic image generation)                                                                                                                                                  |
 | `videoModel`          | No       | Short-clip video generation model (enables agentic video generation, Google-only)                                                                                                                          |
+| `speechModel`         | No       | Speech (text-to-speech) model (enables agentic speech generation)                                                                                                                                          |
+| `speechVoice`         | No       | Default voice id for speech generation (literal, e.g. `marin`, or a variable reference). Only meaningful with `speechModel`                                                                                |
+| `transcriptionModel`  | No       | Audio transcription (speech-to-text) model (enables agentic transcription)                                                                                                                                 |
 | `webSearch`           | No       | Enable built-in web search tool (provider-agnostic)                                                                                                                                                        |
 | `agentic`             | No       | Allow multiple tool call cycles                                                                                                                                                                            |
 | `maxSteps`            | No       | Maximum agentic steps (default: 10) - literal or variable reference                                                                                                                                        |
@@ -496,6 +499,47 @@ Video generation is Google-only today (Veo). Generation runs a slow provider job
 | Google   | `veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`, `veo-3.0-generate-001` |
 
 Use the `generate-video` block (see [Handlers](/docs/protocol/handlers)) for deterministic, pipeline-style generation, the same way `generate-image` mirrors `imageModel`.
+
+## Speech Generation
+
+Set `speechModel` to enable the agentic `octavus_generate_speech` tool, exactly like `imageModel` enables `octavus_generate_image`:
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-5
+  system: system
+  speechModel: openai/gpt-4o-mini-tts
+  speechVoice: marin # optional default voice
+  agentic: true
+```
+
+The tool turns a block of text into natural spoken audio and delivers it into the conversation as a playable audio file (with a download option) - the agent receives a reference (URL, format, size), never raw bytes. It supports an optional `voice`, an output `format` (default `mp3`), optional delivery `instructions`, and an optional `language`. The advertised voices and formats are narrowed to what the configured model supports, so the LLM only ever picks a valid option. Set `speechVoice` (a literal voice id or a variable reference) to fix the default voice used when the model does not specify one.
+
+| Provider | Model examples                         |
+| -------- | -------------------------------------- |
+| OpenAI   | `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd` |
+
+Use the `generate-speech` block (see [Handlers](/docs/protocol/handlers)) for deterministic, pipeline-style generation, the same way `generate-image` mirrors `imageModel`.
+
+## Transcription
+
+Set `transcriptionModel` to enable the agentic `octavus_transcribe_audio` tool:
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-5
+  system: system
+  transcriptionModel: openai/gpt-4o-transcribe
+  agentic: true
+```
+
+The tool takes the URL of an audio (or video) file and returns its transcript as text - so transcription works regardless of whether the chat model can natively "hear" the file. It auto-detects the spoken language by default, accepts an optional `language` hint, and can return timestamped segments (`timestamps: true`) where the model supports them (for OpenAI, `whisper-1`). Short transcripts return inline; long transcripts are delivered as a downloadable transcript file with only a bounded preview returned, so a multi-hour transcript never floods the model context.
+
+| Provider | Model examples                                             |
+| -------- | ---------------------------------------------------------- |
+| OpenAI   | `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1` |
+
+The dedicated transcription API has per-request size/duration limits (OpenAI: ~25 MB / ~25 min). To transcribe long recordings in one pass, point a worker at a long-context multimodal model (e.g. Gemini) and delegate the file to it - the model transcribes or summarizes the whole recording directly. Use the `transcribe-audio` block (see [Handlers](/docs/protocol/handlers)) for deterministic, pipeline-style transcription.
 
 ## Web Search
 

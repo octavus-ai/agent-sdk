@@ -56,6 +56,14 @@ export const OCTAVUS_INTERNAL_TOOLS = {
   /** Generate short video clips using AI models */
   GENERATE_VIDEO: 'octavus_generate_video',
 
+  // === Speech Generation (text-to-speech) ===
+  /** Generate spoken audio from text using AI models */
+  GENERATE_SPEECH: 'octavus_generate_speech',
+
+  // === Audio Transcription (speech-to-text) ===
+  /** Transcribe an audio or video file to text using AI models */
+  TRANSCRIBE_AUDIO: 'octavus_transcribe_audio',
+
   // === Web Search ===
   /** Search the web for current information */
   WEB_SEARCH: 'octavus_web_search',
