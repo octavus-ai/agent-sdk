@@ -135,6 +135,7 @@ export type ExecutionLogEntryType =
   | 'worker-output'
   | 'compaction'
   | 'tool-output-bounded'
+  | 'image-adapted'
   | 'abort'
   | 'error';
 
@@ -297,6 +298,45 @@ export interface ToolOutputBoundedLogEntry extends ExecutionLogEntryBase {
   maxToolOutputTokens: number;
 }
 
+/**
+ * Records that an image was adapted before being sent to the model, so the trace
+ * always answers "what did the model actually see". Emitted when the declared
+ * `agent.maxImageDimension` (or a worker's `start-thread.maxImageDimension`)
+ * downscales an over-cap image, and when a reactive recovery adapts images after
+ * a provider rejects on an image constraint (downscaling below the declared cap,
+ * or eliding oldest images to satisfy a count limit).
+ *
+ * A model-view transform only: stored history, the files surface, and download
+ * URLs always keep the original full-resolution bytes. Emitted once per image
+ * for the declared cap (first time it crosses the cap); recovery emits one entry
+ * per recovery.
+ */
+export interface ImageAdaptedLogEntry extends ExecutionLogEntryBase {
+  type: 'image-adapted';
+  /**
+   * `declared-cap` = the consumer's `maxImageDimension` downscaled a delivery;
+   * `reactive-recovery` = a provider rejection triggered adaptation (gated on
+   * `contextManagement`).
+   */
+  source: 'declared-cap' | 'reactive-recovery';
+  /** `downscaled` = an over-limit image was shrunk; `count-elided` = oldest images dropped from the view. */
+  adaptation: 'downscaled' | 'count-elided';
+  /** Original longest-side dimensions of a downscaled image. */
+  originalWidth?: number;
+  originalHeight?: number;
+  /** Delivered dimensions after downscaling. */
+  deliveredWidth?: number;
+  deliveredHeight?: number;
+  /** The dimension cap applied (px, longest side). */
+  maxImageDimension?: number;
+  /** For count-elision: how many older images were dropped from the model view. */
+  imagesElided?: number;
+  /** For reactive recovery: the provider constraint that triggered it (parsed limit or table fallback). */
+  constraint?: string;
+  /** For reactive recovery: bounded retry attempts made before the turn succeeded. */
+  attempts?: number;
+}
+
 export interface AbortLogEntry extends ExecutionLogEntryBase {
   type: 'abort';
   abortedAtBlock?: string;
@@ -327,5 +367,6 @@ export type ExecutionLogEntry =
   | WorkerOutputLogEntry
   | CompactionLogEntry
   | ToolOutputBoundedLogEntry
+  | ImageAdaptedLogEntry
   | AbortLogEntry
   | ErrorLogEntry;
