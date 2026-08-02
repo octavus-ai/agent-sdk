@@ -239,18 +239,18 @@ Read aloud:
   description: Generating audio... # Shown in UI
 ```
 
-| Field          | Required | Description                                                                     |
-| -------------- | -------- | ------------------------------------------------------------------------------- |
-| `text`         | Yes      | Variable name containing the text to convert to speech                          |
-| `speechModel`  | Yes      | Speech model identifier (e.g., `openai/gpt-4o-mini-tts`)                        |
-| `voice`        | No       | Voice id to speak with (provider-specific)                                      |
-| `format`       | No       | Output audio format (`mp3`, `opus`, `aac`, `flac`, `wav`, `pcm`; default `mp3`) |
-| `instructions` | No       | Optional delivery instructions (model-dependent)                                |
-| `language`     | No       | Optional ISO 639-1 language hint (model-dependent)                              |
-| `speed`        | No       | Optional speech speed multiplier (0.25 - 4.0; model-dependent)                  |
-| `output`       | No       | Variable name to store the generated audio file URL                             |
-| `thread`       | No       | Thread to associate the output file with                                        |
-| `description`  | No       | Description shown in the UI during generation                                   |
+| Field          | Required | Description                                                              |
+| -------------- | -------- | ------------------------------------------------------------------------ |
+| `text`         | Yes      | Variable name containing the text to convert to speech                   |
+| `speechModel`  | Yes      | Speech model identifier (e.g., `openai/gpt-4o-mini-tts`)                 |
+| `voice`        | No       | Voice id to speak with (provider-specific)                               |
+| `format`       | No       | Output audio format (`mp3`, `opus`, `aac`, `flac`, `wav`; default `mp3`) |
+| `instructions` | No       | Optional delivery instructions (model-dependent)                         |
+| `language`     | No       | Optional ISO 639-1 language hint (model-dependent)                       |
+| `speed`        | No       | Optional speech speed multiplier (0.25 - 4.0; model-dependent)           |
+| `output`       | No       | Variable name to store the generated audio file URL                      |
+| `thread`       | No       | Thread to associate the output file with                                 |
+| `description`  | No       | Description shown in the UI during generation                            |
 
 For agentic speech generation where the LLM decides when to speak, configure `speechModel` in the [agent config](/docs/protocol/agent-config#speech-generation).
 
