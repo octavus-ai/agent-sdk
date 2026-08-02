@@ -257,7 +257,8 @@ agent:
   maxImageDimension: 2000 # downscale any image above 2000px on its longest side
 ```
 
-- On every request, an image whose longest side exceeds the cap is delivered **downscaled to fit** (aspect ratio preserved). Images already within the cap are delivered byte-identical - there is no re-encoding and no quality change.
+- On every request, an image whose longest side exceeds the cap is delivered **downscaled to fit** (aspect ratio preserved).
+- The cap only touches the images it actually changes. An image already within it is delivered exactly as it would be with no cap set - same bytes, same delivery path, no re-encoding and no quality change - so setting a cap costs nothing for the images it does not affect.
 - This is a **model-view transform only**. Your stored conversation history, the files surface, and download URLs always keep the original full-resolution bytes, so nothing is lost.
 - It is deterministic (the same image and cap always produce the same delivered bytes), so prompt caching is unaffected.
 - Omit the field to deliver images at full resolution and rely on whatever the provider does on its own.
