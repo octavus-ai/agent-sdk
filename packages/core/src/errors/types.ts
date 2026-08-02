@@ -53,6 +53,13 @@ export interface ProviderErrorInfo {
   errorType?: string;
   /** Provider's request ID for support */
   requestId?: string;
+  /**
+   * Truncated raw provider response body, when it carries detail beyond the
+   * normalized message. Kept for diagnosability - some providers return an
+   * opaque top-level message (e.g. Gemini's "Request contains an invalid
+   * argument") while the body holds field-level violations.
+   */
+  details?: string;
 }
 
 /**
