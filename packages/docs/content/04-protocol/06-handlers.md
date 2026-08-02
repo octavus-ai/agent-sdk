@@ -224,6 +224,62 @@ This block is for deterministic image generation pipelines where the prompt is c
 
 For agentic image generation where the LLM decides when to generate, configure `imageModel` in the [agent config](/docs/protocol/agent-config#image-generation).
 
+### generate-speech
+
+Generate spoken audio from a text variable:
+
+```yaml
+Read aloud:
+  block: generate-speech
+  text: ARTICLE_TEXT # Variable containing the text to speak
+  speechModel: openai/gpt-4o-mini-tts # Required speech model
+  voice: marin # Optional voice id
+  format: mp3 # Optional output format (default mp3)
+  output: NARRATION_URL # Store the audio file URL in a variable
+  description: Generating audio... # Shown in UI
+```
+
+| Field          | Required | Description                                                                     |
+| -------------- | -------- | ------------------------------------------------------------------------------- |
+| `text`         | Yes      | Variable name containing the text to convert to speech                          |
+| `speechModel`  | Yes      | Speech model identifier (e.g., `openai/gpt-4o-mini-tts`)                        |
+| `voice`        | No       | Voice id to speak with (provider-specific)                                      |
+| `format`       | No       | Output audio format (`mp3`, `opus`, `aac`, `flac`, `wav`, `pcm`; default `mp3`) |
+| `instructions` | No       | Optional delivery instructions (model-dependent)                                |
+| `language`     | No       | Optional ISO 639-1 language hint (model-dependent)                              |
+| `speed`        | No       | Optional speech speed multiplier (0.25 - 4.0; model-dependent)                  |
+| `output`       | No       | Variable name to store the generated audio file URL                             |
+| `thread`       | No       | Thread to associate the output file with                                        |
+| `description`  | No       | Description shown in the UI during generation                                   |
+
+For agentic speech generation where the LLM decides when to speak, configure `speechModel` in the [agent config](/docs/protocol/agent-config#speech-generation).
+
+### transcribe-audio
+
+Transcribe an audio (or video) file referenced by a variable, storing the transcript text:
+
+```yaml
+Transcribe recording:
+  block: transcribe-audio
+  audio: RECORDING_FILE # Variable holding a file reference or URL
+  transcriptionModel: openai/gpt-4o-transcribe # Required transcription model
+  timestamps: true # Optional timestamped segments
+  output: TRANSCRIPT # Store the transcript text in a variable
+  description: Transcribing... # Shown in UI
+```
+
+| Field                | Required | Description                                                          |
+| -------------------- | -------- | -------------------------------------------------------------------- |
+| `audio`              | Yes      | Variable name holding the audio/video file (a file reference or URL) |
+| `transcriptionModel` | Yes      | Transcription model identifier (e.g., `openai/gpt-4o-transcribe`)    |
+| `language`           | No       | Optional ISO 639-1 language hint (default auto-detect)               |
+| `timestamps`         | No       | Request timestamped segments where the model supports them           |
+| `output`             | No       | Variable name to store the resulting transcript text                 |
+| `thread`             | No       | Thread to attribute the block's events to                            |
+| `description`        | No       | Description shown in the UI during transcription                     |
+
+For agentic transcription where the LLM decides when to transcribe, configure `transcriptionModel` in the [agent config](/docs/protocol/agent-config#transcription).
+
 ## Display Modes
 
 Every block has a `display` property:

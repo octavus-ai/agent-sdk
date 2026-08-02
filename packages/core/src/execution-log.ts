@@ -50,10 +50,10 @@ export function isTrimmedValue(value: unknown): value is TrimmedValue {
 
 /**
  * Full model request payload captured for debugging.
- * Includes LLM, image generation, and video generation requests.
+ * Includes LLM, image, video, speech, and transcription requests.
  */
 export interface ModelRequestTrace {
-  requestType: 'llm' | 'image' | 'video';
+  requestType: 'llm' | 'image' | 'video' | 'speech' | 'transcription';
   provider: string;
   model: string;
   /** Raw HTTP request body sent to the provider */
@@ -68,6 +68,12 @@ export interface ModelRequestTrace {
   /** Whether a native audio track was requested for a video generation. */
   generateAudio?: boolean;
   hasReferenceImages?: boolean;
+  /** Voice id requested for a speech generation (e.g. `marin`). */
+  voice?: string;
+  /** Output format requested for a speech generation (e.g. `mp3`). */
+  audioFormat?: string;
+  /** Language hint supplied for a speech or transcription request (e.g. `en`). */
+  language?: string;
 }
 
 /**
@@ -77,7 +83,7 @@ export interface ModelRequestTrace {
  * request payload entry.
  */
 export interface StepStatsTrace {
-  requestType: 'llm' | 'image' | 'video';
+  requestType: 'llm' | 'image' | 'video' | 'speech' | 'transcription';
   provider: string;
   model: string;
   usage: {
