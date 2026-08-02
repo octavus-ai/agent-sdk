@@ -204,6 +204,7 @@ export type {
   WorkerOutputLogEntry,
   CompactionLogEntry,
   ToolOutputBoundedLogEntry,
+  ImageAdaptedLogEntry,
   AbortLogEntry,
   ErrorLogEntry,
   ExecutionLogEntry,

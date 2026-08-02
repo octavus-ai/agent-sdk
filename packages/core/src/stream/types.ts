@@ -151,6 +151,13 @@ export interface FileReference {
   filename?: string;
   /** File size in bytes */
   size?: number;
+  /**
+   * Pixel dimensions, recorded at ingestion when the raster bytes were in hand.
+   * Absent when the producer never held the bytes (a tool returning a URL) or
+   * the payload was not a decodable raster image.
+   */
+  width?: number;
+  height?: number;
 }
 // Deprecated via prose, not an `@deprecated` tag - see ResourceUpdateEvent.
 /**
@@ -792,6 +799,13 @@ export interface FileInfo {
   url: string;
   filename?: string;
   size?: number;
+  /**
+   * Pixel dimensions, carried over from the `FileReference` when the producer
+   * measured the bytes at ingestion. Lets the delivery layer decide whether an
+   * image needs adapting without fetching it. Absent when unknown.
+   */
+  width?: number;
+  height?: number;
   toolCallId?: string;
 }
 
