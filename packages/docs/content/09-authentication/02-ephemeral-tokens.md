@@ -25,7 +25,7 @@ const control = new OctavusClient({
 // Agent-scoped: the runner may create and drive sessions for this one agent.
 const { token, expiresAt } = await control.tokens.mint({
   agentId: 'agt_123',
-  ttlSeconds: 3600, // optional; defaults to 1 hour, capped at 12 hours
+  ttlSeconds: 3600, // optional; defaults to 1 hour, capped at 24 hours
 });
 
 // Session-scoped (tightest): create the session yourself, then mint for just it.
@@ -57,7 +57,7 @@ curl -N -H "Authorization: Bearer oct_et_..." \
 
 ## Lifetime and scope rules
 
-- **TTL** defaults to 1 hour and is capped at 12 hours. A longer request is clamped down.
+- **TTL** defaults to 1 hour and is capped at 24 hours. A longer request is clamped down.
 - The requested scope must be within the minting key's scope - you can only ever narrow.
 - A session-scoped token cannot create sessions or run workers; it only drives its one session.
 - The token can never manage agents, skills, or project settings, regardless of the minting key's other permissions.

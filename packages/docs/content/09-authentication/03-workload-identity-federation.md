@@ -31,7 +31,7 @@ In the dashboard, open your project's **Settings -> Federation** and register a 
 - **Claim conditions** - required claim matches, so only your intended workloads are trusted (for example `sub` equals a specific value, or a `repository` claim starts with your org).
 - **Agent scope** - either bind every token to one fixed agent, or read the agent id from a token claim.
 - **Session scope (optional)** - read a session id from a claim to produce the tightest, single-session credential.
-- **Max token lifetime** - Octavus rejects any token whose lifetime exceeds this (or the platform maximum of 12 hours), so a valid signature can never be long-lived.
+- **Max token lifetime** - Octavus rejects any token whose lifetime exceeds this (or the platform maximum of 24 hours), so a valid signature can never be long-lived.
 
 On registration Octavus generates a unique **audience** value. Copy it - your tokens must set it as their `aud` claim. It uniquely identifies your registration and prevents a token minted for another party from being replayed against Octavus.
 

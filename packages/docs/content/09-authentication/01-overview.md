@@ -23,7 +23,7 @@ A long-lived project key is only safe to hold in trusted server compute. It gran
 
 When your code runs somewhere your own end users can see or reach - an in-browser chat, a code sandbox, a per-user container - or on ephemeral compute like a CI runner or serverless function, place a credential there that is bounded in two ways:
 
-- **Short-lived** - it stops working on its own within minutes to a few hours.
+- **Short-lived** - it stops working on its own within minutes to hours.
 - **Scoped** - it can only run one specific agent, and optionally only one specific session. It carries no ability to create, edit, or delete agents, manage skills, or reach any other agent or session.
 
 A credential an end user extracts is then useless beyond its narrow scope and short lifetime.
