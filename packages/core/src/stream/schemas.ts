@@ -487,10 +487,12 @@ export const workerPartInfoSchema = z.object({
   workerId: z.string(),
   workerSlug: z.string(),
   description: z.string().optional(),
+  input: z.record(z.string(), z.unknown()).optional(),
   // Worker nested parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
   nestedParts: z.array(baseMessagePartSchema),
   output: z.unknown().optional(),
   error: z.string().optional(),
+  cancelled: z.boolean().optional(),
 });
 
 // Full message part schema including worker type
@@ -634,7 +636,7 @@ export const uiTodoPartSchema = z.object({
   thread: z.string().optional(),
 });
 
-export const uiWorkerStatusSchema = z.enum(['running', 'done', 'error']);
+export const uiWorkerStatusSchema = z.enum(['running', 'done', 'error', 'cancelled']);
 
 // Note: We use z.union here because source parts share type: 'source' but
 // differ by sourceType. z.discriminatedUnion requires unique discriminator values.
@@ -665,6 +667,7 @@ export const uiWorkerPartSchema = z.object({
   workerId: z.string(),
   workerSlug: z.string(),
   description: z.string().optional(),
+  input: z.record(z.string(), z.unknown()).optional(),
   // Worker parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
   parts: z.array(baseUiMessagePartSchema),
   output: z.unknown().optional(),

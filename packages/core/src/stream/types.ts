@@ -6,6 +6,9 @@
  * - Octavus Events (----): Octavus-specific protocol events
  */
 
+import type { z } from 'zod';
+import type { uiWorkerStatusSchema } from './schemas';
+
 /**
  * Display mode - controls execution indicator visibility (NOT final message visibility).
  * - hidden: Block runs silently
@@ -1125,9 +1128,12 @@ export interface UIObjectPart {
 }
 
 /**
- * Status of a UI worker part
+ * Status of a UI worker part.
+ *
+ * Derived from `uiWorkerStatusSchema` so the validator and this union cannot
+ * drift apart.
  */
-export type UIWorkerStatus = 'running' | 'done' | 'error' | 'cancelled';
+export type UIWorkerStatus = z.infer<typeof uiWorkerStatusSchema>;
 
 /**
  * Worker execution in a UI message.
