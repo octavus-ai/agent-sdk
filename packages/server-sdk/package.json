@@ -1,6 +1,6 @@
 {
   "name": "@octavus/server-sdk",
-  "version": "6.3.0",
+  "version": "6.4.0",
   "description": "Server SDK for integrating Octavus agents",
   "license": "MIT",
   "author": "Octavus AI <dev@octavus.ai>",
