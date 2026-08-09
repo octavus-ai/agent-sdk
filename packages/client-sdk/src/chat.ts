@@ -2097,6 +2097,11 @@ export class OctavusChat {
         // Handle client-side tool execution
         void this.handleClientToolRequest(event.toolCalls, state);
         break;
+
+      case 'usage':
+        // Per-execution cost summary emitted for worker executions; the
+        // interactive chat UI does not consume it.
+        break;
     }
   }
 

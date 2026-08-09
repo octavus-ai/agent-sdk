@@ -356,6 +356,23 @@ export const workerInputReadyEventSchema = z.object({
   input: z.record(z.string(), z.unknown()),
 });
 
+export const usageEventSchema = z.object({
+  type: z.literal('usage'),
+  cost: z.object({
+    currency: z.string(),
+    bandwidthFee: z.number(),
+    providerFee: z.number(),
+    totalFee: z.number(),
+    byok: z.boolean(),
+    estimatedProviderFee: z.number().optional(),
+  }),
+  tokens: z.object({
+    inputTokens: z.number(),
+    outputTokens: z.number(),
+    totalTokens: z.number(),
+  }),
+});
+
 // =============================================================================
 // Union of all stream events
 // =============================================================================
@@ -399,6 +416,8 @@ export const streamEventSchema = z.union([
   workerInputStartEventSchema,
   workerInputDeltaEventSchema,
   workerInputReadyEventSchema,
+  // Usage events
+  usageEventSchema,
 ]);
 
 // =============================================================================

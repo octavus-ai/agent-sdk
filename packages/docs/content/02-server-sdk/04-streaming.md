@@ -280,6 +280,6 @@ Tool errors are captured per-tool and don't stop the stream:
 { type: 'tool-output-error', toolCallId: '...', error: 'Handler threw exception' }
 ```
 
-The stream always ends with either `finish` or `error`.
+The stream always ends with either `finish` or `error`, with one exception: worker executions emit a final `usage` event (the per-execution cost summary) after `finish`, just before the stream closes. See [Cost reporting](/docs/server-sdk/workers#cost-reporting).
 
 For client-side error handling patterns, see [Error Handling](/docs/client-sdk/error-handling).

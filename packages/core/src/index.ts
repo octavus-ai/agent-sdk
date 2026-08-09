@@ -120,6 +120,10 @@ export type {
   WorkerInputStartEvent,
   WorkerInputDeltaEvent,
   WorkerInputReadyEvent,
+  // Usage Events
+  UsageEvent,
+  WorkerExecutionCost,
+  WorkerExecutionTokens,
   // Union
   StreamEvent,
   // Internal Message Types
