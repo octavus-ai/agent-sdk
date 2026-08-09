@@ -463,10 +463,11 @@ See [Server SDK Workers](/docs/server-sdk/workers) for tool handling details.
 
 Workers emit the same events as interactive agents, plus worker-specific events:
 
-| Event           | Description                        |
-| --------------- | ---------------------------------- |
-| `worker-start`  | Worker execution begins            |
-| `worker-result` | Worker completes (includes output) |
+| Event           | Description                                                         |
+| --------------- | ------------------------------------------------------------------- |
+| `worker-start`  | Worker execution begins                                             |
+| `worker-result` | Worker completes (includes output)                                  |
+| `usage`         | Cost and token summary (standalone executions only, after `finish`) |
 
 All standard events (text-delta, tool calls, etc.) are also emitted.
 

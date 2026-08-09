@@ -697,6 +697,55 @@ export interface WorkerInputReadyEvent {
   input: Record<string, unknown>;
 }
 
+// --------------------------------- Usage -------------------------------------
+
+/**
+ * Dollar cost of a single worker execution, in `currency`. Provider cost is
+ * pass-through (Octavus adds no markup); the only Octavus-added charge is the
+ * bandwidth (platform) fee.
+ */
+export interface WorkerExecutionCost {
+  /** ISO 4217 currency code. Always 'USD'. */
+  currency: string;
+  /** Octavus platform (bandwidth) fee charged for this execution. Always billed. */
+  bandwidthFee: number;
+  /**
+   * LLM provider cost Octavus charged for this execution. `0` when your own
+   * provider key (BYOK) was used, since you paid the provider directly.
+   */
+  providerFee: number;
+  /** Total charged by Octavus for this execution: `bandwidthFee + providerFee`. */
+  totalFee: number;
+  /** True when any model call used your own provider key (BYOK). */
+  byok: boolean;
+  /**
+   * Estimated provider cost at Octavus (pass-through) rates - what the models
+   * would have cost on Octavus keys. Present only for BYOK executions; omitted
+   * otherwise, where `providerFee` already reflects the real charge.
+   */
+  estimatedProviderFee?: number;
+}
+
+/** Token totals for a worker execution, summed across all steps. */
+export interface WorkerExecutionTokens {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+/**
+ * Per-execution usage and cost summary, emitted once when a worker execution
+ * completes (after `worker-result` / `finish`, before the stream closes). Lets a
+ * consumer attribute spend per execution without a separate API call.
+ */
+export interface UsageEvent {
+  type: 'usage';
+  /** Dollar cost breakdown for this execution. */
+  cost: WorkerExecutionCost;
+  /** Token totals for this execution. */
+  tokens: WorkerExecutionTokens;
+}
+
 // =============================================================================
 // Union of All Stream Events
 // =============================================================================
@@ -737,7 +786,9 @@ export type StreamEvent =
   | WorkerResultEvent
   | WorkerInputStartEvent
   | WorkerInputDeltaEvent
-  | WorkerInputReadyEvent;
+  | WorkerInputReadyEvent
+  // Usage events
+  | UsageEvent;
 
 // =============================================================================
 // Message Types (Internal - used by platform/runtime)

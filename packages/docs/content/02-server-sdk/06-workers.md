@@ -50,10 +50,60 @@ interface WorkerGenerateResult {
   output: unknown;
   /** Session ID for debugging (usable for session URLs) */
   sessionId: string;
+  /** Dollar cost of this execution (see Cost reporting below) */
+  cost?: WorkerExecutionCost;
+  /** Token totals for this execution */
+  tokens?: WorkerExecutionTokens;
 }
 ```
 
 **Throws:** `WorkerError` if the worker fails or completes without producing output.
+
+#### Cost reporting
+
+Each successful execution reports what it cost, so you can attribute spend (for
+example, per end customer) without a separate API call. Provider cost is
+pass-through - the only Octavus-added charge is the bandwidth (platform) fee.
+
+```typescript
+interface WorkerExecutionCost {
+  /** ISO 4217 currency code. Always 'USD'. */
+  currency: string;
+  /** Octavus platform (bandwidth) fee charged for this execution. */
+  bandwidthFee: number;
+  /** LLM provider fee Octavus charged. 0 when you use your own key (BYOK). */
+  providerFee: number;
+  /** Total charged by Octavus: bandwidthFee + providerFee. */
+  totalFee: number;
+  /** True when any model call used your own provider key (BYOK). */
+  byok: boolean;
+  /** BYOK only: estimated provider cost at Octavus rates (the "would-be" cost). */
+  estimatedProviderFee?: number;
+}
+
+/** Token totals for the execution, summed across all steps */
+interface WorkerExecutionTokens {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+```
+
+```typescript
+const { output, cost } = await client.workers.generate(agentId, input);
+
+if (cost) {
+  if (cost.byok) {
+    // You paid the provider directly; Octavus billed only the bandwidth fee.
+    console.log(`Bandwidth: $${cost.bandwidthFee}, est. provider: $${cost.estimatedProviderFee}`);
+  } else {
+    console.log(`Bandwidth: $${cost.bandwidthFee}, provider: $${cost.providerFee}`);
+  }
+}
+```
+
+The same `usage` event is emitted on the [`execute()`](#execute) stream, so
+streaming consumers get the identical breakdown.
 
 ### execute()
 
@@ -313,19 +363,20 @@ Workers emit standard stream events plus worker-specific events.
 
 #### Common Events
 
-| Event                   | Description                 |
-| ----------------------- | --------------------------- |
-| `start`                 | Execution started           |
-| `finish`                | Execution completed         |
-| `text-start`            | Text generation started     |
-| `text-delta`            | Text chunk received         |
-| `text-end`              | Text generation ended       |
-| `block-start`           | Step started                |
-| `block-end`             | Step completed              |
-| `tool-input-available`  | Tool arguments ready        |
-| `tool-output-available` | Tool result ready           |
-| `client-tool-request`   | Client tools need execution |
-| `error`                 | Error occurred              |
+| Event                   | Description                   |
+| ----------------------- | ----------------------------- |
+| `start`                 | Execution started             |
+| `finish`                | Execution completed           |
+| `usage`                 | Cost summary (after `finish`) |
+| `text-start`            | Text generation started       |
+| `text-delta`            | Text chunk received           |
+| `text-end`              | Text generation ended         |
+| `block-start`           | Step started                  |
+| `block-end`             | Step completed                |
+| `tool-input-available`  | Tool arguments ready          |
+| `tool-output-available` | Tool result ready             |
+| `client-tool-request`   | Client tools need execution   |
+| `error`                 | Error occurred                |
 
 ## Full Examples
 

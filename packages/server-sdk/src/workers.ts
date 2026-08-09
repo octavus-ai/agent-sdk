@@ -4,6 +4,8 @@ import type {
   ToolResult,
   ToolSchema,
   InlineMcpServer,
+  WorkerExecutionCost,
+  WorkerExecutionTokens,
 } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
 import { executeStream } from '@/streaming.js';
@@ -54,6 +56,15 @@ export interface WorkerGenerateResult {
   output: unknown;
   /** Session ID for the worker execution (usable for debugging/session URLs) */
   sessionId: string;
+  /**
+   * Dollar cost of this execution: the Octavus bandwidth fee plus the LLM
+   * provider fee (and, for BYOK, an estimate of the provider cost at Octavus
+   * rates). Reported on successful executions (best-effort - absent in rare
+   * cases where cost aggregation is unavailable).
+   */
+  cost?: WorkerExecutionCost;
+  /** Token totals for this execution, summed across all steps. */
+  tokens?: WorkerExecutionTokens;
 }
 
 // =============================================================================
@@ -177,6 +188,8 @@ export class WorkersApi extends BaseApiClient {
     let errorMessage: string | undefined;
     let errorDetails: WorkerErrorDetails | undefined;
     let lastWorkerId: string | undefined;
+    let cost: WorkerExecutionCost | undefined;
+    let tokens: WorkerExecutionTokens | undefined;
 
     // Drain the entire stream before deciding the outcome. A failing worker
     // emits both a `worker-result` and a structured `error` event, and their
@@ -207,6 +220,10 @@ export class WorkersApi extends BaseApiClient {
             sessionId: sessionId ?? event.workerId,
           };
         }
+      } else if (event.type === 'usage') {
+        // Emitted once at the end of the execution, after `worker-result`.
+        cost = event.cost;
+        tokens = event.tokens;
       }
     }
 
@@ -215,6 +232,8 @@ export class WorkersApi extends BaseApiClient {
     }
 
     if (workerOutput !== undefined) {
+      if (cost !== undefined) workerOutput.cost = cost;
+      if (tokens !== undefined) workerOutput.tokens = tokens;
       return workerOutput;
     }
 
