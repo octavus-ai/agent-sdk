@@ -225,5 +225,7 @@ export {
   extensionForMediaType,
   base64ByteLength,
   stripInlineMediaData,
+  sniffImageMediaType,
+  NOT_A_VALID_IMAGE_NOTE,
 } from './media-tool-result';
 export type { InlineMediaKind, InlineMediaPart, InlineMediaLocation } from './media-tool-result';
