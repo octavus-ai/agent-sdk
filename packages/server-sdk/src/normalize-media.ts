@@ -4,6 +4,8 @@ import {
   isInlineMediaPart,
   inlineMediaType,
   extensionForMediaType,
+  sniffImageMediaType,
+  NOT_A_VALID_IMAGE_NOTE,
   type InlineMediaKind,
   type ToolResult,
   type FileReference,
@@ -56,14 +58,26 @@ export async function normalizeToolResultMedia(
     const kinds: InlineMediaKind[] = [];
     const buffers: ArrayBuffer[] = [];
     const requests: FileUploadRequest[] = [];
+    // Whether each collected part is delivered to the model as a vision image.
+    const deliverAsImage: boolean[] = [];
 
     location.parts.forEach((part, index) => {
       if (!isInlineMediaPart(part)) return;
       const buffer = base64ToArrayBuffer(part.data);
-      const mediaType = inlineMediaType(part);
+      // For a part the tool declares as an image, verify the bytes actually are a
+      // provider-safe image. A content sniff catches a non-image mislabeled by
+      // extension (e.g. an HTML error page saved as .png), which would otherwise
+      // be attached as a vision block and rejected by the provider with a
+      // non-retryable "file format is invalid or unsupported" 400. A valid image
+      // with a wrong extension is corrected to its true type.
+      const sniffed =
+        part.type === 'image' ? sniffImageMediaType(new Uint8Array(buffer)) : undefined;
+      const asImage = part.type === 'image' && sniffed !== undefined;
+      const mediaType = sniffed ?? inlineMediaType(part);
       partIndices.push(index);
       kinds.push(part.type);
       buffers.push(buffer);
+      deliverAsImage.push(asImage);
       requests.push({
         filename: `${part.type}-${generateId()}.${extensionForMediaType(mediaType)}`,
         mediaType,
@@ -104,12 +118,25 @@ export async function normalizeToolResultMedia(
       const info = uploadInfos?.[i];
       const uploaded = uploadResults?.[i];
       const ok = uploaded?.status === 'fulfilled' && uploaded.value.ok && info !== undefined;
+      const asImage = deliverAsImage[i]!;
 
       if (ok) {
-        if (kind === 'image') {
+        if (asImage) {
           files.push({ id: info.id, mediaType, url: info.downloadUrl, filename, size });
         }
-        summaryByIndex.set(partIndex, { type: kind, mediaType, size, url: info.downloadUrl });
+        // A part the tool declared an image but whose bytes are not a
+        // decodable/supported image is delivered as a download link with a
+        // clear, actionable note instead of a broken image block that would
+        // brick the provider request - it is never added to `files`, so it is
+        // never attached as a vision block.
+        const invalidImage = kind === 'image' && !asImage;
+        summaryByIndex.set(partIndex, {
+          type: kind,
+          mediaType,
+          size,
+          url: info.downloadUrl,
+          ...(invalidImage && { error: NOT_A_VALID_IMAGE_NOTE }),
+        });
       } else {
         summaryByIndex.set(partIndex, { type: kind, mediaType, size, error: 'Upload failed' });
       }

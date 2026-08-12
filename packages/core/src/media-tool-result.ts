@@ -49,6 +49,83 @@ export function inlineMediaType(part: InlineMediaPart): string {
 }
 
 /**
+ * Detect the true image media type of a payload from its leading "magic" bytes,
+ * limited to the provider-safe vision set (PNG, JPEG, GIF, WebP). Returns the
+ * matching media type, or `undefined` for anything else - non-image bytes (an
+ * HTML error page, a PDF, plain text) or an image format vision providers reject
+ * (BMP, TIFF, HEIC, SVG).
+ *
+ * Content-based, so it catches a payload whose declared type or extension lies
+ * about its contents. That is the failure mode where the filesystem server's
+ * `read_media_file` labels a non-image `image/png` by extension: the invalid
+ * "image" then bricks the provider request with a non-retryable "file format is
+ * invalid or unsupported" 400. Dependency-free (no image decoder), so it is safe
+ * to run everywhere inline media is normalized, including browser/runtime-light
+ * environments.
+ */
+export function sniffImageMediaType(bytes: Uint8Array): string | undefined {
+  const b = bytes;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    b.length >= 8 &&
+    b[0] === 0x89 &&
+    b[1] === 0x50 &&
+    b[2] === 0x4e &&
+    b[3] === 0x47 &&
+    b[4] === 0x0d &&
+    b[5] === 0x0a &&
+    b[6] === 0x1a &&
+    b[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+  // JPEG: FF D8 FF
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  // GIF: "GIF87a" / "GIF89a"
+  if (
+    b.length >= 6 &&
+    b[0] === 0x47 &&
+    b[1] === 0x49 &&
+    b[2] === 0x46 &&
+    b[3] === 0x38 &&
+    (b[4] === 0x37 || b[4] === 0x39) &&
+    b[5] === 0x61
+  ) {
+    return 'image/gif';
+  }
+  // WebP: "RIFF" <4-byte size> "WEBP"
+  if (
+    b.length >= 12 &&
+    b[0] === 0x52 &&
+    b[1] === 0x49 &&
+    b[2] === 0x46 &&
+    b[3] === 0x46 &&
+    b[8] === 0x57 &&
+    b[9] === 0x45 &&
+    b[10] === 0x42 &&
+    b[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  return undefined;
+}
+
+/**
+ * Note attached to a tool-result media part that was declared an image but whose
+ * bytes are not a decodable/supported image, so it was delivered as a download
+ * link instead of a vision block. Shared by every media-normalization path so the
+ * agent gets the same actionable message wherever the result was produced.
+ */
+export const NOT_A_VALID_IMAGE_NOTE =
+  'This file was reported as an image but its contents are not a valid or ' +
+  'supported image, so it was provided as a download link only and not shown to ' +
+  'the model as an image. The download likely returned non-image content (for ' +
+  'example an HTML error or sign-in page) or a corrupt/unsupported file - verify ' +
+  'the source and re-fetch if you need the image.';
+
+/**
  * The content-parts array of a tool result plus a way to rebuild the result
  * from replacement parts, preserving the result's original shape.
  */
