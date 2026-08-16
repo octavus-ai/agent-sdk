@@ -39,12 +39,27 @@ input:
 
 ### Input Definition
 
-| Field         | Required | Description                                                                                              |
-| ------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| `type`        | Yes      | Data type: `string`, `number`, `integer`, `boolean`, `unknown`, or a [custom type](/docs/protocol/types) |
-| `description` | No       | Describes what this input is for                                                                         |
-| `optional`    | No       | If true, consumer doesn't have to provide it                                                             |
-| `default`     | No       | Default value if not provided (defaults to `"NONE"`)                                                     |
+| Field         | Required | Description                                                                                                                               |
+| ------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`        | Yes      | Data type: `string`, `number`, `integer`, `boolean`, `unknown`, or a [custom type](/docs/protocol/types)                                  |
+| `description` | No       | Describes what this input is for                                                                                                          |
+| `optional`    | No       | If true, consumer doesn't have to provide it                                                                                              |
+| `default`     | No       | Default value if not provided (defaults to `"NONE"`)                                                                                      |
+| `enum`        | No       | Allowed values for a `type: string` input. Validates conditional branch literals and rejects out-of-set trigger/worker inputs at runtime. |
+
+### Enum Inputs
+
+A `type: string` input can declare an `enum` of allowed values. This is useful when an input selects one of a fixed set of modes and you want a mistyped branch or an unexpected value caught:
+
+```yaml
+input:
+  PLAN_TIER:
+    type: string
+    description: The caller's plan tier
+    enum: [free, pro, team]
+```
+
+Enum values pair naturally with [conditional prompt content](#conditional-prompt-content): a condition literal that isn't one of the declared values is flagged when the agent is validated, so a mistyped branch (like `{{#if PLAN_TIER == "pri"}}`) is caught before the agent runs. When an enum input is supplied as a trigger or worker input, a value outside the set (for example `"enterprise"`) is also rejected at runtime.
 
 ### Using Inputs
 
@@ -87,6 +102,45 @@ You are a support agent for {{COMPANY_NAME}}.
 To use a variable in a prompt, pass it through the `input` mapping on the [agent config](/docs/protocol/agent-config#system-prompt) or [block](/docs/protocol/handlers#block-input-mapping). Variables not listed in the `input` mapping won't be interpolated - the `{{VARIABLE}}` placeholder will be preserved as-is.
 
 > **Note:** Variables must be `UPPER_SNAKE_CASE`. Nested properties (dot notation like `{{VAR.property}}`) are not supported. Objects are serialized as JSON when interpolated.
+
+## Conditional Prompt Content
+
+Prompts support a block conditional so any span of content - inline text, `{{VARIABLE}}` placeholders, or `{{@path.md}}` includes - can be present only when a condition over a declared input holds. This lets the agent definition decide which instructions apply at run time, driven entirely by the inputs you supply.
+
+```markdown
+{{#if PLAN_TIER == "free"}}
+{{@limits/free-tier-note.md}}
+{{else}}
+You have full access to premium tools.
+{{/if}}
+
+{{#if VOICE_ENABLED}}
+You can take this conversation to a live voice call when it helps.
+{{/if}}
+```
+
+The full form is `{{#if COND}} ... {{else if COND}} ... {{else}} ... {{/if}}` - an `if`, zero or more `else if` branches, and an optional `else`. The first branch whose condition holds renders; if none hold and there is no `else`, nothing renders. Conditionals may nest, and a branch body may contain includes and variables.
+
+### Conditions
+
+A condition is one of four forms - one variable, at most one comparison, one double-quoted string literal:
+
+| Form             | Renders when                                          |
+| ---------------- | ----------------------------------------------------- |
+| `VAR`            | `VAR` is truthy                                       |
+| `!VAR`           | `VAR` is falsy                                        |
+| `VAR == "value"` | `VAR`'s string form equals `"value"` (case-sensitive) |
+| `VAR != "value"` | `VAR`'s string form does not equal `"value"`          |
+
+Boolean algebra (`and` / `or`), numeric comparisons, loops, and arithmetic are intentionally not supported - write mutually exclusive cases as separate `{{#if}}` blocks when you need them.
+
+### Evaluation rules
+
+- **Truthy / falsy.** A value is falsy when it is absent, `null`, boolean `false`, an empty string, or the strings `"false"` or `"0"`; everything else is truthy. Because session inputs are stringly-typed, a boolean flag that arrives as `"true"` / `"false"` behaves like the real boolean.
+- **Equality.** The value's string form is compared to the literal exactly and case-sensitively, so a boolean or number input compares naturally (`STATUS == "true"`, `COUNT == "0"`). Quoted string literals are the only literal form.
+- **Missing input.** A condition over an input that was not provided simply omits the span - it never errors mid-run.
+
+A condition may reference only declared inputs (or variables/resources), resolved through the same `input` mapping as any `{{VARIABLE}}` - so list the condition's variable in the [agent config](/docs/protocol/agent-config#system-prompt) or block `input` just like a variable you interpolate. Definition validation catches an unbalanced block, a malformed condition, an undeclared condition variable, and (for an `enum` input) a literal outside the declared set.
 
 ## Resources
 
