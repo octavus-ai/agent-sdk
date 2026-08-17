@@ -227,6 +227,7 @@ function Chat({ sessionId }: { sessionId: string }) {
   const { messages, status, send } = useOctavusChat({ transport });
   const {
     scrollRef,
+    contentRef,
     handleScroll,
     handleWheel,
     handleTouchStart,
@@ -256,9 +257,11 @@ function Chat({ sessionId }: { sessionId: string }) {
         onTouchMove={handleTouchMove}
         className="flex-1 overflow-y-auto"
       >
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
+        <div ref={contentRef}>
+          {messages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} />
+          ))}
+        </div>
       </div>
       <ChatInput onSend={handleSend} disabled={status === 'streaming'} />
     </div>
@@ -268,17 +271,20 @@ function Chat({ sessionId }: { sessionId: string }) {
 
 The hook returns these values:
 
-| Return Value       | Purpose                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------- |
-| `scrollRef`        | Attach to the scrollable container's `ref`                                                        |
-| `handleScroll`     | Attach to the container's `onScroll` - tracks whether the user is near the bottom                 |
-| `handleWheel`      | Attach to the container's `onWheel` - pauses auto-scroll the instant the user wheels up           |
-| `handleTouchStart` | Attach to the container's `onTouchStart` - baseline for touch drag detection                      |
-| `handleTouchMove`  | Attach to the container's `onTouchMove` - pauses auto-scroll when the user drags up (touch)       |
-| `scrollOnUpdate`   | Call inside a `useEffect` when messages change - scrolls to bottom if the user hasn't scrolled up |
-| `resetAutoScroll`  | Call when the user sends a message - forces the next update to scroll to bottom                   |
+| Return Value       | Purpose                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `scrollRef`        | Attach to the scrollable container's `ref`                                                                                      |
+| `contentRef`       | Attach to the element wrapping the messages - re-pins when content grows without a data update (e.g. an image finishes loading) |
+| `handleScroll`     | Attach to the container's `onScroll` - tracks whether the user is near the bottom                                               |
+| `handleWheel`      | Attach to the container's `onWheel` - pauses auto-scroll the instant the user wheels up                                         |
+| `handleTouchStart` | Attach to the container's `onTouchStart` - baseline for touch drag detection                                                    |
+| `handleTouchMove`  | Attach to the container's `onTouchMove` - pauses auto-scroll when the user drags up (touch)                                     |
+| `scrollOnUpdate`   | Call inside a `useEffect` when messages change - scrolls to bottom if the user hasn't scrolled up                               |
+| `resetAutoScroll`  | Call when the user sends a message - forces the next update to scroll to bottom                                                 |
 
-Wiring `onWheel`/`onTouchStart`/`onTouchMove` makes the "pause on scroll up" reliable during fast streaming: a wheel or touch gesture is an unambiguous signal of user intent, so auto-scroll never fights the user or yanks them back to the bottom while a tool streams a long payload.
+Wiring `onWheel`/`onTouchStart`/`onTouchMove` makes the "pause on scroll up" reliable during fast streaming: a wheel or touch gesture is an unambiguous signal of user intent, so auto-scroll never fights the user or yanks them back to the bottom while a tool streams a long payload. The hook only treats a gesture as leaving the bottom when it actually scrolls the container - gestures consumed by a nested scrollable area (an expanded details panel, a code block) or by content rendered in a portal (a lightbox, a dialog) are ignored. Scroll-position changes produced by the browser itself - clamping when content above shrinks, or scroll anchoring while an image grows - never pause auto-scroll.
+
+`contentRef` is optional but recommended: without it, content that changes height between data updates (images loading, panels expanding, fonts swapping) can leave the view stranded above the bottom until the next update.
 
 You can customize the hook with options:
 

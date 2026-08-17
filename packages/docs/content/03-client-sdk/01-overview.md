@@ -271,12 +271,13 @@ interface UserMessageInput {
 
 ### useAutoScroll
 
-Smart auto-scroll for chat containers. Scrolls to bottom when content updates, but pauses if the user has scrolled up. See [Streaming - Auto-Scroll](/docs/client-sdk/streaming#auto-scroll) for full usage.
+Smart auto-scroll for chat containers. Scrolls to bottom when content updates, but pauses if the user has scrolled up. Attach `contentRef` to the element wrapping the messages so content that grows without a data update (an image finishing its load, an expanding panel) stays pinned too. See [Streaming - Auto-Scroll](/docs/client-sdk/streaming#auto-scroll) for full usage.
 
 ```typescript
 function useAutoScroll(options?: UseAutoScrollOptions): {
   scrollRef: RefObject<HTMLDivElement | null>;
-  handleScroll: () => void;
+  contentRef: (node: HTMLElement | null) => void;
+  handleScroll: (event: UIEvent<HTMLElement>) => void;
   handleWheel: (event: WheelEvent<HTMLElement>) => void;
   handleTouchStart: (event: TouchEvent<HTMLElement>) => void;
   handleTouchMove: (event: TouchEvent<HTMLElement>) => void;
