@@ -62,7 +62,7 @@ Specify models in `provider/model-id` format. Any model supported by the provide
 | Anthropic | `anthropic/{model-id}` | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
 | Google    | `google/{model-id}`    | `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`                                   |
 | OpenAI    | `openai/{model-id}`    | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`                                                |
-| xAI       | `xai/{model-id}`       | `grok-4.6`, `grok-4.5`                                                                             |
+| xAI       | `x-ai/{model-id}`      | `grok-4.6`, `grok-4.5`                                                                             |
 
 ### Examples
 
@@ -85,7 +85,7 @@ agent:
 
 # xAI Grok
 agent:
-  model: xai/grok-4.6
+  model: x-ai/grok-4.6
 ```
 
 > **Note**: Model IDs are passed directly to the provider SDK. Check the provider's documentation for the latest available models.
