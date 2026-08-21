@@ -60,6 +60,27 @@ Because agent runs are asynchronous, driving one is a two-step pattern:
 1. `send_to_workforce_agent` with the `agentId` (from `list_workforce_agents`) and your message. It returns a `threadId`.
 2. `read_workforce_thread` with that agent's `agentId`, the `threadId`, and `wait: true`. The wait is bounded (~25 seconds): it returns the messages as soon as the run finishes, but if the run is still going it returns `isRunning: true` and you must call `read_workforce_thread` again - repeat until `isRunning` is false.
 
+## Skills
+
+Read any [skill](/docs/protocol/skills) available to your organization, and - on a read-and-write connection, if your account can manage skills - author your organization's custom skills without leaving your editor. Reads cover your custom skills plus the public Octavus skills; writes only ever touch your own custom skills.
+
+| Tool           | Access | Description                                                                                                                        |
+| -------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `list_skills`  | read   | List the skills available to your organization (custom + public Octavus), with slug, description, version, category, and secrets.  |
+| `get_skill`    | read   | Read a skill's full `SKILL.md` (frontmatter + body) and its `scripts/`, `references/`, and `assets/` files, by id or slug.         |
+| `save_skill`   | write  | Create or update a custom skill by slug (create if new, update if it exists). Files merge by path; `replace: true` swaps them all. |
+| `delete_skill` | write  | Archive a custom skill by id or slug (soft delete; the slug is freed for reuse).                                                   |
+
+### Authoring a skill
+
+The write loop mirrors editing an agent:
+
+1. `fetch_documentation` with the slug `protocol/skills` to read the `SKILL.md` contract (frontmatter fields, scripts, secrets).
+2. Design the `SKILL.md` body and any `scripts/` locally (or `get_skill` an existing one to edit it).
+3. `save_skill` with the `slug`, `description`, `body`, and `files`. Send only the files that changed - they merge by path - or pass `replace: true` to replace the whole set.
+
+`save_skill` can **declare** the secrets a skill needs (the `secrets` frontmatter), but it never sets secret **values**: those are configured per organization in the Octavus dashboard and stay UI-only.
+
 ## Documentation
 
 Read the Octavus documentation from inside your AI tool, so it can answer from the real docs instead of guessing or browsing the web. Both tools are available on any connection.
