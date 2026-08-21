@@ -330,6 +330,19 @@ const events = session.execute(request, {
 
 When the client aborts the request, the signal propagates through to the LLM provider, stopping generation immediately. Any partial content is preserved.
 
+### One Execution at a Time
+
+A session runs at most one execution at a time. A trigger or continuation that arrives while another execution is still running waits briefly for it to finish (for example, an aborted run flushing its final state); if the session stays busy, the request is rejected with `429` and code `SESSION_BUSY`:
+
+```json
+{
+  "error": "The session is busy with another run. Please try again in a moment.",
+  "code": "SESSION_BUSY"
+}
+```
+
+The response carries a `Retry-After` header, and the SDK retries 429s automatically, so a transient overlap resolves on its own. If you see persistent `SESSION_BUSY` errors, your application is sending concurrent requests to one session - serialize them (one turn at a time per session), or use separate sessions for independent conversations.
+
 ## WebSocket Handling
 
 For WebSocket integrations, use `handleSocketMessage()` which manages abort controller lifecycle internally:
