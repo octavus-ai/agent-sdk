@@ -4,7 +4,11 @@ import { BaseApiClient } from '@/base-api-client.js';
 
 /**
  * Status of a Workforce thread (one dispatched run lives on the thread's
- * status). Terminal statuses are `completed`, `failed`, and `cancelled`.
+ * status). Terminal statuses are `completed`, `failed`, `cancelled`, and
+ * `blocked` - an expected billing/usage stop where the run could not proceed
+ * because an allowance, trial pool, budget, or spending limit was reached. A
+ * `blocked` thread carries a `failureReason` explaining it and is recoverable: a
+ * new dispatch after resolving billing runs the thread normally.
  */
 export type WorkforceThreadStatus =
   | 'idle'
@@ -13,12 +17,14 @@ export type WorkforceThreadStatus =
   | 'running'
   | 'completed'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'blocked';
 
 const TERMINAL_STATUSES: ReadonlySet<WorkforceThreadStatus> = new Set([
   'completed',
   'failed',
   'cancelled',
+  'blocked',
 ]);
 
 /** Whether a thread status is terminal (the run has finished). */
@@ -152,7 +158,7 @@ export interface WorkforceRecording {
 export interface WorkforceThread {
   threadId: string;
   status: WorkforceThreadStatus;
-  /** A human-readable reason when the run ended in `failed`; null otherwise. */
+  /** A human-readable reason when the run ended in `failed` or `blocked`; null otherwise. */
   failureReason: string | null;
   /** The thread's UI messages (the conversation a user would see). */
   messages: UIMessage[];

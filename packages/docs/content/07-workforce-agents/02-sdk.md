@@ -33,7 +33,7 @@ const client = new OctavusClient({
 ```ts
 const thread = await client.workforce.run(agentId, 'Summarize the latest sales report');
 
-console.log(thread.status); // 'completed' | 'failed' | 'cancelled'
+console.log(thread.status); // 'completed' | 'failed' | 'cancelled' | 'blocked'
 console.log(thread.messages); // the full conversation, including the agent's reply
 ```
 
@@ -127,8 +127,8 @@ If the timeout elapses first, `waitForCompletion()` and `run()` throw. The run k
 | Field           | Type           | Description                                                                                                      |
 | --------------- | -------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `threadId`      | string         | The thread identifier                                                                                            |
-| `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, or `cancelled`                                    |
-| `failureReason` | string \| null | Why the run failed, when `status` is `failed`                                                                    |
+| `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, `cancelled`, or `blocked`                         |
+| `failureReason` | string \| null | Why the run stopped, when `status` is `failed` or `blocked` (a usage/spending limit)                             |
 | `messages`      | UIMessage[]    | The conversation - text, tool and skill steps, and files (see [UIMessage parts](/docs/api-reference/sessions))   |
 | `runConfig`     | object \| null | The effective per-run config the thread ran under (model, backupModel, thinking, capabilities); null if none     |
 | `usage`         | object \| null | Per-run cost + token summary (`costUsd`, `totalFeeUsd`, `byok`, token counts); zeros until the run accrues spend |

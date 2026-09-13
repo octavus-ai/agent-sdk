@@ -33,16 +33,19 @@ sequenceDiagram
 
 ### Thread status
 
-| Status      | Meaning                                                                             |
-| ----------- | ----------------------------------------------------------------------------------- |
-| `pending`   | Dispatched, waiting to start                                                        |
-| `queued`    | Waiting for the agent to free up - an agent runs one task at a time on its computer |
-| `running`   | The agent is working                                                                |
-| `completed` | Finished successfully (terminal)                                                    |
-| `failed`    | Ended with an error - see `failureReason` (terminal)                                |
-| `cancelled` | Stopped (terminal)                                                                  |
+| Status      | Meaning                                                                                     |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| `pending`   | Dispatched, waiting to start                                                                |
+| `queued`    | Waiting for the agent to free up - an agent runs one task at a time on its computer         |
+| `running`   | The agent is working                                                                        |
+| `completed` | Finished successfully (terminal)                                                            |
+| `failed`    | Ended with an error - see `failureReason` (terminal)                                        |
+| `cancelled` | Stopped (terminal)                                                                          |
+| `blocked`   | Couldn't run because a usage or spending limit was reached - see `failureReason` (terminal) |
 
-Poll while the status is `pending`, `queued`, or `running`, and stop once it is `completed`, `failed`, or `cancelled`.
+Poll while the status is `pending`, `queued`, or `running`, and stop once it is `completed`, `failed`, `cancelled`, or `blocked`.
+
+A `blocked` thread is created even when the run is stopped before it starts (for example, a plan allowance or spending limit was reached), so every request is a visible, pollable thread rather than an error with nothing to inspect. Its `failureReason` explains what to resolve; once you upgrade or top up, send a new message to the same thread and it runs normally.
 
 ## Authentication
 

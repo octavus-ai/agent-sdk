@@ -122,14 +122,14 @@ GET /api/v1/workforce/agents/{agentId}/threads/{threadId}
 | Field           | Type           | Description                                                                                                                                     |
 | --------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `threadId`      | string         | The thread identifier                                                                                                                           |
-| `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, or `cancelled`                                                                   |
-| `failureReason` | string \| null | Why the run failed, when `status` is `failed`                                                                                                   |
+| `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, `cancelled`, or `blocked`                                                        |
+| `failureReason` | string \| null | Why the run stopped, when `status` is `failed` or `blocked` (a usage/spending limit)                                                            |
 | `messages`      | UIMessage[]    | The conversation - see [UIMessage parts](/docs/api-reference/sessions)                                                                          |
 | `runConfig`     | object \| null | The effective per-run config the thread ran under (`model`, `backupModel`, `thinking`, `capabilities`). Null for a run with no per-run config.  |
 | `usage`         | object \| null | Per-run cost + token summary: `costUsd` (model/provider cost), `totalFeeUsd` (provider + bandwidth fee), `byok`, and input/output/total tokens. |
 | `recording`     | object \| null | The execution recording when the run was recorded: `status`, `visibility`, a playable `url` once ready, and `error`. Null when not recorded.    |
 
-Keep polling while the status is `pending`, `queued`, or `running`. Stop when it is `completed`, `failed`, or `cancelled`.
+Keep polling while the status is `pending`, `queued`, or `running`. Stop when it is `completed`, `failed`, `cancelled`, or `blocked`. A `blocked` thread means a usage or spending limit was reached (see `failureReason`); the thread is created even when the run is blocked before it starts, so a blocked attempt is still a pollable thread rather than an error.
 
 ### Example
 
