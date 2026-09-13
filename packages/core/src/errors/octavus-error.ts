@@ -62,6 +62,15 @@ export class OctavusError extends Error {
   /** Tool details (when source === 'tool') */
   readonly tool?: ToolErrorInfo;
 
+  /**
+   * Server-side-only diagnostic detail (e.g. a raw provider response body).
+   * NEVER serialized to clients - intentionally excluded from {@link toJSON} and
+   * from stream error events - so a masked/first-party provider can retain the
+   * real backend reason for internal logging (Sentry) without ever leaking it to
+   * a consumer.
+   */
+  readonly internalDetails?: string;
+
   constructor(options: OctavusErrorOptions) {
     super(options.message);
     this.name = 'OctavusError';
@@ -72,6 +81,7 @@ export class OctavusError extends Error {
     this.code = options.code;
     this.provider = options.provider;
     this.tool = options.tool;
+    this.internalDetails = options.internalDetails;
 
     // Preserve original error stack if available
     if (options.cause instanceof Error && options.cause.stack) {

@@ -85,4 +85,13 @@ export interface OctavusErrorOptions {
   provider?: ProviderErrorInfo;
   tool?: ToolErrorInfo;
   cause?: unknown;
+  /**
+   * Server-side-only diagnostic detail (e.g. a raw provider response body).
+   * NEVER serialized to clients: it is intentionally excluded from
+   * `OctavusError.toJSON()` and from stream error events, so it is safe to carry
+   * internal detail here for logging. First-party masked providers, whose
+   * consumer-facing message is genericized, use it to retain the real backend
+   * reason for internal observability (Sentry) without leaking it.
+   */
+  internalDetails?: string;
 }
