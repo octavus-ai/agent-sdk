@@ -38,6 +38,7 @@ agent:
 | `speechVoice`         | No       | Default voice id for speech generation (literal, e.g. `marin`, or a variable reference). Only meaningful with `speechModel`                                                                                |
 | `transcriptionModel`  | No       | Audio transcription (speech-to-text) model (enables agentic transcription)                                                                                                                                 |
 | `webSearch`           | No       | Enable built-in web search tool (provider-agnostic)                                                                                                                                                        |
+| `viewImages`          | No       | Enable the built-in `octavus_view_image` tool to fetch an image URL into the model's view (needs a vision-capable model)                                                                                   |
 | `agentic`             | No       | Allow multiple tool call cycles                                                                                                                                                                            |
 | `maxSteps`            | No       | Maximum agentic steps (default: 10) - literal or variable reference                                                                                                                                        |
 | `temperature`         | No       | Model temperature (0-2), `"off"`, or a variable reference                                                                                                                                                  |
@@ -592,6 +593,30 @@ Use cases:
 - Long-running agentic loops that should communicate intent
 - Workflows where the agent plans before acting
 
+## View Images
+
+Let the agent fetch an image from a URL into its own view so it can see and reason about the picture:
+
+```yaml
+agent:
+  model: anthropic/claude-sonnet-4-5
+  system: system
+  viewImages: true
+  agentic: true
+```
+
+When `viewImages` is enabled, the `octavus_view_image` tool becomes available. Give it the URL of an image - a message attachment (SMS/MMS, email, Slack), an image on a web page, or a file the agent produced - and the platform fetches it, verifies it is a real image, re-hosts it to storage, and attaches it to the conversation as vision. Only a compact confirmation is returned inline; the image arrives as a vision block on the next step, so context stays lean.
+
+This is a **provider-agnostic** built-in tool - the model's own multimodal understanding does the seeing, so no extra model or API key is required. Common web image formats are supported (PNG, JPEG, GIF, WebP). Viewing is an explicit, agentic decision: images are never auto-inserted into context, so a tool that surfaces an image only as a URL hands that URL to `octavus_view_image` when the agent decides to look.
+
+Use cases:
+
+- Reading a photo texted or emailed to the agent (a receipt, a screenshot, an ID)
+- Inspecting an image found on a web page
+- Looking at an image file the agent generated or downloaded
+
+> **Note**: The agent's model must be vision-capable to see the fetched image.
+
 ## Temperature
 
 Control response randomness:
@@ -738,9 +763,10 @@ handlers:
       imageModel: google/gemini-2.5-flash-image # Thread-specific image model
       webSearch: true # Thread-specific web search
       todoList: true # Thread-specific task list
+      viewImages: true # Thread-specific image viewing
 ```
 
-Each thread can have its own model, backup model, thinking level, speed, streaming cadence, cache mode, MCP servers, skills, references, image model, web search setting, and task list setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section - which is how a worker enables fast mode.
+Each thread can have its own model, backup model, thinking level, speed, streaming cadence, cache mode, MCP servers, skills, references, image model, web search setting, task list setting, and image viewing setting. Skills must be defined in the protocol's `skills:` section. References must exist in the agent's `references/` directory. Workers use this same pattern since they don't have a global `agent:` section - which is how a worker enables fast mode.
 
 ## Full Example
 
@@ -799,6 +825,7 @@ agent:
   references: [support-policies] # On-demand context
   webSearch: true # Built-in web search
   todoList: true # Structured task tracking
+  viewImages: true # View images from URLs
   agentic: true
   maxSteps: 10
   thinking: medium

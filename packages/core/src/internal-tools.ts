@@ -64,6 +64,10 @@ export const OCTAVUS_INTERNAL_TOOLS = {
   /** Transcribe an audio or video file to text using AI models */
   TRANSCRIBE_AUDIO: 'octavus_transcribe_audio',
 
+  // === Image Viewing (fetch an image URL into vision) ===
+  /** View an image from a URL by adding it to the conversation as vision */
+  VIEW_IMAGE: 'octavus_view_image',
+
   // === Web Search ===
   /** Search the web for current information */
   WEB_SEARCH: 'octavus_web_search',

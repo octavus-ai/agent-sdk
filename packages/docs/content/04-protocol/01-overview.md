@@ -91,6 +91,7 @@ agent:
   imageModel: google/gemini-2.5-flash-image # Enable image generation
   webSearch: true # Enable web search
   todoList: true # Enable structured task tracking
+  viewImages: true # View images from URLs
   agentic: true # Allow multiple tool calls
   thinking: medium # Extended reasoning
 
