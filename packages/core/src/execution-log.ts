@@ -194,12 +194,22 @@ export interface ToolCallLogEntry extends ExecutionLogEntryBase {
   toolName?: string;
   toolDescription?: string;
   toolArguments?: Record<string, unknown>;
+  /**
+   * For a delegated tool - a platform-MCP tool the runtime drives as a turn of a
+   * separate child interactive session (e.g. the coding capability) rather than
+   * an inline call - the child session id this call opened or drove. Lets a trace
+   * view link the caller's tool entry to the delegated session's own trace.
+   * Absent for ordinary tools.
+   */
+  delegatedSessionId?: string;
 }
 
 export interface ToolResultLogEntry extends ExecutionLogEntryBase {
   type: 'tool-result';
   toolName?: string;
   toolResult?: unknown;
+  /** See {@link ToolCallLogEntry.delegatedSessionId}. */
+  delegatedSessionId?: string;
 }
 
 export interface LlmToolRequestLogEntry extends ExecutionLogEntryBase {
