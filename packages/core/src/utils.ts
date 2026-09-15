@@ -9,7 +9,7 @@ export function generateId(): string {
 /**
  * Normalizes a tool JSON Schema so every LLM provider accepts it, acting as a
  * safety net for schemas coming from MCP servers or hand-crafted definitions.
- * Three independent concerns, each of which can otherwise 400 a whole request -
+ * Four independent concerns, each of which can otherwise 400 a whole request -
  * every tool schema is sent to the provider in one array, so a single offending
  * tool takes down the entire agent loop, not just that tool:
  *
@@ -24,11 +24,21 @@ export function generateId(): string {
  *    `pattern` is stripped (see {@link UNSUPPORTED_PATTERN_FEATURES}); it is
  *    advisory, so nothing is lost at execution time - the MCP server still
  *    validates the argument when the tool is actually called.
+ * 4. `properties`/`required` on a node with no explicit `type` - rejected by
+ *    Google/Gemini ("only allowed for OBJECT type", plus a cascading "property
+ *    is not defined"). Both are OBJECT-only keywords in JSON Schema, but MCP
+ *    schemas routinely omit the implied `type` on an object node or an `anyOf`
+ *    branch, and conversion to Gemini's schema format forwards them verbatim
+ *    without inferring it. The implied `type: "object"` is made explicit (only
+ *    when `type` is absent, so a declared type is never overridden), and
+ *    `required` is pruned to names that actually appear in `properties` -
+ *    advisory, like concern 3. Lossless for the other providers, which already
+ *    accept an explicit object type.
  *
  * Applies equally to tool `inputSchema` and `outputSchema` - the body is
  * schema-shape agnostic; the name reflects the original use site only.
  *
- * Concerns 2 and 3 walk the ENTIRE schema tree: every subschema reachable
+ * Concerns 2, 3, and 4 walk the ENTIRE schema tree: every subschema reachable
  * through `properties`, `items`/`prefixItems`, `additionalProperties`,
  * `patternProperties`, `$defs`/`definitions`, the `allOf`/`anyOf`/`oneOf`
  * branches, `not`, `if`/`then`/`else`, `contains`, `propertyNames`, and
@@ -75,10 +85,9 @@ function flattenTopLevelCombinators(schema: Record<string, unknown>): Record<str
 
   const result: Record<string, unknown> = { ...rest };
 
-  const mergedProperties: Record<string, unknown> =
-    typeof result.properties === 'object' && result.properties !== null
-      ? { ...(result.properties as Record<string, unknown>) }
-      : {};
+  const mergedProperties: Record<string, unknown> = isSchemaMap(result.properties)
+    ? { ...result.properties }
+    : {};
 
   const mergedRequired = new Set<string>(
     Array.isArray(result.required)
@@ -94,12 +103,10 @@ function flattenTopLevelCombinators(schema: Record<string, unknown>): Record<str
       const branchSchema = branch as Record<string, unknown>;
 
       const branchProps = branchSchema.properties;
-      if (typeof branchProps === 'object' && branchProps !== null) {
-        for (const [propName, propSchema] of Object.entries(
-          branchProps as Record<string, unknown>,
-        )) {
+      if (isSchemaMap(branchProps)) {
+        for (const [propName, propSchema] of Object.entries(branchProps)) {
           // Root properties win over branch copies of the same key.
-          if (!(propName in mergedProperties)) {
+          if (!Object.hasOwn(mergedProperties, propName)) {
             mergedProperties[propName] = propSchema;
           }
         }
@@ -117,7 +124,7 @@ function flattenTopLevelCombinators(schema: Record<string, unknown>): Record<str
   result.type = 'object';
   result.properties = mergedProperties;
 
-  const finalRequired = [...mergedRequired].filter((name) => name in mergedProperties);
+  const finalRequired = [...mergedRequired].filter((name) => Object.hasOwn(mergedProperties, name));
   if (finalRequired.length > 0) {
     result.required = finalRequired;
   } else {
@@ -177,12 +184,18 @@ const SUBSCHEMA_MAP_KEYS = [
   'dependentSchemas',
 ] as const;
 
+/** Whether a value is a name -> subschema map (`properties`, `$defs`, ...) rather than a scalar or list. */
+function isSchemaMap(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
- * Recursively normalize a schema node: fill missing `properties` on object
- * nodes (concern 2) and strip provider-incompatible `pattern`s (concern 3),
- * then descend through every subschema-bearing keyword. Structural only - it
- * never resolves `$ref`, so `$ref` cycles cannot loop it. Non-object/array
- * values pass through untouched.
+ * Recursively normalize a schema node: make an implied object `type` explicit
+ * and prune dangling `required` (concern 4), fill missing `properties` on
+ * object nodes (concern 2), and strip provider-incompatible `pattern`s
+ * (concern 3), then descend through every subschema-bearing keyword. Structural
+ * only - it never resolves `$ref`, so `$ref` cycles cannot loop it.
+ * Non-object/array values pass through untouched.
  */
 function sanitizeSchemaNode(node: unknown): unknown {
   if (Array.isArray(node)) {
@@ -194,8 +207,30 @@ function sanitizeSchemaNode(node: unknown): unknown {
 
   const result = { ...(node as Record<string, unknown>) };
 
+  // Concern 4: the implied object type is made explicit before concern 2 fills
+  // `properties`, so a node carrying only `required` is typed and filled too.
+  const hasRequired = Array.isArray(result.required) && result.required.length > 0;
+  if (result.type === undefined && (isSchemaMap(result.properties) || hasRequired)) {
+    result.type = 'object';
+  }
+
   if (result.type === 'object' && !('properties' in result)) {
     result.properties = {};
+  }
+
+  // Concern 4 (cont.): Gemini checks `required` against the SAME node's
+  // `properties`, so a name reachable only through a `$ref` or an `allOf` branch
+  // is pruned as well.
+  if (Array.isArray(result.required)) {
+    const props = isSchemaMap(result.properties) ? result.properties : {};
+    const definedRequired = result.required.filter(
+      (name): name is string => typeof name === 'string' && Object.hasOwn(props, name),
+    );
+    if (definedRequired.length > 0) {
+      result.required = definedRequired;
+    } else {
+      delete result.required;
+    }
   }
 
   if (typeof result.pattern === 'string' && hasUnsupportedRegexFeature(result.pattern)) {
@@ -217,9 +252,9 @@ function sanitizeSchemaNode(node: unknown): unknown {
 
   for (const key of SUBSCHEMA_MAP_KEYS) {
     const value = result[key];
-    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    if (isSchemaMap(value)) {
       const sanitized: Record<string, unknown> = {};
-      for (const [name, subSchema] of Object.entries(value as Record<string, unknown>)) {
+      for (const [name, subSchema] of Object.entries(value)) {
         sanitized[name] = sanitizeSchemaNode(subSchema);
       }
       result[key] = sanitized;
