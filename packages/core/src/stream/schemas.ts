@@ -564,6 +564,7 @@ export const uiTextPartSchema = z.object({
   text: z.string(),
   status: uiPartStatusSchema,
   thread: z.string().optional(),
+  providerMetadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const uiReasoningPartSchema = z.object({
