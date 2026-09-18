@@ -969,9 +969,11 @@ export interface MessagePart {
    *
    * Reasoning parts carry signed thinking envelopes (Anthropic signature,
    * OpenAI item reference, OpenRouter reasoning details, etc). Tool-call
-   * parts carry provider-specific tool metadata. The runtime treats this
-   * as an opaque blob - never inspect the structure here, so a new
-   * provider works without runtime changes.
+   * parts carry provider-specific tool metadata. Text parts carry the
+   * markers some providers attach to text output (a Gemini thought
+   * signature on a text-only response, an OpenAI item reference). The
+   * runtime treats this as an opaque blob - never inspect the structure
+   * here, so a new provider works without runtime changes.
    */
   providerMetadata?: ProviderMetadata;
 }
@@ -1034,6 +1036,12 @@ export interface UITextPart {
   status: UIPartStatus;
   /** Thread name (undefined or 'main' for main thread) */
   thread?: string;
+  /**
+   * Provider-specific metadata for this text block.
+   * Used to preserve reasoning continuity markers across session restore.
+   * e.g. `{ google: { thoughtSignature: "..." } }`
+   */
+  providerMetadata?: Record<string, unknown>;
 }
 
 /**
