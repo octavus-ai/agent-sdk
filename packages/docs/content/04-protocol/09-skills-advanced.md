@@ -118,9 +118,9 @@ skills:
   data-analysis:
     display: hidden
 
-  # User-facing generation - show description
+  # Default: a clean label-only indicator (the skill's title, else its slug)
   qr-code:
-    display: description
+    display: title
 
   # Interactive progress - stream updates
   report-generation:
@@ -129,10 +129,10 @@ skills:
 
 ### Guidelines
 
-- **`hidden`**: Background work that doesn't need user awareness
-- **`description`**: User-facing operations (default)
-- **`name`**: Quick operations where name is sufficient
-- **`stream`**: Long-running operations where progress matters
+- **`title`** (default): a clean label-only indicator - the skill's title, else its slug
+- **`stream`**: long-running operations where the user benefits from seeing progress
+- **`hidden`**: background work that doesn't need user awareness
+- **`name`** / **`description`**: deprecated - prefer `title` or `stream`
 
 ## System Prompt Integration
 

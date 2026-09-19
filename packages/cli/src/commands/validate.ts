@@ -55,6 +55,7 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
       valid: result.valid,
       errors: result.errors,
       warnings: result.warnings,
+      info: result.info ?? [],
     });
   } else {
     if (result.valid) {
@@ -73,6 +74,12 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
     for (const warn of result.warnings) {
       const location = warn.path ? ` (${output.gray(warn.path)})` : '';
       output.warning(`  ${warn.message}${location}`);
+    }
+
+    // Show info-level recommendations (best-practice guidance; never blocks)
+    for (const item of result.info ?? []) {
+      const location = item.path ? ` (${output.gray(item.path)})` : '';
+      output.info(`  ${item.message}${location}`);
     }
   }
 

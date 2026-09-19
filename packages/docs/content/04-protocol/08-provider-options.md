@@ -58,11 +58,11 @@ anthropic:
       description: Searching... # Custom display text
 ```
 
-| Field         | Required | Description                                                                    |
-| ------------- | -------- | ------------------------------------------------------------------------------ |
-| `display`     | No       | `hidden`, `name`, `description`, `stream`, or `title` (default: `description`) |
-| `title`       | No       | UI label shown when `display: title` (hides description and arguments)         |
-| `description` | No       | Custom text shown to users during execution                                    |
+| Field         | Required | Description                                                                  |
+| ------------- | -------- | ---------------------------------------------------------------------------- |
+| `display`     | No       | `title` (default), `stream`, or `hidden` (`name`/`description` deprecated)   |
+| `title`       | No       | User-facing UI label (used in `title`/`stream`; falls back to the tool name) |
+| `description` | No       | Custom text shown to users during execution                                  |
 
 ### Web Search
 
@@ -121,13 +121,13 @@ anthropic:
       description: Processing PDF
 ```
 
-| Field         | Required | Description                                                                    |
-| ------------- | -------- | ------------------------------------------------------------------------------ |
-| `type`        | Yes      | `anthropic` (built-in) or `custom` (uploaded)                                  |
-| `version`     | No       | Skill version (default: `latest`)                                              |
-| `display`     | No       | `hidden`, `name`, `description`, `stream`, or `title` (default: `description`) |
-| `title`       | No       | UI label shown when `display: title` (hides description and arguments)         |
-| `description` | No       | Custom text shown to users                                                     |
+| Field         | Required | Description                                                                  |
+| ------------- | -------- | ---------------------------------------------------------------------------- |
+| `type`        | Yes      | `anthropic` (built-in) or `custom` (uploaded)                                |
+| `version`     | No       | Skill version (default: `latest`)                                            |
+| `display`     | No       | `title` (default), `stream`, or `hidden` (`name`/`description` deprecated)   |
+| `title`       | No       | User-facing UI label (used in `title`/`stream`; falls back to the tool name) |
+| `description` | No       | Custom text shown to users                                                   |
 
 ### Built-in Skills
 

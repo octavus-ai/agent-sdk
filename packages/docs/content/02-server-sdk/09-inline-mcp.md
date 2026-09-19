@@ -27,7 +27,8 @@ mcpServers:
   github:
     description: Repository management - issues, pull requests, code
     source: consumer
-    display: name
+    display: title
+    title: GitHub
 
 agent:
   mcpServers:
@@ -46,6 +47,8 @@ const github = createInlineMcpServer('github', {
   tools: {
     'get-pr-overview': defineInlineMcpTool({
       description: 'Get pull request metadata and file changes',
+      // Optional per-tool UI label; overrides the namespace `title`.
+      title: 'PR overview',
       parameters: z.object({
         owner: z.string(),
         repo: z.string(),
@@ -79,6 +82,10 @@ The factory:
 3. Returns an `InlineMcpServer` exposing `toolSchemas()` and `toolHandlers()`.
 
 The resulting tool names are namespaced: `github__get-pr-overview`, `github__list-issues`.
+
+### Per-tool titles
+
+Because inline tools are authored one by one, each may set an optional `title` (and `display`) that **overrides the namespace-level `title`/`display`** from the protocol `mcpServers.<ns>` entry. Precedence is per-tool title -> namespace title -> the `namespace__tool` name. Use it to give each tool a clean, distinct label instead of sharing one namespace title. `description` stays model-facing and is never the UI label.
 
 ## Why `defineInlineMcpTool`
 

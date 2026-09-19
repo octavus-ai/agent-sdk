@@ -284,13 +284,15 @@ For agentic transcription where the LLM decides when to transcribe, configure `t
 
 Every block has a `display` property:
 
-| Mode          | Default For               | Behavior                        |
-| ------------- | ------------------------- | ------------------------------- |
-| `hidden`      | add-message               | Not shown to user               |
-| `name`        | set-resource              | Shows block name                |
-| `description` | tool-call, generate-image | Shows description               |
-| `stream`      | next-message              | Streams content                 |
-| `title`       | -                         | Shows the block's `title` field |
+| Mode          | Default For                                               | Behavior                                             |
+| ------------- | --------------------------------------------------------- | ---------------------------------------------------- |
+| `title`       | tool-call, generate-image/video/speech, transcribe-audio  | Label-only card: the block's `title` (else its name) |
+| `stream`      | next-message, run-worker                                  | Streams content                                      |
+| `hidden`      | add-message, start-thread, set-resource, serialize-thread | Not shown to user                                    |
+| `name`        | _(deprecated)_                                            | Shows the block name only                            |
+| `description` | _(deprecated)_                                            | Shows the block's description                        |
+
+Operation-style blocks (`tool-call`, `generate-image`/`video`/`speech`, `transcribe-audio`) default to `title` - a clean label-only card. `name` and `description` still work but are deprecated (validation warns); prefer `title` or `stream`.
 
 ## Complete Example
 

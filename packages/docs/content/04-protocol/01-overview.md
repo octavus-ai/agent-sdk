@@ -73,12 +73,13 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
+    display: title
+    title: Figma
 
 # Octavus skills (provider-agnostic code execution)
 skills:
   qr-code:
-    display: description
+    display: title
     description: Generating QR codes
 
 # Agent configuration (model, tools, etc.)

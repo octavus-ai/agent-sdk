@@ -1,5 +1,5 @@
 import { type z, toJSONSchema } from 'zod';
-import type { InlineMcpServer, ToolHandler, ToolSchema } from '@octavus/core';
+import type { DisplayMode, InlineMcpServer, ToolHandler, ToolSchema } from '@octavus/core';
 
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
 /**
@@ -14,6 +14,14 @@ interface InlineMcpToolDefinition<
   O extends z.ZodType = z.ZodType,
 > {
   description: string;
+  /**
+   * Optional UI title shown when this tool runs. Overrides the namespace-level
+   * `title` (from the protocol `mcpServers.<ns>` entry); falls back to the
+   * `namespace__tool` slug when unset. `description` stays model-facing.
+   */
+  title?: string;
+  /** Optional per-tool display mode, overriding the namespace-level `display`. */
+  display?: DisplayMode;
   parameters: T;
   output?: O;
   handler: (args: z.infer<T>) => Promise<z.infer<O>>;
@@ -155,6 +163,8 @@ export function createInlineMcpServer(
     schemas.push({
       name: namespacedName,
       description: def.description,
+      ...(def.title !== undefined && { title: def.title }),
+      ...(def.display !== undefined && { display: def.display }),
       inputSchema: inputJsonSchema,
       outputSchema: outputJsonSchema,
     });

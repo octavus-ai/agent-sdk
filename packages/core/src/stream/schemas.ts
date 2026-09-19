@@ -8,6 +8,11 @@
 
 import { z } from 'zod';
 
+/**
+ * Display mode. Three first-class modes (`hidden` / `title` / `stream`); `name`
+ * and `description` are deprecated but kept for back-compat (already-persisted
+ * parts and external consumers). See `DisplayMode` in `./types` for details.
+ */
 export const displayModeSchema = z.enum(['hidden', 'name', 'description', 'stream', 'title']);
 export const messageRoleSchema = z.enum(['user', 'assistant', 'system']);
 export const toolCallStatusSchema = z.enum(['pending', 'streaming', 'available', 'error']);
@@ -24,6 +29,7 @@ export const finishReasonSchema = z.enum([
 export const toolCallInfoSchema = z.object({
   id: z.string(),
   name: z.string(),
+  title: z.string().optional(),
   description: z.string().optional(),
   arguments: z.record(z.string(), z.unknown()),
   status: toolCallStatusSchema,
@@ -579,6 +585,7 @@ export const uiToolCallPartSchema = z.object({
   type: z.literal('tool-call'),
   toolCallId: z.string(),
   toolName: z.string(),
+  title: z.string().optional(),
   displayName: z.string().optional(),
   args: z.record(z.string(), z.unknown()),
   result: z.unknown().optional(),

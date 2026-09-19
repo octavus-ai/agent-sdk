@@ -43,8 +43,8 @@ mcpServers:
 | ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `description` | Yes      | What the MCP server provides                                                                                           |
 | `source`      | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                             |
-| `display`     | No       | How tool calls appear in UI: `hidden`, `name`, `description`, `stream`, `title` (default: `description`)               |
-| `title`       | No       | UI label shown when `display: title`; applies to every tool in this namespace (hides description and arguments)        |
+| `display`     | No       | How tool calls appear in UI: `title` (default), `stream`, `hidden` (`name`/`description` deprecated)                   |
+| `title`       | No       | UI label applied to every tool in this namespace (used in `title`/`stream`; falls back to the `ns__tool` name)         |
 | `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                   |
 | `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution). |
 

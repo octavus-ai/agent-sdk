@@ -1745,7 +1745,11 @@ export class OctavusChat {
           type: 'tool-call',
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          displayName: event.title,
+          // Split the wire label the same way session restore does: the authored
+          // `title` (title/stream) rides on its own field, while `displayName`
+          // (the description) is kept only for the deprecated `description` mode.
+          title: event.display === 'title' || event.display === 'stream' ? event.title : undefined,
+          displayName: event.display === 'name' ? undefined : event.title,
           display: event.display,
           args: {},
           result: undefined,

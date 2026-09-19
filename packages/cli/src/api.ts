@@ -49,7 +49,7 @@ export interface AgentDetails {
 export interface ValidationErrorDetail {
   message: string;
   path?: string;
-  severity: 'error' | 'warning';
+  severity: 'error' | 'warning' | 'info';
 }
 
 /** Validation result from validate endpoint */
@@ -57,6 +57,8 @@ export interface ValidationResult {
   valid: boolean;
   errors: ValidationErrorDetail[];
   warnings: ValidationErrorDetail[];
+  /** Info-level best-practice guidance. Optional for back-compat with older servers. */
+  info?: ValidationErrorDetail[];
 }
 
 /** Sync result from create/update endpoints */
@@ -102,22 +104,17 @@ const agentDefinitionSchema = z.object({
   id: z.string(),
 });
 
+const validationDetailSchema = z.object({
+  message: z.string(),
+  path: z.string().optional(),
+  severity: z.enum(['error', 'warning', 'info']),
+});
+
 const validationResultSchema = z.object({
   valid: z.boolean(),
-  errors: z.array(
-    z.object({
-      message: z.string(),
-      path: z.string().optional(),
-      severity: z.enum(['error', 'warning']),
-    }),
-  ),
-  warnings: z.array(
-    z.object({
-      message: z.string(),
-      path: z.string().optional(),
-      severity: z.enum(['error', 'warning']),
-    }),
-  ),
+  errors: z.array(validationDetailSchema),
+  warnings: z.array(validationDetailSchema),
+  info: z.array(validationDetailSchema).optional(),
 });
 
 const createResponseSchema = z.object({

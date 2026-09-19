@@ -9,17 +9,23 @@
 import type { z } from 'zod';
 import type { uiWorkerStatusSchema } from './schemas';
 
-/**
- * Display mode - controls execution indicator visibility (NOT final message visibility).
- * - hidden: Block runs silently
- * - name: Shows block/tool name
- * - description: Shows description
- * - stream: Shows live streaming content
- * - title: Shows a custom UI title plus the tool name only; description,
- *   arguments, and result are hidden. The `description` still goes to the LLM.
- */
 import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from '@/errors/types';
 
+/**
+ * Display mode - controls execution indicator visibility (NOT final message visibility).
+ *
+ * Three first-class modes:
+ * - `hidden`: nothing surfaces in the UI.
+ * - `title`: label-only indicator - the entity name plus an optional human `title`
+ *   (the default for indicator entities). Args, result, and description never surface.
+ * - `stream`: full visibility - live args, result, and nested worker activity. Its
+ *   label follows the same `title ?? name` rule (the description is never the label).
+ *
+ * Deprecated (still supported for back-compat; prefer `title` / `stream`):
+ * - `name`: shows the entity name only. A title-less `title` already shows the name.
+ * - `description`: shows the entity `description` as the UI label. Descriptions are
+ *   prompt text written for the model, so they should not be the label; use `title`.
+ */
 export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream' | 'title';
 
 export type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
@@ -29,6 +35,19 @@ export type ToolHandlers = Record<string, ToolHandler>;
 export interface ToolSchema {
   name: string;
   description: string;
+  /**
+   * Optional UI title for this tool. Inline (consumer) MCP tools may set it to
+   * override the namespace-level `title` (precedence: per-tool title ->
+   * namespace title -> `namespace__tool` slug). Not read for
+   * dynamically-discovered remote/device/platform MCP tools.
+   */
+  title?: string;
+  /**
+   * Optional per-tool display mode. Inline (consumer) MCP tools may set it to
+   * override the namespace-level `display`. Not read for dynamically-discovered
+   * remote/device/platform MCP tools.
+   */
+  display?: DisplayMode;
   inputSchema: Record<string, unknown>;
   /**
    * Optional JSON Schema describing the tool's return shape.
@@ -191,6 +210,19 @@ export type ProviderMetadata = Record<string, Record<string, unknown>>;
 export interface ToolCallInfo {
   id: string;
   name: string;
+  /**
+   * Author-provided, display-facing title - the UI label for `title`/`stream`
+   * modes (`title ?? name`). Undefined when the author set none; the UI then
+   * falls back to the friendly name. Kept separate from `name` (which drives the
+   * icon) and is never the description.
+   */
+  title?: string;
+  /**
+   * Resolved UI label, retained for back-compat. In `title`/`stream` modes it
+   * mirrors `title`; in the deprecated `description` mode it holds the entity
+   * `description`. New code should read `title` - this is surfaced as the label
+   * only for the deprecated `description` mode and already-persisted parts.
+   */
   description?: string;
   arguments: Record<string, unknown>;
   status: ToolCallStatus;
@@ -1074,8 +1106,16 @@ export interface UIToolCallPart {
   toolCallId: string;
   toolName: string;
   /**
-   * Human-readable display name. Holds the protocol `description` for
-   * `description`/`stream` modes, and the protocol `title` for `title` mode.
+   * Author-provided display title - the authoritative UI label for `title` and
+   * `stream` modes (`title ?? name`). Undefined when the author set none. Kept
+   * separate from `toolName` (which drives the icon) and is never the description.
+   */
+  title?: string;
+  /**
+   * Resolved UI label, retained for back-compat. In `title`/`stream` modes it
+   * mirrors `title`; in the deprecated `description` mode it holds the protocol
+   * `description`. New code should read `title` - this is surfaced as the label
+   * only for the deprecated `description` mode and already-persisted parts.
    */
   displayName?: string;
   args: Record<string, unknown>;

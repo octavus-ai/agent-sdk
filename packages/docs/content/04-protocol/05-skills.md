@@ -45,12 +45,14 @@ skills:
 
 ### Skill Fields
 
-| Field         | Required | Description                                                                                    |
-| ------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `display`     | No       | How to show in UI: `hidden`, `name`, `description`, `stream`, `title` (default: `description`) |
-| `title`       | No       | UI label shown when `display: title` (hides the description and arguments)                     |
-| `description` | No       | Custom description shown to users (overrides skill's built-in description)                     |
-| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                          |
+| Field         | Required | Description                                                                                            |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `display`     | No       | How to show in UI: `title` (default), `stream`, `hidden` (`name`/`description` deprecated)             |
+| `title`       | No       | Protocol override for the skill's UI label. Resolves: this -> the skill's built-in `title` -> the slug |
+| `description` | No       | Model-facing text (overrides the skill's built-in description). Never used as the UI label             |
+| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                                  |
+
+Skills own their UI label. A skill's `description` is written for the model (when to call it), while its **title** is the user-facing label (e.g. "Working with Gmail"), authored on the skill's `SKILL.md` frontmatter. The label resolves: the protocol override `skills.<slug>.title` -> the skill's built-in `title` -> the skill slug. The description is never the label.
 
 ### Display Modes
 
@@ -331,7 +333,7 @@ agent:
 
 ### 4. Display Modes
 
-Choose appropriate display modes based on user experience:
+Skills default to `title` - a clean, label-only indicator (the skill's title, else its slug). Choose another mode based on user experience:
 
 ```yaml
 skills:
@@ -339,11 +341,11 @@ skills:
   data-analysis:
     display: hidden
 
-  # User-facing generation - show description
+  # Default: a clean label-only indicator (the skill's title, else its slug)
   qr-code:
-    display: description
+    display: title
 
-  # Interactive progress - stream updates
+  # Interactive progress - stream the skill's activity
   report-generation:
     display: stream
 ```
