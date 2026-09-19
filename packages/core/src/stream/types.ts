@@ -38,8 +38,8 @@ export interface ToolSchema {
   /**
    * Optional UI title for this tool. Inline (consumer) MCP tools may set it to
    * override the namespace-level `title` (precedence: per-tool title ->
-   * namespace title -> `namespace__tool` slug). Not read for
-   * dynamically-discovered remote/device/platform MCP tools.
+   * namespace title -> the tool name). Not read for dynamically-discovered
+   * remote/device/platform MCP tools.
    */
   title?: string;
   /**
@@ -213,8 +213,8 @@ export interface ToolCallInfo {
   /**
    * Author-provided, display-facing title - the UI label for `title`/`stream`
    * modes (`title ?? name`). Undefined when the author set none; the UI then
-   * falls back to the friendly name. Kept separate from `name` (which drives the
-   * icon) and is never the description.
+   * renders the name. Kept separate from `name` (which drives the icon) and is
+   * never the description.
    */
   title?: string;
   /**

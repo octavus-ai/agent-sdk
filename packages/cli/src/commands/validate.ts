@@ -76,7 +76,7 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
       output.warning(`  ${warn.message}${location}`);
     }
 
-    // Show info-level recommendations (best-practice guidance; never blocks)
+    // Show info-level recommendations
     for (const item of result.info ?? []) {
       const location = item.path ? ` (${output.gray(item.path)})` : '';
       output.info(`  ${item.message}${location}`);

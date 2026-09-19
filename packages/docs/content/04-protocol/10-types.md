@@ -550,7 +550,8 @@ types:
 tools:
   add-to-cart:
     description: Adding products to cart
-    display: description
+    display: title
+    title: Adding to cart
     parameters:
       cartItems:
         type: CartItemList

@@ -36,23 +36,23 @@ Define skills in the protocol's `skills:` section:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
   data-analysis:
-    display: description
-    description: Analyzing data and generating reports
+    display: title
+    title: Analyzing data and generating reports
 ```
 
 ### Skill Fields
 
-| Field         | Required | Description                                                                                            |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `display`     | No       | How to show in UI: `title` (default), `stream`, `hidden` (`name`/`description` deprecated)             |
-| `title`       | No       | Protocol override for the skill's UI label. Resolves: this -> the skill's built-in `title` -> the slug |
-| `description` | No       | Model-facing text (overrides the skill's built-in description). Never used as the UI label             |
-| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                                  |
+| Field         | Required | Description                                                                                             |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `display`     | No       | How to show in UI: `title` (default), `stream`, `hidden` (`name`/`description` deprecated)              |
+| `title`       | No       | Protocol override for the skill's UI label. Resolves: this -> the skill's built-in `title` -> tool name |
+| `description` | No       | Model-facing text (overrides the skill's built-in description). Never used as the UI label              |
+| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                                   |
 
-Skills own their UI label. A skill's `description` is written for the model (when to call it), while its **title** is the user-facing label (e.g. "Working with Gmail"), authored on the skill's `SKILL.md` frontmatter. The label resolves: the protocol override `skills.<slug>.title` -> the skill's built-in `title` -> the skill slug. The description is never the label.
+Skills own their UI label. A skill's `description` is written for the model (when to call it), while its **title** is the user-facing label (e.g. "Working with Gmail"), authored on the skill's `SKILL.md` frontmatter. The label resolves: the protocol override `skills.<slug>.title` -> the skill's built-in `title` -> the skill tool's name (your UI decides how to render it). The description is never the label, and the raw skill slug is never used as a title.
 
 ### Display Modes
 
@@ -76,8 +76,8 @@ Reference skills in `agent.skills`:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -94,8 +94,8 @@ Reference skills per-thread in `start-thread.skills`:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 steps:
   Start thread:
@@ -134,12 +134,12 @@ By default, skills run in an isolated sandbox. When `execution: device` is set, 
 ```yaml
 skills:
   deploy-tool:
-    display: description
-    description: Deploy applications to production
+    display: title
+    title: Deploy applications to production
     execution: device
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
     # execution defaults to sandbox
 ```
 
@@ -178,8 +178,8 @@ Use `execution: device` when the skill needs to:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -315,14 +315,14 @@ Define all skills available to this agent in the `skills:` section. Then specify
 # All skills available to this agent (defined once at protocol level)
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
   data-analysis:
-    display: description
-    description: Analyzing data
+    display: title
+    title: Analyzing data
   pdf-processor:
-    display: description
-    description: Processing PDFs
+    display: title
+    title: Processing PDFs
 
 # Skills available for this chat thread
 agent:
@@ -333,7 +333,7 @@ agent:
 
 ### 4. Display Modes
 
-Skills default to `title` - a clean, label-only indicator (the skill's title, else its slug). Choose another mode based on user experience:
+Skills default to `title` - a clean, label-only indicator (the skill's title, else the tool name). Choose another mode based on user experience:
 
 ```yaml
 skills:
@@ -341,7 +341,7 @@ skills:
   data-analysis:
     display: hidden
 
-  # Default: a clean label-only indicator (the skill's title, else its slug)
+  # Default: a clean label-only indicator (the skill's title, else the tool name)
   qr-code:
     display: title
 
@@ -391,8 +391,8 @@ Once uploaded, reference the skill by slug in your protocol:
 ```yaml
 skills:
   my-skill:
-    display: description
-    description: Custom analysis tool
+    display: title
+    title: Custom analysis tool
 
 agent:
   skills: [my-skill]
@@ -404,7 +404,7 @@ On-demand skills (`onDemandSkills`) also support the `execution` field:
 
 ```yaml
 onDemandSkills:
-  display: description
+  display: title
   execution: device
 ```
 

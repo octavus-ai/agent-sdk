@@ -24,17 +24,18 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
+    display: title
+    title: Figma
 
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
+    display: title
 
   github:
     description: Repository management - issues, pull requests, code
     source: consumer
-    display: name
+    display: title
 ```
 
 ### Fields
@@ -67,17 +68,18 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
+    display: title
+    title: Figma
 
   sentry:
     description: Error tracking and debugging
     source: remote
-    display: name
+    display: title
 
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
+    display: title
 
   filesystem:
     description: Filesystem access for reading and writing files
@@ -161,12 +163,13 @@ mcpServers:
   sentry:
     source: remote
     connection: eager # Always connected upfront
-    display: name
+    display: title
 
   notion:
     source: remote
     # connection defaults to lazy - agent activates when needed
-    display: description
+    display: title
+    title: Notion
 ```
 
 With **lazy connection** (the default), the agent receives two built-in tools - one for listing available integrations and one for activating them. The agent decides which integrations it needs based on the conversation and activates them on demand. This avoids paying connection latency for integrations the agent doesn't end up using.
@@ -198,13 +201,13 @@ mcpServers:
     description: Code analysis and refactoring tools
     source: remote
     execution: device # STDIO process runs on the agent's computer
-    display: name
+    display: title
 
   sentry:
     description: Error tracking
     source: remote
     # execution defaults to sandbox - runs in the platform
-    display: name
+    display: title
 ```
 
 ### When to Use
@@ -263,7 +266,7 @@ mcpServers:
   github:
     description: Repository management - issues, pull requests, code
     source: consumer
-    display: name
+    display: title
 
 agent:
   mcpServers:
@@ -337,12 +340,13 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
+    display: title
+    title: Figma
 
 onDemandMcpServers:
   remote:
     description: Additional connected integrations
-    display: name
+    display: title
     execution: device # on-demand MCPs run on the agent's computer
     contextRetention:
       toolResults: { retainLast: 5 }
@@ -390,11 +394,11 @@ mcpServers:
   sentry:
     description: Error tracking and debugging
     source: remote
-    display: name
+    display: title
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
+    display: title
 
 steps:
   Start research:
@@ -418,15 +422,16 @@ mcpServers:
     description: Figma design tool integration
     source: remote
     connection: eager
-    display: description
+    display: title
+    title: Figma
   sentry:
     description: Error tracking and debugging
     source: remote
-    display: name
+    display: title
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
+    display: title
   filesystem:
     description: Filesystem access for reading and writing files
     source: device
@@ -434,7 +439,7 @@ mcpServers:
   shell:
     description: Shell command execution
     source: device
-    display: name
+    display: title
 
 tools:
   set-chat-title:
@@ -479,12 +484,13 @@ mcpServers:
     description: Figma design tool integration
     source: remote
     connection: eager # Need design tools from message 1
-    display: description
+    display: title
+    title: Figma
   sentry:
     description: Error tracking and debugging
     source: remote
     # Lazy (default) - agent activates when debugging is needed
-    display: name
+    display: title
 
 tools:
   submit-code:

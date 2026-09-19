@@ -134,7 +134,7 @@ Save summary:
   block: set-resource
   resource: CONVERSATION_SUMMARY
   value: SUMMARY # Variable to save
-  display: name # Show block name
+  display: title # Show a label-only step card (the block name)
 ```
 
 ### start-thread

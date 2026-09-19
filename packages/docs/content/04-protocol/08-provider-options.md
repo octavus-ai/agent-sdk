@@ -21,18 +21,18 @@ agent:
     # Provider tools (server-side)
     tools:
       web-search:
-        display: description
-        description: Searching the web
+        display: title
+        title: Searching the web
       code-execution:
-        display: description
-        description: Running code
+        display: title
+        title: Running code
 
     # Skills (knowledge packages)
     skills:
       pdf:
         type: anthropic
-        display: description
-        description: Processing PDF document
+        display: title
+        title: Processing PDF document
 ```
 
 > **Note**: Provider options are validated against the model provider. Using `anthropic:` options with non-Anthropic models will result in a validation error.
@@ -54,15 +54,15 @@ Provider tools are executed server-side by the provider (Anthropic). Unlike exte
 anthropic:
   tools:
     web-search:
-      display: description # How to show in UI
-      description: Searching... # Custom display text
+      display: title # How to show in UI (this is the default)
+      title: Searching the web # Custom UI label
 ```
 
 | Field         | Required | Description                                                                  |
 | ------------- | -------- | ---------------------------------------------------------------------------- |
 | `display`     | No       | `title` (default), `stream`, or `hidden` (`name`/`description` deprecated)   |
 | `title`       | No       | User-facing UI label (used in `title`/`stream`; falls back to the tool name) |
-| `description` | No       | Custom text shown to users during execution                                  |
+| `description` | No       | _Deprecated._ Only shown under `display: description`; use `title` instead   |
 
 ### Web Search
 
@@ -74,8 +74,8 @@ agent:
   anthropic:
     tools:
       web-search:
-        display: description
-        description: Looking up current information
+        display: title
+        title: Looking up current information
 ```
 
 > **Tip**: Octavus also provides a **provider-agnostic** web search via `webSearch: true` in the agent config. This works with any LLM provider and is the recommended approach for multi-provider agents. See [Web Search](/docs/protocol/agent-config#web-search) for details.
@@ -90,8 +90,8 @@ agent:
   anthropic:
     tools:
       code-execution:
-        display: description
-        description: Running analysis
+        display: title
+        title: Running analysis
 ```
 
 Use cases:
@@ -117,17 +117,17 @@ anthropic:
     pdf:
       type: anthropic # 'anthropic' or 'custom'
       version: latest # Optional version
-      display: description
-      description: Processing PDF
+      display: title
+      title: Processing PDF
 ```
 
-| Field         | Required | Description                                                                  |
-| ------------- | -------- | ---------------------------------------------------------------------------- |
-| `type`        | Yes      | `anthropic` (built-in) or `custom` (uploaded)                                |
-| `version`     | No       | Skill version (default: `latest`)                                            |
-| `display`     | No       | `title` (default), `stream`, or `hidden` (`name`/`description` deprecated)   |
-| `title`       | No       | User-facing UI label (used in `title`/`stream`; falls back to the tool name) |
-| `description` | No       | Custom text shown to users                                                   |
+| Field         | Required | Description                                                                   |
+| ------------- | -------- | ----------------------------------------------------------------------------- |
+| `type`        | Yes      | `anthropic` (built-in) or `custom` (uploaded)                                 |
+| `version`     | No       | Skill version (default: `latest`)                                             |
+| `display`     | No       | `title` (default), `stream`, or `hidden` (`name`/`description` deprecated)    |
+| `title`       | No       | User-facing UI label (used in `title`/`stream`; falls back to the skill name) |
+| `description` | No       | _Deprecated._ Only shown under `display: description`; use `title` instead    |
 
 ### Built-in Skills
 
@@ -150,10 +150,10 @@ agent:
     skills:
       pdf:
         type: anthropic
-        description: Processing your PDF
+        title: Processing your PDF
       xlsx:
         type: anthropic
-        description: Analyzing spreadsheet
+        title: Analyzing spreadsheet
 ```
 
 When skills are configured:
@@ -172,7 +172,7 @@ anthropic:
     custom-analysis:
       type: custom
       version: latest
-      description: Running custom analysis
+      title: Running custom analysis
 ```
 
 Custom skills follow the [Agent Skills standard](https://agentskills.io) and contain:
@@ -229,22 +229,22 @@ agent:
     # Provider tools (server-side)
     tools:
       web-search:
-        display: description
-        description: Searching the web
+        display: title
+        title: Searching the web
       code-execution:
-        display: description
-        description: Running code
+        display: title
+        title: Running code
 
     # Skills (knowledge packages)
     skills:
       pdf:
         type: anthropic
-        display: description
-        description: Processing PDF document
+        display: title
+        title: Processing PDF document
       xlsx:
         type: anthropic
-        display: description
-        description: Analyzing spreadsheet
+        display: title
+        title: Analyzing spreadsheet
 
 triggers:
   user-message:

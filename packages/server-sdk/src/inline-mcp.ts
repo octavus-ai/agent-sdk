@@ -16,8 +16,8 @@ interface InlineMcpToolDefinition<
   description: string;
   /**
    * Optional UI title shown when this tool runs. Overrides the namespace-level
-   * `title` (from the protocol `mcpServers.<ns>` entry); falls back to the
-   * `namespace__tool` slug when unset. `description` stays model-facing.
+   * `title` (from the protocol `mcpServers.<ns>` entry); the UI shows the
+   * `namespace__tool` name when neither is set. `description` stays model-facing.
    */
   title?: string;
   /** Optional per-tool display mode, overriding the namespace-level `display`. */

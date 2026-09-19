@@ -371,8 +371,8 @@ Enable Octavus skills for code execution and file generation:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -727,8 +727,8 @@ agent:
   anthropic:
     tools:
       web-search:
-        display: description
-        description: Searching the web
+        display: title
+        title: Searching the web
     skills:
       pdf:
         type: anthropic
@@ -802,12 +802,13 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
+    display: title
+    title: Figma
 
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -833,8 +834,8 @@ agent:
   anthropic:
     tools:
       web-search:
-        display: description
-        description: Searching the web
+        display: title
+        title: Searching the web
     skills:
       pdf:
         type: anthropic
