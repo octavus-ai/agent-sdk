@@ -144,7 +144,7 @@ A condition may reference only declared inputs (or variables/resources), resolve
 
 ## Resources
 
-> **Deprecated:** Resources are deprecated and superseded by [tools](/docs/protocol/tools). Persist state with a consumer-defined tool (or MCP tool) that writes the value in your own application instead - that keeps state ownership in your app with no separate resource concept to maintain. Resources still work for now, but protocol validation emits a non-blocking deprecation warning and they may be removed in a future major version.
+> **Deprecated:** Resources are deprecated and superseded by [tools](/docs/protocol/tools), and will be **removed in v7** (along with the `set-resource` block and the `resource-update` / `onResourceUpdate` event). Persist state with a consumer-defined tool (or MCP tool) that writes the value in your own application instead - that keeps state ownership in your app with no separate resource concept to maintain. Resources still work for now, but protocol validation emits a non-blocking deprecation warning. See the [migration guide](/docs/migration/v6-to-v7) for the full before/after.
 
 Resources are persistent state that:
 

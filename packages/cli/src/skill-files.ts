@@ -22,6 +22,8 @@ export class SkillFileError extends Error {
 
 export interface SkillFrontmatter {
   name: string;
+  /** User-facing label shown when the skill runs in `display: title` mode. */
+  title?: string;
   description?: string;
   version?: string;
   license?: string;
@@ -84,6 +86,7 @@ export async function parseSkillFrontmatter(skillPath: string): Promise<SkillFro
 
   return {
     name: frontmatter.name,
+    title: optionalString(frontmatter.title),
     description: optionalString(frontmatter.description),
     version: optionalString(frontmatter.version),
     license: optionalString(frontmatter.license),

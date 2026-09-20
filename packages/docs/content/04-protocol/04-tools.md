@@ -10,7 +10,7 @@ Tools extend what agents can do. Octavus supports multiple types:
 1. **External Tools** - Defined in the protocol, implemented in your backend (this page)
 2. **MCP Tools** - Auto-discovered from MCP servers (see [MCP Servers](/docs/protocol/mcp-servers))
 3. **Built-in Tools** - Provider-agnostic tools managed by Octavus (web search, image generation)
-4. **Provider Tools** - Provider-specific tools executed by the provider (e.g., Anthropic's code execution)
+4. **Provider Tools** - Provider-specific tools executed by the provider (deprecated - see [Provider Options](/docs/protocol/provider-options))
 5. **Skills** - Code execution and knowledge packages (see [Skills](/docs/protocol/skills))
 
 This page covers external tools. For MCP-based tools from services like Figma, Sentry, or device capabilities like browser and filesystem, see [MCP Servers](/docs/protocol/mcp-servers). Built-in tools are enabled via agent config - see [Web Search](/docs/protocol/agent-config#web-search) and [Image Generation](/docs/protocol/agent-config#image-generation). For provider-specific tools, see [Provider Options](/docs/protocol/provider-options). For code execution, see [Skills](/docs/protocol/skills).
@@ -24,8 +24,9 @@ External tools are defined in the `tools:` section and implemented in your backe
 ```yaml
 tools:
   get-user-account:
-    description: Looking up your account information
-    display: description
+    display: title
+    title: Looking up your account
+    description: Retrieves the user's account information by id.
     parameters:
       userId:
         type: string
@@ -34,22 +35,24 @@ tools:
 
 ### Tool Fields
 
-| Field         | Required | Description                                                                |
-| ------------- | -------- | -------------------------------------------------------------------------- |
-| `description` | Yes      | What the tool does (shown to LLM and optionally user)                      |
-| `display`     | No       | How to show in UI: `hidden`, `name`, `description`, `stream`, `title`      |
-| `title`       | No       | UI label shown when `display: title` (hides the description and arguments) |
-| `parameters`  | No       | Input parameters the tool accepts                                          |
+| Field         | Required | Description                                                                                                                                   |
+| ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | Yes      | What the tool does (shown to LLM and optionally user)                                                                                         |
+| `display`     | No       | How to show in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)). |
+| `title`       | No       | UI label shown when `display: title` (hides the description and arguments)                                                                    |
+| `parameters`  | No       | Input parameters the tool accepts                                                                                                             |
 
 ### Display Modes
 
-Controls what the client sees about tool execution. The default is `description`.
+Controls what the client sees about tool execution. The supported modes are `hidden`, `title`, and `stream`.
+
+> **Deprecated:** `name` and `description` are deprecated and will be removed in v7 (when the default indicator also becomes `title`). Use `title` for a clean label or `stream` for full visibility. The current default is still `description`, so set `display` explicitly to get label-only behavior. See the [migration guide](/docs/migration/v6-to-v7).
 
 | Mode          | Behavior                                                                                                                                                                                                                                                         |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `hidden`      | No UI events emitted. The tool executes silently and the user has no awareness it was called. Use for internal plumbing tools (title setting, context management).                                                                                               |
-| `name`        | Shows the raw tool name while executing. Arguments and result are not displayed.                                                                                                                                                                                 |
-| `description` | Shows the tool's description while executing (default). Arguments are visible during live streaming but the result is not preserved after page refresh.                                                                                                          |
+| `name`        | _Deprecated (removed in v7)._ Showed the raw tool name only. Use `title` or `stream`.                                                                                                                                                                            |
+| `description` | _Deprecated (removed in v7)._ Showed the description as the label. Use `title` or `stream`.                                                                                                                                                                      |
 | `stream`      | Full visibility. Arguments stream progressively as the LLM generates them, and the result is shown after execution. The result is preserved after page refresh.                                                                                                  |
 | `title`       | Shows the tool's `title` plus the tool name only. The description, arguments, and result are hidden in the UI; the `description` is still sent to the LLM. Use for server-side tools that should appear as a labeled step without exposing their inputs/outputs. |
 
@@ -72,7 +75,7 @@ Controls what the client sees about tool execution. The default is `description`
 - Tools whose `description` is written for the LLM and shouldn't be shown verbatim to the user
 - This is the recommended mode for server-executed tools that should be visible: give them a human-readable `title` for the UI and keep `description` focused on instructing the model
 
-`title` is the preferred choice for server-side tools that should surface in the UI. `name` and `description` remain supported for backward compatibility, but for new server-side tools prefer `title` (a clean UI label) - or `stream` for client tools where the user benefits from seeing the arguments and result.
+`title` is the preferred choice for server-side tools that should surface in the UI - or `stream` for client tools where the user benefits from seeing the arguments and result. `name` and `description` are deprecated and will be removed in v7; see the [migration guide](/docs/migration/v6-to-v7) to move off them.
 
 **Refresh and restore behavior:**
 

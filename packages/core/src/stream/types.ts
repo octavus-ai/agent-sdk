@@ -12,11 +12,19 @@ import type { uiWorkerStatusSchema } from './schemas';
 /**
  * Display mode - controls execution indicator visibility (NOT final message visibility).
  * - hidden: Block runs silently
- * - name: Shows block/tool name
- * - description: Shows description
- * - stream: Shows live streaming content
+ * - stream: Shows live streaming content (args, result, nested activity)
  * - title: Shows a custom UI title plus the tool name only; description,
  *   arguments, and result are hidden. The `description` still goes to the LLM.
+ * - name: legacy - shows the block/tool name only. Deprecated in favor of
+ *   `title` or `stream`. Kept permanently as a wire/persistence value so stored
+ *   sessions and older clients keep rendering; removed only from the protocol
+ *   authoring surface in v7.
+ * - description: legacy - shows the description. Deprecated in favor of `title`
+ *   or `stream` (see `name`).
+ *
+ * Deprecated via prose, not a per-value `@deprecated` tag: this is the wire
+ * type, so a tag would cascade `no-deprecated` disables across every consumer
+ * that reads a display mode.
  */
 import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from '@/errors/types';
 

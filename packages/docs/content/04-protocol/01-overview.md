@@ -40,7 +40,7 @@ input:
   COMPANY_NAME: { type: string }
   USER_ID: { type: string, optional: true }
 
-# Persistent resources the agent can read/write
+# Persistent resources (deprecated - removed in v7; persist state with a tool instead)
 resources:
   CONVERSATION_SUMMARY:
     description: Summary for handoff
@@ -73,13 +73,14 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
+    display: title
+    title: Figma
 
 # Octavus skills (provider-agnostic code execution)
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 # Agent configuration (model, tools, etc.)
 agent:
@@ -205,3 +206,4 @@ The referenced prompt content is inserted before variable interpolation, so vari
 - [Workers](/docs/protocol/workers) - Worker agent format
 - [Provider Options](/docs/protocol/provider-options) - Provider-specific features
 - [Types](/docs/protocol/types) - Custom type definitions
+- [Migrating from v6 to v7](/docs/migration/v6-to-v7) - Deprecations and how to migrate

@@ -1,9 +1,11 @@
 ---
 title: Provider Options
-description: Configuring provider-specific tools and features.
+description: Provider-specific tools and features (deprecated - removed in v7).
 ---
 
 # Provider Options
+
+> **Deprecated:** Provider-specific tools and skills (`agent.anthropic.tools`, `agent.anthropic.skills`) are deprecated and will be **removed in v7**. Use the provider-agnostic replacements that work on any model: `webSearch: true` for web search (see [Web Search](/docs/protocol/agent-config#web-search)) and [Octavus Skills](/docs/protocol/skills) for code execution and knowledge packages. Using these options still works today but emits a non-blocking deprecation warning during validation. See the [migration guide](/docs/migration/v6-to-v7).
 
 Provider options let you enable provider-specific features like Anthropic's built-in tools and skills. These features run server-side on the provider's infrastructure.
 
