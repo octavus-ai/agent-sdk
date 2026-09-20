@@ -108,7 +108,7 @@ Validate an agent definition without saving. Useful for CI/CD pipelines.
 octavus validate ./agents/my-agent
 ```
 
-Diagnostics are grouped by severity: **errors** (invalid - blocks saving), **warnings** (deprecated or logically wrong - non-blocking), and **info** (best-practice guidance, such as recommending a `title` on an entity that now surfaces by default - non-blocking). Only errors affect the exit code. Add `--json` to get `{ valid, errors, warnings, info }` for programmatic use.
+Diagnostics are grouped by severity: **errors** (invalid - blocks saving), **warnings** (deprecated or logically wrong - non-blocking), and **info** (best-practice guidance - non-blocking). Only errors affect the exit code. Add `--json` to get `{ valid, errors, warnings, info }` for programmatic use.
 
 **Exit codes:**
 

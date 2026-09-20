@@ -17,7 +17,8 @@ import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from '@
  * Three first-class modes:
  * - `hidden`: nothing surfaces in the UI.
  * - `title`: label-only indicator - the entity name plus an optional human `title`
- *   (the default for indicator entities). Args, result, and description never surface.
+ *   (the default for MCP servers, skills, provider tools, and operation blocks).
+ *   Args, result, and description never surface.
  * - `stream`: full visibility - live args, result, and nested worker activity. Its
  *   label follows the same `title ?? name` rule (the description is never the label).
  *
@@ -25,6 +26,8 @@ import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from '@
  * - `name`: shows the entity name only. A title-less `title` already shows the name.
  * - `description`: shows the entity `description` as the UI label. Descriptions are
  *   prompt text written for the model, so they should not be the label; use `title`.
+ *   Also what a protocol tool falls back to when it sets no `display`, which
+ *   protocol validation reports as a warning.
  */
 export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream' | 'title';
 
@@ -212,9 +215,10 @@ export interface ToolCallInfo {
   name: string;
   /**
    * Author-provided, display-facing title - the UI label for `title`/`stream`
-   * modes (`title ?? name`). Undefined when the author set none; the UI then
-   * renders the name. Kept separate from `name` (which drives the icon) and is
-   * never the description.
+   * modes. Undefined when the author set none. Render `title ?? description ??
+   * name`: `description` holds the label only for the deprecated `description`
+   * mode, and `name` (which drives the icon) is the fallback. Never the
+   * model-facing description in a supported mode.
    */
   title?: string;
   /**
@@ -1107,8 +1111,10 @@ export interface UIToolCallPart {
   toolName: string;
   /**
    * Author-provided display title - the authoritative UI label for `title` and
-   * `stream` modes (`title ?? name`). Undefined when the author set none. Kept
-   * separate from `toolName` (which drives the icon) and is never the description.
+   * `stream` modes. Undefined when the author set none. Render
+   * `title ?? displayName ?? toolName`: `displayName` carries the label only for
+   * the deprecated `description` mode, and `toolName` (which drives the icon) is
+   * the fallback. Never the model-facing description in a supported mode.
    */
   title?: string;
   /**

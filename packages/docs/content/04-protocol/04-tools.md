@@ -35,26 +35,26 @@ tools:
 
 ### Tool Fields
 
-| Field         | Required | Description                                                                                       |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `description` | Yes      | What the tool does (shown to LLM and optionally user)                                             |
-| `display`     | No       | How to show in UI: `title` (default), `stream`, or `hidden` (`name`/`description` are deprecated) |
-| `title`       | No       | User-facing UI label (used in `title` and `stream` modes; falls back to the tool name)            |
-| `parameters`  | No       | Input parameters the tool accepts                                                                 |
+| Field         | Required | Description                                                                                                                                                      |
+| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | Yes      | What the tool does (shown to LLM and optionally user)                                                                                                            |
+| `display`     | No       | How to show in UI: `title`, `stream`, or `hidden`. Set it on every tool - an unset `display` falls back to the deprecated `description` mode (see Display Modes) |
+| `title`       | No       | User-facing UI label (used in `title` and `stream` modes; falls back to the tool name)                                                                           |
+| `parameters`  | No       | Input parameters the tool accepts                                                                                                                                |
 
 ### Display Modes
 
-Controls what the client sees about tool execution. There are three modes; the default is `title`.
+Controls what the client sees about tool execution. There are three modes. Set `display` on every tool: a tool with no `display` falls back to the deprecated `description` mode and validation warns. (MCP servers, skills, provider tools, and operation-style blocks default to `title`.)
 
-| Mode     | Behavior                                                                                                                                                                                                                                                                                                           |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `title`  | **Default.** A label-only indicator: the tool's `title` (falling back to the tool name) plus the tool name that drives the icon. Arguments and result are hidden in the UI; the `description` is still sent to the LLM. Use for tools that should appear as a clean, labeled step without exposing inputs/outputs. |
-| `stream` | Full visibility. Arguments stream progressively as the LLM generates them, and the result is shown after execution (and preserved after refresh). Its label follows the same `title ?? name` rule. Use when the user benefits from seeing arguments/results.                                                       |
-| `hidden` | No UI events emitted. The tool executes silently and the user has no awareness it was called. Use for internal plumbing tools (title setting, context management).                                                                                                                                                 |
+| Mode     | Behavior                                                                                                                                                                                                                                                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`  | **Recommended for tools; the default everywhere else.** A label-only indicator: the tool's `title` (falling back to the tool name) plus the tool name that drives the icon. Arguments and result are hidden in the UI; the `description` is still sent to the LLM. Use for tools that should appear as a clean, labeled step without exposing inputs/outputs. |
+| `stream` | Full visibility. Arguments stream progressively as the LLM generates them, and the result is shown after execution (and preserved after refresh). Its label follows the same `title ?? name` rule. Use when the user benefits from seeing arguments/results.                                                                                                  |
+| `hidden` | No UI events emitted. The tool executes silently and the user has no awareness it was called. Use for internal plumbing tools (title setting, context management).                                                                                                                                                                                            |
 
-The visible label is always `title ?? name` - your UI decides how to render the tool name (`UIToolCallPart.toolName`, which also drives the icon), and the `description` is **never** shown as the UI label (it is prompt text written for the model).
+Render the label as `title ?? displayName ?? toolName`: `title` is the authored label (`title` and `stream` modes), `displayName` carries the label only for the deprecated `description` mode, and `toolName` (which also drives the icon) is the fallback your UI formats. The `description` is never the label in a supported mode - it is prompt text written for the model.
 
-> **Deprecated modes.** `name` (shows the tool name only) and `description` (shows the `description` as the label) still work for backward compatibility, but protocol validation now emits a deprecation warning. Prefer `title` (a clean label plus the name) or `stream` (full visibility).
+> **Deprecated modes.** `name` (shows the tool name only) and `description` (shows the `description` as the label) still work for backward compatibility, but protocol validation emits a deprecation warning - whether set explicitly or reached by leaving a tool's `display` unset. Prefer `title` (a clean label plus the name) or `stream` (full visibility).
 
 **When to use `stream`:**
 

@@ -54,7 +54,7 @@ Provider tools are executed server-side by the provider (Anthropic). Unlike exte
 anthropic:
   tools:
     web-search:
-      display: title # How to show in UI (this is the default)
+      display: title # How to show in UI
       title: Searching the web # Custom UI label
 ```
 
@@ -196,12 +196,13 @@ For provider-agnostic code execution, use Octavus Skills defined in the protocol
 
 Both tools and skills support display modes:
 
-| Mode          | Behavior                        |
-| ------------- | ------------------------------- |
-| `hidden`      | Not shown to users              |
-| `name`        | Shows the tool/skill name       |
-| `description` | Shows the description (default) |
-| `stream`      | Streams progress if available   |
+| Mode          | Behavior                                                             |
+| ------------- | -------------------------------------------------------------------- |
+| `title`       | **Default.** Label-only card: the `title` (else the tool/skill name) |
+| `stream`      | Streams progress if available                                        |
+| `hidden`      | Not shown to users                                                   |
+| `name`        | _(deprecated)_ Shows the tool/skill name                             |
+| `description` | _(deprecated)_ Shows the description                                 |
 
 ## Full Example
 

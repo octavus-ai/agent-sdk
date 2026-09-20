@@ -60,10 +60,11 @@ The `display` setting on a skill applies to all tools under that skill namespace
 
 | Mode          | Behavior                                                                                                             |
 | ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `hidden`      | Skill tools run silently, no UI events emitted                                                                       |
-| `name`        | Shows skill name while executing                                                                                     |
-| `description` | Shows description while executing (default). Result not preserved after page refresh.                                |
+| `title`       | **Default.** Label-only card: the skill's title (else the tool name). Arguments and result hidden.                   |
 | `stream`      | Full visibility - arguments stream progressively, result shown after execution, result preserved after page refresh. |
+| `hidden`      | Skill tools run silently, no UI events emitted                                                                       |
+| `name`        | _(deprecated)_ Shows the skill name while executing                                                                  |
+| `description` | _(deprecated)_ Shows the description while executing. Result not preserved after page refresh.                       |
 
 ## Enabling Skills
 
