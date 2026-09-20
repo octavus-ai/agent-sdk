@@ -33,11 +33,11 @@ Define all skills in the `skills:` section, then reference which skills are avai
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
   pdf-processor:
-    display: description
-    description: Processing PDFs
+    display: title
+    title: Processing PDFs
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -50,11 +50,11 @@ agent:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
   data-analysis:
-    display: description
-    description: Analyzing data
+    display: title
+    title: Analyzing data
 
 steps:
   Start analysis:
@@ -73,12 +73,12 @@ The `execution` field is set at the skill definition level and applies to all th
 ```yaml
 skills:
   deploy-tool:
-    display: description
-    description: Deploy applications
+    display: title
+    title: Deploying applications
     execution: device # All threads using this skill run it on the device
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
     # Defaults to sandbox execution
 ```
 
@@ -91,14 +91,14 @@ Different threads can have different skills. Define all skills at the protocol l
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
   data-analysis:
-    display: description
-    description: Analyzing data and generating reports
+    display: title
+    title: Analyzing data
   visualization:
-    display: description
-    description: Creating charts and visualizations
+    display: title
+    title: Creating visualizations
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -118,9 +118,10 @@ skills:
   data-analysis:
     display: hidden
 
-  # User-facing generation - show description
+  # User-facing generation - show a clean label
   qr-code:
-    display: description
+    display: title
+    title: Generating QR codes
 
   # Interactive progress - stream updates
   report-generation:
@@ -297,8 +298,8 @@ tools:
 
 skills:
   data-analysis:
-    display: description
-    description: Analyzing data
+    display: title
+    title: Analyzing data
 
 agent:
   tools: [get-user-data]

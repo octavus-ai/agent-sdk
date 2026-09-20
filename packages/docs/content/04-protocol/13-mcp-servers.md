@@ -24,39 +24,44 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
+    display: title
+    title: Figma
 
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
+    display: title
+    title: Browser
 
   github:
     description: Repository management - issues, pull requests, code
     source: consumer
-    display: name
+    display: title
+    title: GitHub
 ```
 
 ### Fields
 
-| Field         | Required | Description                                                                                                            |
-| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `description` | Yes      | What the MCP server provides                                                                                           |
-| `source`      | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                             |
-| `display`     | No       | How tool calls appear in UI: `hidden`, `name`, `description`, `stream`, `title` (default: `description`)               |
-| `title`       | No       | UI label shown when `display: title`; applies to every tool in this namespace (hides description and arguments)        |
-| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                   |
-| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution). |
+| Field         | Required | Description                                                                                                                                             |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | Yes      | What the MCP server provides                                                                                                                            |
+| `source`      | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                                                              |
+| `display`     | No       | How tool calls appear in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)). |
+| `title`       | No       | UI label shown when `display: title`; applies to every tool in this namespace (hides description and arguments)                                         |
+| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                                                    |
+| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution).                                  |
 
 ### Display Modes
 
-Display modes control visibility of all tool calls from the MCP server, using the same modes as [regular tools](/docs/protocol/tools#display-modes):
+Display modes control visibility of all tool calls from the MCP server, using the same modes as [regular tools](/docs/protocol/tools#display-modes). The supported modes are `hidden`, `title`, and `stream`.
 
-| Mode          | Behavior                               |
-| ------------- | -------------------------------------- |
-| `hidden`      | Tool calls run silently                |
-| `name`        | Shows tool name while executing        |
-| `description` | Shows tool description while executing |
+> **Deprecated:** `name` and `description` are deprecated and will be removed in v7. Use `title` (a per-namespace label applied to every tool in the server) or `stream`. See the [migration guide](/docs/migration/v6-to-v7).
+
+| Mode     | Behavior                                                                         |
+| -------- | -------------------------------------------------------------------------------- |
+| `hidden` | Tool calls run silently                                                          |
+| `title`  | Shows the server's `title` (or the namespaced tool name) plus the tool name only |
+| `stream` | Full visibility - arguments stream and the result is shown                       |
 
 ## Making MCP Servers Available
 
@@ -67,18 +72,12 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
-
   sentry:
     description: Error tracking and debugging
     source: remote
-    display: name
-
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
-
   filesystem:
     description: Filesystem access for reading and writing files
     source: device
@@ -161,12 +160,9 @@ mcpServers:
   sentry:
     source: remote
     connection: eager # Always connected upfront
-    display: name
-
   notion:
     source: remote
     # connection defaults to lazy - agent activates when needed
-    display: description
 ```
 
 With **lazy connection** (the default), the agent receives two built-in tools - one for listing available integrations and one for activating them. The agent decides which integrations it needs based on the conversation and activates them on demand. This avoids paying connection latency for integrations the agent doesn't end up using.
@@ -198,13 +194,10 @@ mcpServers:
     description: Code analysis and refactoring tools
     source: remote
     execution: device # STDIO process runs on the agent's computer
-    display: name
-
   sentry:
     description: Error tracking
     source: remote
     # execution defaults to sandbox - runs in the platform
-    display: name
 ```
 
 ### When to Use
@@ -263,7 +256,6 @@ mcpServers:
   github:
     description: Repository management - issues, pull requests, code
     source: consumer
-    display: name
 
 agent:
   mcpServers:
@@ -337,12 +329,10 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
 
 onDemandMcpServers:
   remote:
     description: Additional connected integrations
-    display: name
     execution: device # on-demand MCPs run on the agent's computer
     contextRetention:
       toolResults: { retainLast: 5 }
@@ -390,11 +380,9 @@ mcpServers:
   sentry:
     description: Error tracking and debugging
     source: remote
-    display: name
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
 
 steps:
   Start research:
@@ -418,15 +406,12 @@ mcpServers:
     description: Figma design tool integration
     source: remote
     connection: eager
-    display: description
   sentry:
     description: Error tracking and debugging
     source: remote
-    display: name
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
   filesystem:
     description: Filesystem access for reading and writing files
     source: device
@@ -434,7 +419,6 @@ mcpServers:
   shell:
     description: Shell command execution
     source: device
-    display: name
 
 tools:
   set-chat-title:
@@ -479,12 +463,10 @@ mcpServers:
     description: Figma design tool integration
     source: remote
     connection: eager # Need design tools from message 1
-    display: description
   sentry:
     description: Error tracking and debugging
     source: remote
     # Lazy (default) - agent activates when debugging is needed
-    display: name
 
 tools:
   submit-code:

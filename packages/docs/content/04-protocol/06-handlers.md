@@ -125,7 +125,7 @@ Create ticket:
 
 ### set-resource
 
-> **Deprecated:** Resources are superseded by [tools](/docs/protocol/tools). Persist state with a tool call to a consumer-defined tool instead. Still executed for now, but protocol validation emits a deprecation warning.
+> **Deprecated:** Resources are superseded by [tools](/docs/protocol/tools), and the `set-resource` block is **removed in v7**. Persist state with a tool call to a consumer-defined tool instead. Still executed for now, but protocol validation emits a deprecation warning. See the [migration guide](/docs/migration/v6-to-v7).
 
 Update a persistent resource:
 
@@ -134,7 +134,6 @@ Save summary:
   block: set-resource
   resource: CONVERSATION_SUMMARY
   value: SUMMARY # Variable to save
-  display: name # Show block name
 ```
 
 ### start-thread
@@ -282,15 +281,15 @@ For agentic transcription where the LLM decides when to transcribe, configure `t
 
 ## Display Modes
 
-Every block has a `display` property:
+Every block has a `display` property. The supported modes are `hidden`, `title`, and `stream`.
 
-| Mode          | Default For               | Behavior                        |
-| ------------- | ------------------------- | ------------------------------- |
-| `hidden`      | add-message               | Not shown to user               |
-| `name`        | set-resource              | Shows block name                |
-| `description` | tool-call, generate-image | Shows description               |
-| `stream`      | next-message              | Streams content                 |
-| `title`       | -                         | Shows the block's `title` field |
+> **Deprecated:** `name` and `description` are deprecated and will be removed in v7. Use `title` or `stream`. Blocks that show a labeled indicator (`tool-call`, `generate-image`) default to `description` on v6 and will default to `title` in v7; `next-message` stays `stream` and infrastructure blocks stay `hidden`. See the [migration guide](/docs/migration/v6-to-v7).
+
+| Mode     | Default For                                                                                     | Behavior                            |
+| -------- | ----------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `hidden` | add-message, set-resource, start-thread, serialize-thread                                       | Not shown to user                   |
+| `title`  | tool-call, generate-image - from v7 (on v6 these still default to the deprecated `description`) | Shows the block's `title` (or name) |
+| `stream` | next-message, run-worker                                                                        | Streams content                     |
 
 ## Complete Example
 

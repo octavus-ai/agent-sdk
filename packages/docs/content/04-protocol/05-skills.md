@@ -36,31 +36,33 @@ Define skills in the protocol's `skills:` section:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
   data-analysis:
-    display: description
-    description: Analyzing data and generating reports
+    display: title
+    title: Analyzing data
 ```
 
 ### Skill Fields
 
-| Field         | Required | Description                                                                                    |
-| ------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `display`     | No       | How to show in UI: `hidden`, `name`, `description`, `stream`, `title` (default: `description`) |
-| `title`       | No       | UI label shown when `display: title` (hides the description and arguments)                     |
-| `description` | No       | Custom description shown to users (overrides skill's built-in description)                     |
-| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                          |
+| Field         | Required | Description                                                                                                                                              |
+| ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `display`     | No       | How to show in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)).            |
+| `title`       | No       | UI label shown when `display: title`. Overrides the skill's built-in `title` from its `SKILL.md`.                                                        |
+| `description` | No       | Model-facing description override (the skill's built-in description is used otherwise). Not used as the UI label in `title` mode - use `title` for that. |
+| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                                                                                    |
 
 ### Display Modes
 
-The `display` setting on a skill applies to all tools under that skill namespace. See [Tool Display Modes](/docs/protocol/tools#display-modes) for full details on each mode.
+The `display` setting on a skill applies to all tools under that skill namespace. The supported modes are `hidden`, `title`, and `stream`. See [Tool Display Modes](/docs/protocol/tools#display-modes) for full details.
+
+> **Deprecated:** `name` and `description` are deprecated and will be removed in v7. Use `title` or `stream`. In `title` mode a skill's label resolves to `skills.<slug>.title`, then `onDemandSkills.title`, then the skill's own built-in `title` (from its `SKILL.md`), then its slug. See the [migration guide](/docs/migration/v6-to-v7).
 
 | Mode          | Behavior                                                                                                             |
 | ------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `hidden`      | Skill tools run silently, no UI events emitted                                                                       |
-| `name`        | Shows skill name while executing                                                                                     |
-| `description` | Shows description while executing (default). Result not preserved after page refresh.                                |
+| `name`        | _Deprecated (removed in v7)._ Showed the skill slug only. Use `title` or `stream`.                                   |
+| `description` | _Deprecated (removed in v7)._ Showed the description as the label. Use `title` or `stream`.                          |
 | `stream`      | Full visibility - arguments stream progressively, result shown after execution, result preserved after page refresh. |
 
 ## Enabling Skills
@@ -74,8 +76,8 @@ Reference skills in `agent.skills`:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -92,8 +94,8 @@ Reference skills per-thread in `start-thread.skills`:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 steps:
   Start thread:
@@ -132,12 +134,12 @@ By default, skills run in an isolated sandbox. When `execution: device` is set, 
 ```yaml
 skills:
   deploy-tool:
-    display: description
-    description: Deploy applications to production
+    display: title
+    title: Deploying to production
     execution: device
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
     # execution defaults to sandbox
 ```
 
@@ -176,8 +178,8 @@ Use `execution: device` when the skill needs to:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -230,6 +232,7 @@ Skills follow the [Agent Skills](https://agentskills.io) open standard:
 ````yaml
 ---
 name: qr-code
+title: Generating QR codes
 description: >
   Generate QR codes from text, URLs, or data. Use when the user needs to create
   a QR code for any purpose - sharing links, contact information, WiFi credentials,
@@ -271,6 +274,7 @@ Main script for generating QR codes...
 | Field         | Required | Description                                            |
 | ------------- | -------- | ------------------------------------------------------ |
 | `name`        | Yes      | Skill slug (lowercase, hyphens)                        |
+| `title`       | No       | User-facing label shown when the skill runs in `display: title` mode (falls back to the slug) |
 | `description` | Yes      | What the skill does (shown to the LLM)                 |
 | `version`     | No       | Semantic version string                                |
 | `license`     | No       | License identifier                                     |
@@ -313,14 +317,14 @@ Define all skills available to this agent in the `skills:` section. Then specify
 # All skills available to this agent (defined once at protocol level)
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
   data-analysis:
-    display: description
-    description: Analyzing data
+    display: title
+    title: Analyzing data
   pdf-processor:
-    display: description
-    description: Processing PDFs
+    display: title
+    title: Processing PDFs
 
 # Skills available for this chat thread
 agent:
@@ -339,9 +343,10 @@ skills:
   data-analysis:
     display: hidden
 
-  # User-facing generation - show description
+  # User-facing generation - show a clean label
   qr-code:
-    display: description
+    display: title
+    title: Generating QR codes
 
   # Interactive progress - stream updates
   report-generation:
@@ -350,14 +355,16 @@ skills:
 
 ## Comparison: Skills vs Tools vs Provider Options
 
-| Feature            | Octavus Skills              | External Tools      | Provider Tools/Skills |
-| ------------------ | --------------------------- | ------------------- | --------------------- |
-| **Execution**      | Sandbox or agent's computer | Your backend        | Provider servers      |
-| **Provider**       | Any (agnostic)              | N/A                 | Provider-specific     |
-| **Code Execution** | Yes                         | No                  | Yes (provider tools)  |
-| **File Output**    | Yes                         | No                  | Yes (provider skills) |
-| **Implementation** | Skill packages              | Your code           | Built-in              |
-| **Cost**           | Sandbox + LLM API           | Your infrastructure | Included in API       |
+> **Note:** Provider tools/skills are deprecated and will be removed in v7. Use Octavus Skills (below) for provider-agnostic code execution. See the [migration guide](/docs/migration/v6-to-v7).
+
+| Feature            | Octavus Skills              | External Tools      | Provider Tools/Skills (deprecated) |
+| ------------------ | --------------------------- | ------------------- | ---------------------------------- |
+| **Execution**      | Sandbox or agent's computer | Your backend        | Provider servers                   |
+| **Provider**       | Any (agnostic)              | N/A                 | Provider-specific                  |
+| **Code Execution** | Yes                         | No                  | Yes (provider tools)               |
+| **File Output**    | Yes                         | No                  | Yes (provider skills)              |
+| **Implementation** | Skill packages              | Your code           | Built-in                           |
+| **Cost**           | Sandbox + LLM API           | Your infrastructure | Included in API                    |
 
 ## Uploading Custom Skills
 
@@ -389,8 +396,8 @@ Once uploaded, reference the skill by slug in your protocol:
 ```yaml
 skills:
   my-skill:
-    display: description
-    description: Custom analysis tool
+    display: title
+    title: Running custom analysis
 
 agent:
   skills: [my-skill]
@@ -402,7 +409,8 @@ On-demand skills (`onDemandSkills`) also support the `execution` field:
 
 ```yaml
 onDemandSkills:
-  display: description
+  display: title
+  title: Running a skill
   execution: device
 ```
 
@@ -514,5 +522,6 @@ Device skills run on the agent's computer and share its environment. They do not
 ## Next Steps
 
 - [Agent Config](/docs/protocol/agent-config) - Configuring skills in agent settings
-- [Provider Options](/docs/protocol/provider-options) - Anthropic's built-in skills
+- [Provider Options](/docs/protocol/provider-options) - Anthropic's built-in skills (deprecated)
 - [Skills Advanced Guide](/docs/protocol/skills-advanced) - Best practices and advanced patterns
+- [Migrating from v6 to v7](/docs/migration/v6-to-v7) - Skill titles and moving off deprecated modes

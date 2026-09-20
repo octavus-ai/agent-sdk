@@ -8,6 +8,12 @@
 
 import { z } from 'zod';
 
+/**
+ * Wire/persistence display mode. Keeps all five values permanently so stored
+ * sessions and older clients keep parsing. `name` and `description` are legacy
+ * (deprecated on the protocol authoring surface, removed there in v7); prefer
+ * `title` or `stream`. See the `DisplayMode` type for details.
+ */
 export const displayModeSchema = z.enum(['hidden', 'name', 'description', 'stream', 'title']);
 export const messageRoleSchema = z.enum(['user', 'assistant', 'system']);
 export const toolCallStatusSchema = z.enum(['pending', 'streaming', 'available', 'error']);

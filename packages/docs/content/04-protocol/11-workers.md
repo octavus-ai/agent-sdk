@@ -379,11 +379,9 @@ mcpServers:
   sentry:
     description: Error tracking and debugging
     source: remote
-    display: name
   browser:
     description: Chrome DevTools browser automation
     source: device
-    display: name
 
 steps:
   Start research:
@@ -406,8 +404,8 @@ Workers can use Octavus skills, image generation, and web search, configured per
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generate QR codes
+    display: title
+    title: Generating QR codes
 
 steps:
   Start thread:
@@ -488,7 +486,8 @@ First, declare workers in your interactive agent's protocol:
 workers:
   generate-title:
     description: Generating conversation title
-    display: description
+    display: title
+    title: Generating a title
   research-assistant:
     description: Researching topic
     display: stream
