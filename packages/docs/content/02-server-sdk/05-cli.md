@@ -220,6 +220,39 @@ my-agent/
 
 Reference files are markdown documents with YAML frontmatter containing a `description`. The agent can fetch these on demand during execution. See [References](/docs/protocol/references) for details.
 
+### Sharing files across agents
+
+Prompts and references can be **symlinks**. The CLI follows both file and directory symlinks and syncs the resolved content as ordinary files, so several agents can share one source of truth instead of duplicating it.
+
+For example, an organization with multiple agents that use the same reference documents can keep those documents in one shared directory and symlink them into each agent:
+
+```
+my-org/
+├── shared/
+│   └── references/
+│       ├── brand-voice.md
+│       └── api-guidelines.md
+├── agent-a/
+│   ├── settings.json
+│   ├── protocol.yaml
+│   └── references/
+│       ├── brand-voice.md      -> ../../shared/references/brand-voice.md
+│       └── api-guidelines.md   -> ../../shared/references/api-guidelines.md
+└── agent-b/
+    ├── settings.json
+    ├── protocol.yaml
+    └── references/
+        └── brand-voice.md      -> ../../shared/references/brand-voice.md
+```
+
+Create the links with `ln -s` (the target is resolved relative to the link's location):
+
+```bash
+ln -s ../../shared/references/brand-voice.md agent-a/references/brand-voice.md
+```
+
+Editing a file in `shared/` updates every agent that links to it on the next `octavus sync`. The same applies to `prompts/` and to skill directories synced with `octavus skills sync`. A broken symlink (one whose target no longer exists) fails the command with a clear error rather than being silently skipped.
+
 ### settings.json
 
 ```json

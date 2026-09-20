@@ -7,6 +7,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { parse as parseYaml } from 'yaml';
+import { resolveEntryKind, BrokenSymlinkError } from '@/dir-entries.js';
 
 /** Agent settings from settings.json */
 export interface AgentSettings {
@@ -131,25 +132,39 @@ async function readProtocol(filePath: string): Promise<string> {
   }
 }
 
-async function readPrompts(promptsDir: string, relativePath = ''): Promise<AgentPrompt[]> {
+async function readPrompts(
+  promptsDir: string,
+  relativePath = '',
+  visited = new Set<string>(),
+): Promise<AgentPrompt[]> {
   const prompts: AgentPrompt[] = [];
 
   try {
+    // Guard against symlink cycles (a directory symlink pointing at an ancestor).
+    const realDir = await fs.realpath(promptsDir);
+    if (visited.has(realDir)) return prompts;
+    visited.add(realDir);
+
     const entries = await fs.readdir(promptsDir, { withFileTypes: true });
 
     for (const entry of entries) {
       const entryRelativePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      const fullPath = path.join(promptsDir, entry.name);
+      const kind = await resolveEntryKind(fullPath, entry);
 
-      if (entry.isDirectory()) {
-        const subPrompts = await readPrompts(path.join(promptsDir, entry.name), entryRelativePath);
+      if (kind === 'directory') {
+        const subPrompts = await readPrompts(fullPath, entryRelativePath, visited);
         prompts.push(...subPrompts);
-      } else if (entry.name.endsWith('.md')) {
+      } else if (kind === 'file' && entry.name.endsWith('.md')) {
         const name = entryRelativePath.replace(/\.md$/, '');
-        const content = await fs.readFile(path.join(promptsDir, entry.name), 'utf-8');
+        const content = await fs.readFile(fullPath, 'utf-8');
         prompts.push({ name, content });
       }
     }
   } catch (err) {
+    if (err instanceof BrokenSymlinkError) {
+      throw new AgentFileError(err.message, err.linkPath);
+    }
     if ((err as { code?: string }).code !== 'ENOENT') {
       throw err;
     }
@@ -171,16 +186,18 @@ async function readReferences(referencesDir: string): Promise<AgentReference[]> 
     const entries = await fs.readdir(referencesDir, { withFileTypes: true });
 
     for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const fullPath = path.join(referencesDir, entry.name);
+      const kind = await resolveEntryKind(fullPath, entry);
+      if (kind !== 'file' || !entry.name.endsWith('.md')) continue;
 
       const name = entry.name.replace(/\.md$/, '');
-      const raw = await fs.readFile(path.join(referencesDir, entry.name), 'utf-8');
+      const raw = await fs.readFile(fullPath, 'utf-8');
       const match = FRONTMATTER_REGEX.exec(raw);
 
       if (!match) {
         throw new AgentFileError(
           `Reference "${name}" is missing YAML frontmatter (---description: ...---)`,
-          path.join(referencesDir, entry.name),
+          fullPath,
         );
       }
 
@@ -189,10 +206,7 @@ async function readReferences(referencesDir: string): Promise<AgentReference[]> 
 
       if (!result.success) {
         const issues = result.error.issues.map((i) => i.message).join(', ');
-        throw new AgentFileError(
-          `Invalid frontmatter in reference "${name}": ${issues}`,
-          path.join(referencesDir, entry.name),
-        );
+        throw new AgentFileError(`Invalid frontmatter in reference "${name}": ${issues}`, fullPath);
       }
 
       references.push({
@@ -202,6 +216,9 @@ async function readReferences(referencesDir: string): Promise<AgentReference[]> 
       });
     }
   } catch (err) {
+    if (err instanceof BrokenSymlinkError) {
+      throw new AgentFileError(err.message, err.linkPath);
+    }
     if ((err as { code?: string }).code !== 'ENOENT') {
       throw err;
     }
