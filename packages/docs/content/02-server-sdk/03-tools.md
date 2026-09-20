@@ -21,7 +21,7 @@ When the Server SDK encounters a tool call:
 1. **Handler exists** (server, inline MCP, or dynamic) → Execute on server, continue automatically
 2. **No handler** → Forward to client via `client-tool-request` event
 
-Inline MCP tools and dynamic tools registered via `session.setDynamicTools()` (e.g., from `@octavus/computer`) work identically to manual handlers from the platform's perspective. See [Inline MCP Servers](/docs/server-sdk/inline-mcp) for namespaced consumer-defined tool groups, and [Computer](/docs/server-sdk/computer) for device-side MCPs.
+Inline MCP tools and dynamic tools registered via `session.setDynamicTools()` (e.g., from `@octavus/computer`) work identically to manual handlers from the platform's perspective. See [Inline MCP Servers](/docs/server-sdk/inline-mcp) for namespaced consumer-defined tool groups (including per-tool [titles](/docs/server-sdk/inline-mcp#per-tool-titles) for distinct execution-card labels), and [Computer](/docs/server-sdk/computer) for device-side MCPs.
 
 For client-side tool handling, see [Client Tools](/docs/client-sdk/client-tools).
 

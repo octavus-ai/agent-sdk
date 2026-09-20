@@ -27,12 +27,15 @@ mcpServers:
   github:
     description: Repository management - issues, pull requests, code
     source: consumer
-    display: name
+    display: title
+    title: GitHub
 
 agent:
   mcpServers:
     - github
 ```
+
+The namespace-level `title` labels every tool in the namespace. To give each tool its own label, set a per-tool `title` (see [Per-Tool Titles](#per-tool-titles)).
 
 See [MCP Servers in the protocol reference](/docs/protocol/mcp-servers) for the full set of MCP source types and field semantics.
 
@@ -135,6 +138,27 @@ The handler also receives Zod-validated arguments. Invalid inputs throw before r
 ```
 
 Omitting `output` preserves the previous behavior - the handler return type is unconstrained and the LLM sees no `outputSchema` on the tool.
+
+## Per-Tool Titles
+
+A namespace-level `title` (set on `mcpServers.<ns>` in the protocol) labels _every_ tool in the namespace. When a bundle has several distinct tools, give each its own UI label with a per-tool `title`, shown when the tool renders in `title` display mode:
+
+```typescript
+'get-pr-overview': defineInlineMcpTool({
+  description: 'Get pull request metadata and file changes',
+  title: 'Reading pull request',
+  parameters: z.object({
+    owner: z.string(),
+    repo: z.string(),
+    pullNumber: z.number(),
+  }),
+  handler: async (args) => githubService.getPrOverview(args.owner, args.repo, args.pullNumber),
+}),
+```
+
+- `title` is user-facing (the execution-card label); `description` stays model-facing (it tells the model when to call the tool).
+- The optional `display` field sets this tool's display mode (`hidden`, `title`, or `stream`), overriding the namespace default for the tool.
+- Label precedence for an inline MCP tool: the per-tool `title` wins, then the namespace-level `mcpServers.<ns>.title`, then the `namespace__tool` slug. Because inline namespaces aren't in the built-in tool-display registry, a per-tool `title` is the cleanest way to give each tool a distinct label.
 
 ## Attaching to a Session
 

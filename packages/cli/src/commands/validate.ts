@@ -6,7 +6,7 @@
 import type { Command } from 'commander';
 import { loadConfig, ConfigError } from '@/config.js';
 import { readAgentDefinition, AgentFileError } from '@/agent-files.js';
-import { CliApi, ApiError } from '@/api.js';
+import { CliApi, ApiError, type ValidationIssue } from '@/api.js';
 import * as output from '@/output.js';
 
 interface ValidateOptions {
@@ -55,6 +55,7 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
       valid: result.valid,
       errors: result.errors,
       warnings: result.warnings,
+      ...(result.issues ? { issues: result.issues } : {}),
     });
   } else {
     if (result.valid) {
@@ -63,22 +64,45 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
       output.error(`Agent ${output.bold(definition.settings.slug)} has validation errors`);
     }
 
-    // Show errors
-    for (const err of result.errors) {
-      const location = err.path ? ` (${output.gray(err.path)})` : '';
-      output.error(`  ${err.message}${location}`);
-    }
-
-    // Show warnings
-    for (const warn of result.warnings) {
-      const location = warn.path ? ` (${output.gray(warn.path)})` : '';
-      output.warning(`  ${warn.message}${location}`);
+    // `issues` is absent on platforms that predate it; fall back to the
+    // error/warning buckets.
+    if (result.issues) {
+      renderIssues(result.issues, 'error');
+      renderIssues(result.issues, 'warning');
+      renderIssues(result.issues, 'info');
+    } else {
+      for (const err of result.errors) {
+        const location = err.path ? ` (${output.gray(err.path)})` : '';
+        output.error(`  ${err.message}${location}`);
+      }
+      for (const warn of result.warnings) {
+        const location = warn.path ? ` (${output.gray(warn.path)})` : '';
+        output.warning(`  ${warn.message}${location}`);
+      }
     }
   }
 
-  // Exit with error code if validation failed
+  // Only errors fail the command; warnings and info never block.
   if (!result.valid) {
     process.exit(1);
+  }
+}
+
+function renderIssues(issues: ValidationIssue[], severity: ValidationIssue['severity']): void {
+  for (const issue of issues) {
+    if (issue.severity !== severity) continue;
+    const location = issue.path ? ` (${output.gray(issue.path)})` : '';
+    const line = `  ${issue.message}${location}`;
+    if (severity === 'error') {
+      output.error(line);
+    } else if (severity === 'warning') {
+      output.warning(line);
+    } else {
+      output.info(line);
+    }
+    for (const suggestion of issue.suggestions ?? []) {
+      output.dim(`    ${suggestion}`);
+    }
   }
 }
 

@@ -54,6 +54,19 @@ export interface ToolSchema {
    * interaction (e.g. a real-time session) inside one continuous turn.
    */
   suspend?: boolean;
+  /**
+   * Optional UI label for this tool's execution card. For inline (consumer) MCP
+   * tools this is a per-tool override of the namespace-level `title`: the runtime
+   * prefers it over the `mcpServers.<ns>` title, then the `ns__tool` slug. Only
+   * consulted when the resolved display mode is `title`.
+   */
+  title?: string;
+  /**
+   * Optional per-tool display mode. For inline (consumer) MCP tools this
+   * overrides the namespace-level `display`; unset falls back to the namespace
+   * mode, then the runtime default.
+   */
+  display?: DisplayMode;
 }
 
 /** A runtime-discovered tool pairing a schema with an execution handler. */

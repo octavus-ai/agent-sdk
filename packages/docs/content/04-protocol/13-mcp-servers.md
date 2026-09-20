@@ -272,6 +272,8 @@ Use consumer MCPs when:
 
 See [`createInlineMcpServer`](/docs/server-sdk/inline-mcp) in the server-sdk reference for the full implementation guide.
 
+Unlike remote and device MCPs (whose tools are discovered dynamically and share the namespace-level `title`), consumer MCP tools are authored tool-by-tool, so each tool can set its own `title` (and `display`) that overrides the namespace label. See [Per-Tool Titles](/docs/server-sdk/inline-mcp#per-tool-titles).
+
 ### Namespace Matching
 
 The protocol namespace must match the namespace passed to `createInlineMcpServer()`:

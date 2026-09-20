@@ -1,5 +1,5 @@
 import { type z, toJSONSchema } from 'zod';
-import type { InlineMcpServer, ToolHandler, ToolSchema } from '@octavus/core';
+import type { DisplayMode, InlineMcpServer, ToolHandler, ToolSchema } from '@octavus/core';
 
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
 /**
@@ -9,11 +9,31 @@ const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
  */
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
+/**
+ * Display modes an inline tool may be authored with. The wire `DisplayMode`
+ * also carries the legacy `name`/`description` values for persisted data, but a
+ * newly authored tool has no reason to use them (they are removed from the
+ * authoring surface in v7).
+ */
+type InlineMcpToolDisplayMode = Exclude<DisplayMode, 'name' | 'description'>;
+
 interface InlineMcpToolDefinition<
   T extends z.ZodType = z.ZodType,
   O extends z.ZodType = z.ZodType,
 > {
   description: string;
+  /**
+   * Optional user-facing label for this tool's execution card, shown in `title`
+   * display mode. Overrides the namespace-level `mcpServers.<ns>.title` for this
+   * tool only; `description` stays model-facing.
+   */
+  title?: string;
+  /**
+   * Optional per-tool display mode (`hidden`, `title`, or `stream`), overriding
+   * the namespace-level `display`. Unset falls back to the namespace mode, then
+   * the runtime default.
+   */
+  display?: InlineMcpToolDisplayMode;
   parameters: T;
   output?: O;
   handler: (args: z.infer<T>) => Promise<z.infer<O>>;
@@ -157,6 +177,8 @@ export function createInlineMcpServer(
       description: def.description,
       inputSchema: inputJsonSchema,
       outputSchema: outputJsonSchema,
+      ...(def.title !== undefined ? { title: def.title } : {}),
+      ...(def.display !== undefined ? { display: def.display } : {}),
     });
 
     const zodSchema = def.parameters;
