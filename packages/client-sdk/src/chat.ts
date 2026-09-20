@@ -1745,9 +1745,9 @@ export class OctavusChat {
           type: 'tool-call',
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          // The authored `title` (title/stream modes) rides on its own field;
-          // `displayName` carries the description for the deprecated modes.
-          title: event.display === 'title' || event.display === 'stream' ? event.title : undefined,
+          // `title` mode carries its authored title on its own field; every other
+          // visible mode labels through `displayName`.
+          title: event.display === 'title' ? event.title : undefined,
           displayName: event.display === 'name' ? undefined : event.title,
           display: event.display,
           args: {},

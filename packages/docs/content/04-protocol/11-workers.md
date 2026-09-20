@@ -528,15 +528,15 @@ The LLM can then call workers as tools during conversation.
 
 ### Display Modes
 
-Controls how worker execution appears to users. The default for workers is `stream`. Whatever the mode, the worker card is labeled `title ?? slug` - never the worker description.
+Controls how worker execution appears to users. The default for workers is `stream`. Give every worker a `title` - it is the card's label; a `stream` worker without one falls back to its description for backward compatibility and validation warns.
 
-| Mode          | Behavior                                                                                                                                        |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hidden`      | Worker runs silently. No events reach the client - no `UIWorkerPart` is created.                                                                |
-| `title`       | A running/done indicator labeled with the worker's `title` (else its slug). No nested content or input is forwarded.                            |
-| `stream`      | **Default.** Full visibility. All nested events are forwarded - text, reasoning, tool calls, sources, files. Worker input is included on start. |
-| `name`        | _(deprecated)_ A running/done indicator with the worker slug. No nested content is forwarded.                                                   |
-| `description` | _(deprecated)_ Labeled with the worker description. No nested content is forwarded. Prefer `title`.                                             |
+| Mode          | Behavior                                                                                                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `hidden`      | Worker runs silently. No events reach the client - no `UIWorkerPart` is created.                                                                                                                             |
+| `title`       | A running/done indicator labeled with the worker's `title` (else its slug). No nested content or input is forwarded.                                                                                         |
+| `stream`      | **Default.** Full visibility. All nested events are forwarded - text, reasoning, tool calls, sources, files. Worker input is included on start. Labeled with the `title` (else the description, deprecated). |
+| `name`        | _(deprecated)_ A running/done indicator with the worker slug. No nested content is forwarded.                                                                                                                |
+| `description` | _(deprecated)_ Labeled with the worker description. No nested content is forwarded. Prefer `title`.                                                                                                          |
 
 **Progressive input streaming:** When a worker with `display: stream` is invoked agentically (LLM calls it as a tool), the `UIWorkerPart` appears in the UI immediately as the LLM starts generating the worker's arguments. The worker input streams progressively into the worker part, the same way text tokens stream into a text part. Once input finishes, worker execution begins and nested content flows into the same worker part. There is no intermediate tool card.
 

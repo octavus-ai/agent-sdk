@@ -233,6 +233,7 @@ Skills follow the [Agent Skills](https://agentskills.io) open standard:
 ````yaml
 ---
 name: qr-code
+title: Generating QR codes
 description: >
   Generate QR codes from text, URLs, or data. Use when the user needs to create
   a QR code for any purpose - sharing links, contact information, WiFi credentials,
@@ -274,6 +275,7 @@ Main script for generating QR codes...
 | Field         | Required | Description                                            |
 | ------------- | -------- | ------------------------------------------------------ |
 | `name`        | Yes      | Skill slug (lowercase, hyphens)                        |
+| `title`       | No       | User-facing UI label shown when the skill runs (max 60 characters) |
 | `description` | Yes      | What the skill does (shown to the LLM)                 |
 | `version`     | No       | Semantic version string                                |
 | `license`     | No       | License identifier                                     |

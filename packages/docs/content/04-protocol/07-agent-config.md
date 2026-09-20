@@ -51,7 +51,7 @@ agent:
 | `maxOutputTokens`     | No       | Cap output tokens for a single generation (one agentic step). Omit to use the provider/SDK default (see [Output Limits and Loop Guard](#output-limits-and-loop-guard))                                     |
 | `loopGuard`           | No       | `true` to abort a generation that degenerates into a repeated string (see [Output Limits and Loop Guard](#output-limits-and-loop-guard))                                                                   |
 | `contextManagement`   | No       | Automatic context-window compaction (see [Context Management](/docs/protocol/context-management))                                                                                                          |
-| `anthropic`           | No       | Anthropic-specific options (tools, skills)                                                                                                                                                                 |
+| `anthropic`           | No       | _(deprecated)_ Anthropic-specific options (tools, skills); use `webSearch` and Octavus `skills` instead (see [Provider Options](#provider-options))                                                        |
 
 ## Models
 
@@ -719,6 +719,8 @@ Variable references are caught at protocol validation time. If `temperature: TEM
 
 ## Provider Options
 
+> **Deprecated.** Provider-specific options (`anthropic:`) are deprecated; validation warns when they are set. Use [`webSearch: true`](#web-search) and [Octavus Skills](/docs/protocol/skills) instead - both work with any provider.
+
 Enable provider-specific features like Anthropic's built-in tools and skills:
 
 ```yaml
@@ -732,7 +734,7 @@ agent:
     skills:
       pdf:
         type: anthropic
-        description: Processing PDF
+        title: Processing PDF
 ```
 
 Provider options are validated against the model - using `anthropic:` with a non-Anthropic model will fail validation.
@@ -830,16 +832,6 @@ agent:
   agentic: true
   maxSteps: 10
   thinking: medium
-  # Anthropic-specific options
-  anthropic:
-    tools:
-      web-search:
-        display: title
-        title: Searching the web
-    skills:
-      pdf:
-        type: anthropic
-        description: Processing PDF
 
 triggers:
   user-message:

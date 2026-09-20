@@ -128,7 +128,7 @@ function ToolCallPart({ part }: { part: UIToolCallPart }) {
     <div className="border rounded p-3">
       <div className="flex items-center gap-2">
         <span className="text-lg">🔧</span>
-        <span className="font-medium">{part.displayName || part.toolName}</span>
+        <span className="font-medium">{part.title ?? part.displayName ?? part.toolName}</span>
         <StatusBadge status={part.status} />
       </div>
 

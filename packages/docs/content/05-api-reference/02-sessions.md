@@ -141,7 +141,7 @@ Messages contain typed `parts` that preserve content ordering:
 |-----------|-------------|
 | `text` | Text content with `text` and `status` fields |
 | `reasoning` | Extended reasoning with `text` and `status` fields |
-| `tool-call` | Tool execution with `toolCallId`, `toolName`, `displayName`, `args`, `result`, `status` |
+| `tool-call` | Tool execution with `toolCallId`, `toolName`, `title`, `displayName`, `args`, `result`, `status` |
 | `operation` | Internal operations with `operationId`, `name`, `operationType`, `status` |
 | `file` | File attachment with `id`, `mediaType`, `url`, `filename`, `size` |
 | `source` | Source reference with `sourceType`, `id`, `url`, `title` |

@@ -64,7 +64,8 @@ interface UIToolCallPart {
   type: 'tool-call';
   toolCallId: string;
   toolName: string;
-  displayName?: string; // Human-readable name
+  title?: string; // Authored title (display: title)
+  displayName?: string; // Label for the other visible modes
   args: Record<string, unknown>;
   result?: unknown;
   error?: string;
@@ -304,7 +305,7 @@ function PartRenderer({ part }: { part: UIMessagePart }) {
     case 'tool-call':
       return (
         <div className="bg-gray-100 p-2 rounded text-sm">
-          🔧 {part.displayName || part.toolName}
+          🔧 {part.title ?? part.displayName ?? part.toolName}
           {part.status === 'done' && ' ✓'}
           {part.status === 'error' && ` ✗ ${part.error}`}
         </div>

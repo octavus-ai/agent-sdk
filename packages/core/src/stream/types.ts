@@ -19,8 +19,10 @@ import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from '@
  * - `title`: label-only indicator - the entity name plus an optional human `title`
  *   (the default for MCP servers, skills, provider tools, and operation blocks).
  *   Args, result, and description never surface.
- * - `stream`: full visibility - live args, result, and nested worker activity. Its
- *   label follows the same `title ?? name` rule (the description is never the label).
+ * - `stream`: full visibility - live args, result, and nested worker activity.
+ *   Labeled with the `title`; without one it falls back to the description for
+ *   backward compatibility (validation warns on tools and workers that rely on
+ *   it), so set a `title`.
  *
  * Deprecated (still supported for back-compat; prefer `title` / `stream`):
  * - `name`: shows the entity name only. A title-less `title` already shows the name.
@@ -214,18 +216,17 @@ export interface ToolCallInfo {
   id: string;
   name: string;
   /**
-   * Author-provided, display-facing title - the UI label for `title`/`stream`
-   * modes. Undefined when the author set none. Render `title ?? description ??
-   * name`: `description` holds the label only for the deprecated `description`
-   * mode, and `name` (which drives the icon) is the fallback. Never the
-   * model-facing description in a supported mode.
+   * Author-provided, display-facing title, set in `title` mode (undefined when
+   * the author set none). Render `title ?? description ?? name`: `description`
+   * carries the label for every other visible mode, and `name` (which drives the
+   * icon) is the fallback.
    */
   title?: string;
   /**
-   * Resolved UI label, retained for back-compat. In `title`/`stream` modes it
-   * mirrors `title`; in the deprecated `description` mode it holds the entity
-   * `description`. New code should read `title` - this is surfaced as the label
-   * only for the deprecated `description` mode and already-persisted parts.
+   * Resolved UI label. In `title` mode it mirrors `title`; in `stream` mode it
+   * holds the authored `title`, falling back to the entity `description` for
+   * backward compatibility; in the deprecated `description` mode it holds the
+   * entity `description`.
    */
   description?: string;
   arguments: Record<string, unknown>;
@@ -1110,18 +1111,17 @@ export interface UIToolCallPart {
   toolCallId: string;
   toolName: string;
   /**
-   * Author-provided display title - the authoritative UI label for `title` and
-   * `stream` modes. Undefined when the author set none. Render
-   * `title ?? displayName ?? toolName`: `displayName` carries the label only for
-   * the deprecated `description` mode, and `toolName` (which drives the icon) is
-   * the fallback. Never the model-facing description in a supported mode.
+   * Author-provided display title, set in `title` mode (undefined when the
+   * author set none). Render `title ?? displayName ?? toolName`: `displayName`
+   * carries the label for every other visible mode, and `toolName` (which
+   * drives the icon) is the fallback your UI formats.
    */
   title?: string;
   /**
-   * Resolved UI label, retained for back-compat. In `title`/`stream` modes it
-   * mirrors `title`; in the deprecated `description` mode it holds the protocol
-   * `description`. New code should read `title` - this is surfaced as the label
-   * only for the deprecated `description` mode and already-persisted parts.
+   * Resolved UI label. In `title` mode it mirrors `title`; in `stream` mode it
+   * holds the authored `title`, falling back to the protocol `description` for
+   * backward compatibility; in the deprecated `description` mode it holds the
+   * protocol `description`.
    */
   displayName?: string;
   args: Record<string, unknown>;

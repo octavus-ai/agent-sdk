@@ -5,9 +5,9 @@ description: Configuring provider-specific tools and features.
 
 # Provider Options
 
-Provider options let you enable provider-specific features like Anthropic's built-in tools and skills. These features run server-side on the provider's infrastructure.
+> **Deprecated.** Provider-specific options are deprecated and protocol validation warns when they are set. Use the provider-agnostic equivalents instead: [`webSearch: true`](/docs/protocol/agent-config#web-search) for web search and [Octavus Skills](/docs/protocol/skills) for code execution and skills. Both work with any LLM provider. Existing protocols keep working until the options are removed.
 
-> **Note**: For provider-agnostic code execution, use [Octavus Skills](/docs/protocol/skills) instead. Octavus Skills work with any LLM provider and run in isolated sandbox environments.
+Provider options let you enable provider-specific features like Anthropic's built-in tools and skills. These features run server-side on the provider's infrastructure.
 
 ## Anthropic Options
 
