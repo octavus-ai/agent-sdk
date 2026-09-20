@@ -318,23 +318,27 @@ export interface ToolOutputBoundedLogEntry extends ExecutionLogEntryBase {
  * Records that an image was adapted before being sent to the model, so the trace
  * always answers "what did the model actually see". Emitted when the declared
  * `agent.maxImageDimension` (or a worker's `start-thread.maxImageDimension`)
- * downscales an over-cap image, and when a reactive recovery adapts images after
- * a provider rejects on an image constraint (downscaling below the declared cap,
- * or eliding oldest images to satisfy a count limit).
+ * downscales an over-cap image, when the provider-aware image budget proactively
+ * drops the oldest images to keep the request under a provider's per-request limit,
+ * and when a reactive recovery adapts images after a provider rejects on an image
+ * constraint (downscaling below the declared cap, or eliding oldest images to
+ * satisfy a count limit).
  *
  * A model-view transform only: stored history, the files surface, and download
  * URLs always keep the original full-resolution bytes. Emitted once per image
- * for the declared cap (first time it crosses the cap); recovery emits one entry
- * per recovery.
+ * for the declared cap (first time it crosses the cap); the proactive budget
+ * emits once per prune (not per step); recovery emits one entry per recovery.
  */
 export interface ImageAdaptedLogEntry extends ExecutionLogEntryBase {
   type: 'image-adapted';
   /**
    * `declared-cap` = the consumer's `maxImageDimension` downscaled a delivery;
+   * `provider-budget` = the proactive per-request image budget dropped the oldest
+   * images to stay under a provider's image limit (gated on `contextManagement`);
    * `reactive-recovery` = a provider rejection triggered adaptation (gated on
    * `contextManagement`).
    */
-  source: 'declared-cap' | 'reactive-recovery';
+  source: 'declared-cap' | 'provider-budget' | 'reactive-recovery';
   /** `downscaled` = an over-limit image was shrunk; `count-elided` = oldest images dropped from the view. */
   adaptation: 'downscaled' | 'count-elided';
   /** Original longest-side dimensions of a downscaled image. */
