@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import JSZip from 'jszip';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
+import { resolveEntryKind, BrokenSymlinkError } from '@/dir-entries.js';
 
 export class SkillFileError extends Error {
   constructor(
@@ -99,8 +100,18 @@ export async function parseSkillFrontmatter(skillPath: string): Promise<SkillFro
 /**
  * Recursively collect all files in a directory, returning relative paths.
  */
-async function collectFiles(dir: string, baseDir: string): Promise<string[]> {
+async function collectFiles(
+  dir: string,
+  baseDir: string,
+  visited = new Set<string>(),
+): Promise<string[]> {
   const files: string[] = [];
+
+  // Guard against symlink cycles (a directory symlink pointing at an ancestor).
+  const realDir = await fs.realpath(dir);
+  if (visited.has(realDir)) return files;
+  visited.add(realDir);
+
   const entries = await fs.readdir(dir, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -109,9 +120,10 @@ async function collectFiles(dir: string, baseDir: string): Promise<string[]> {
 
     if (isExcluded(relativePath)) continue;
 
-    if (entry.isDirectory()) {
-      files.push(...(await collectFiles(fullPath, baseDir)));
-    } else if (entry.isFile()) {
+    const kind = await resolveEntryKind(fullPath, entry);
+    if (kind === 'directory') {
+      files.push(...(await collectFiles(fullPath, baseDir, visited)));
+    } else if (kind === 'file') {
       files.push(relativePath);
     }
   }
@@ -141,7 +153,16 @@ export async function packageSkillBundle(skillPath: string): Promise<Buffer> {
   // Validate SKILL.md exists
   await parseSkillFrontmatter(resolvedPath);
 
-  const files = await collectFiles(resolvedPath, resolvedPath);
+  let files: string[];
+  try {
+    files = await collectFiles(resolvedPath, resolvedPath);
+  } catch (err) {
+    if (err instanceof BrokenSymlinkError) {
+      throw new SkillFileError(err.message, err.linkPath);
+    }
+    throw err;
+  }
+
   const zip = new JSZip();
 
   for (const relativePath of files) {
