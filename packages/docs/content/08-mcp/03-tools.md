@@ -13,14 +13,14 @@ Tools are namespaced by product surface: `*_platform_*` tools work with the agen
 
 The agents you build with the SDK/CLI, inside a project - distinct from your [Octavus Agents](#octavus-agents) below. `get_platform_agent` and `archive_platform_agent` take the agent's `agentId` from `list_platform_agents`; `deploy_platform_agent` addresses the agent by the `slug` in its settings (like `octavus sync`).
 
-| Tool                      | Access | Description                                                                                                    |
-| ------------------------- | ------ | -------------------------------------------------------------------------------------------------------------- |
-| `list_projects`           | read   | List the projects you can access.                                                                              |
-| `list_platform_agents`    | read   | List the platform agents in a project.                                                                         |
-| `get_platform_agent`      | read   | Get an agent as CLI-format files: `settings`, `protocol.yaml`, `prompts`, `references`.                        |
-| `validate_platform_agent` | read   | Validate an agent definition without saving (dry run), like `octavus validate`.                                |
-| `deploy_platform_agent`   | write  | Create or update an agent from CLI-format files, like `octavus sync`. Supports partial (changed-only) updates. |
-| `archive_platform_agent`  | write  | Archive an agent (soft delete): it stops appearing in the project and its slug is freed; history is preserved. |
+| Tool                      | Access | Description                                                                                                       |
+| ------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| `list_projects`           | read   | List the projects you can access.                                                                                 |
+| `list_platform_agents`    | read   | List the platform agents in a project.                                                                            |
+| `get_platform_agent`      | read   | Get an agent as CLI-format files: `settings`, `protocol.yaml`, `prompts`, `references`.                           |
+| `validate_platform_agent` | read   | Validate an agent without saving (dry run), like `octavus validate` - by `agentId`, or from an inline definition. |
+| `deploy_platform_agent`   | write  | Create or update an agent from CLI-format files, like `octavus sync`. Supports partial (changed-only) updates.    |
+| `archive_platform_agent`  | write  | Archive an agent (soft delete): it stops appearing in the project and its slug is freed; history is preserved.    |
 
 ### Editing an agent
 
@@ -28,8 +28,10 @@ A typical write loop mirrors the CLI:
 
 1. `get_platform_agent` to fetch the current files.
 2. Edit locally.
-3. `validate_platform_agent` to check the change.
+3. `validate_platform_agent` with the edited definition to check the change.
 4. `deploy_platform_agent` to apply it. By default only the files you send change and the rest are preserved; set `replace: true` to replace the full prompt/reference set.
+
+To audit agents that are already deployed, call `validate_platform_agent` with just `projectId` and `agentId` - no need to fetch and resend the definition. The result's `issues` array carries every diagnostic with its severity (`error` / `warning` / `info`), machine-readable `code`, and suggestions; `valid` is `true` when there are no errors.
 
 ## Sessions
 

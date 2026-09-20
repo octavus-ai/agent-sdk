@@ -52,11 +52,25 @@ export interface ValidationErrorDetail {
   severity: 'error' | 'warning';
 }
 
+/**
+ * A validation diagnostic at its true severity (`info` included), with the
+ * machine-readable `code` and `suggestions`.
+ */
+export interface ValidationIssue {
+  message: string;
+  path?: string;
+  severity: 'error' | 'warning' | 'info';
+  code?: string;
+  suggestions?: string[];
+}
+
 /** Validation result from validate endpoint */
 export interface ValidationResult {
   valid: boolean;
   errors: ValidationErrorDetail[];
   warnings: ValidationErrorDetail[];
+  /** Every diagnostic at its true severity; absent on platforms that predate it. */
+  issues?: ValidationIssue[];
 }
 
 /** Sync result from create/update endpoints */
@@ -118,6 +132,18 @@ const validationResultSchema = z.object({
       severity: z.enum(['error', 'warning']),
     }),
   ),
+  // Optional so a platform that predates `issues` still parses.
+  issues: z
+    .array(
+      z.object({
+        message: z.string(),
+        path: z.string().optional(),
+        severity: z.enum(['error', 'warning', 'info']),
+        code: z.string().optional(),
+        suggestions: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
 });
 
 const createResponseSchema = z.object({

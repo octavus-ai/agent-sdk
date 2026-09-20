@@ -108,9 +108,11 @@ Validate an agent definition without saving. Useful for CI/CD pipelines.
 octavus validate ./agents/my-agent
 ```
 
+Diagnostics are grouped by severity - errors, warnings, and info recommendations (for example, a tool that will show its name and could use a `title`). Only errors set a non-zero exit code; warnings and info never fail the command. Pass `--json` to get the full structured result, including an `issues` array with each diagnostic's `severity`, `code`, and `suggestions`.
+
 **Exit codes:**
 
-- `0` - Validation passed
+- `0` - Validation passed (may still include warnings or info)
 - `1` - Validation errors
 - `2` - Configuration errors (missing API key, etc.)
 

@@ -102,6 +102,59 @@ curl https://octavus.ai/api/agents/:agentId \
 
 > **Tip:** You can also view and edit agents directly in the [platform](https://octavus.ai), or use the [CLI](/docs/server-sdk/cli) (`octavus list`) for local workflows.
 
+## Validate Agent
+
+Validate an agent definition without saving it (a dry run). Mirrors `octavus validate` and the web editor's checks - use it in CI or before a create/update. Requires the Agents permission.
+
+```
+POST /api/agents/validate
+```
+
+### Request Body
+
+The same shape as [Create Agent](#create-agent) (`settings`, `protocol`, `prompts`, optional `references`).
+
+### Response
+
+```json
+{
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "issues": [
+    {
+      "message": "Tool \"send-email\" will show its name; add a user-facing `title` for a cleaner label.",
+      "path": "tools.send-email",
+      "severity": "info",
+      "code": "MISSING_DISPLAY_TITLE",
+      "suggestions": ["Add a `title` to Tool \"send-email\""]
+    }
+  ]
+}
+```
+
+| Field      | Type    | Description                                                                                                                     |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `valid`    | boolean | `true` when there are no errors. Warnings and info never affect `valid`.                                                        |
+| `errors`   | array   | Error-severity diagnostics (`message`, `path`, `severity`).                                                                     |
+| `warnings` | array   | Warning-severity diagnostics (`message`, `path`, `severity`).                                                                   |
+| `issues`   | array   | Every diagnostic at its true severity (`error` / `warning` / `info`) with a machine-readable `code` and optional `suggestions`. |
+
+`errors` and `warnings` are retained for backward compatibility. Prefer `issues`: it additionally surfaces `info` recommendations and each diagnostic's `code`, so you can render every severity distinctly or filter programmatically (for example, deprecations by `code: "DEPRECATED_FIELD"`).
+
+### Example
+
+```bash
+curl -X POST https://octavus.ai/api/agents/validate \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "settings": { "slug": "my-agent", "name": "My Agent", "format": "interactive" },
+    "protocol": "agent:\n  model: anthropic/claude-sonnet-4-5\n  system: system",
+    "prompts": [{ "name": "system", "content": "You are a helpful assistant." }]
+  }'
+```
+
 ## Create Agent
 
 Create a new agent.
