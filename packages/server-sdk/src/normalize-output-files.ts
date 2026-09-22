@@ -1,4 +1,9 @@
-import type { ToolResult, FileReference } from '@octavus/core';
+import {
+  sniffImageMediaType,
+  NOT_A_VALID_IMAGE_NOTE,
+  type ToolResult,
+  type FileReference,
+} from '@octavus/core';
 import type { FilesApi, FileUploadRequest } from '@/files.js';
 
 /**
@@ -28,6 +33,12 @@ interface ToolResultOutputFileSummary {
   mediaType: string;
   size: number;
   url: string;
+  /**
+   * Present when the file was uploaded but deliberately not attached for the
+   * model to see - an output labeled an image whose bytes are not a valid
+   * image (see `NOT_A_VALID_IMAGE_NOTE`).
+   */
+  error?: string;
 }
 
 interface ToolResultOutputFileError {
@@ -71,6 +82,14 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * `onToolResults` callback so file contents never travel over the
  * tool-result wire (which would inflate continue payloads and bypass S3).
  *
+ * An output labeled an image (`image/*`, typically guessed from its extension)
+ * is attached for the model to see only if its bytes are a recognizable image;
+ * a valid image with a wrong extension is corrected to its true type. A
+ * non-image saved with an image name (an error page saved as `.jpg`) is still
+ * uploaded and its link returned, but never attached as an image, and its
+ * summary carries `NOT_A_VALID_IMAGE_NOTE` so the agent learns why the model
+ * cannot see it instead of the whole request being rejected downstream.
+ *
  * On failure (network error, presigned URL rejection), `contentBase64` is
  * stripped to prevent the raw data from bloating the LLM context. The entry
  * is replaced with a compact `{name, mediaType, size, error}` summary so
@@ -93,12 +112,17 @@ export async function normalizeToolResultOutputFiles(
 
     const buffers: ArrayBuffer[] = [];
     const uploadRequests: FileUploadRequest[] = [];
+    // Whether each output is labeled an image but is not one (never attached).
+    const invalidImage: boolean[] = [];
     for (const output of outputs) {
       const buffer = base64ToArrayBuffer(output.contentBase64);
+      const declaredImage = output.mediaType.startsWith('image/');
+      const sniffed = declaredImage ? sniffImageMediaType(new Uint8Array(buffer)) : undefined;
       buffers.push(buffer);
+      invalidImage.push(declaredImage && sniffed === undefined);
       uploadRequests.push({
         filename: output.name,
-        mediaType: output.mediaType,
+        mediaType: sniffed ?? output.mediaType,
         size: output.size,
       });
     }
@@ -140,19 +164,24 @@ export async function normalizeToolResultOutputFiles(
       const output = outputs[i]!;
 
       if (upload.status === 'fulfilled' && upload.value.ok) {
-        files.push({
-          id: info.id,
-          mediaType: request.mediaType,
-          url: info.downloadUrl,
-          filename: request.filename,
-          size: request.size,
-        });
+        // An output labeled an image whose bytes are not one is never added to
+        // `files` - that is what would attach it as a vision block.
+        if (!invalidImage[i]) {
+          files.push({
+            id: info.id,
+            mediaType: request.mediaType,
+            url: info.downloadUrl,
+            filename: request.filename,
+            size: request.size,
+          });
+        }
         summaries.push({
           name: request.filename,
           ...(output.path !== undefined ? { path: output.path } : {}),
           mediaType: request.mediaType,
           size: request.size,
           url: info.downloadUrl,
+          ...(invalidImage[i] ? { error: NOT_A_VALID_IMAGE_NOTE } : {}),
         });
       } else {
         summaries.push({
