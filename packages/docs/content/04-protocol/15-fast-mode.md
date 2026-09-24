@@ -47,11 +47,12 @@ Falling back to standard speed is a prompt-cache miss, since fast and standard r
 
 A supported Opus model can be reached through more than one provider, and fast mode is expressed differently on each - the `speed` field handles the translation:
 
-| Route             | Example model                               | How fast mode is enabled                                          |
-| ----------------- | ------------------------------------------- | ----------------------------------------------------------------- |
-| Direct Anthropic  | `anthropic/claude-opus-4-8`                 | `speed: fast`                                                     |
-| Vercel AI Gateway | `vercel/anthropic/claude-opus-4.7`          | `speed: fast`                                                     |
-| OpenRouter        | `openrouter/anthropic/claude-opus-4.8-fast` | Select the dedicated `-fast` model slug (`speed` is ignored here) |
+| Route             | Example model                      | How fast mode is enabled |
+| ----------------- | ---------------------------------- | ------------------------ |
+| Direct Anthropic  | `anthropic/claude-opus-4-8`        | `speed: fast`            |
+| Vercel AI Gateway | `vercel/anthropic/claude-opus-4.7` | `speed: fast`            |
+
+Through OpenRouter, fast mode is available only where OpenRouter offers a dedicated `-fast` model slug; `speed` is ignored on that route.
 
 ## Passing speed as input
 
