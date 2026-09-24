@@ -55,16 +55,36 @@ agent:
 
 ## Models
 
-Specify models in `provider/model-id` format. Any model supported by the provider's SDK will work.
+Specify models in `provider/model-id` format, using a model from the [model catalog](https://octavus.ai/pricing/models) or, for chat models, any OpenRouter or Vercel AI Gateway route. The same catalog is available programmatically from the [Models API](/docs/api-reference/models) and the MCP [`list_models`](/docs/mcp/tools#models) tool. It syncs with provider catalogs automatically, so new models appear shortly after release.
 
 ### Supported Providers
 
-| Provider  | Format                 | Examples                                                                                           |
-| --------- | ---------------------- | -------------------------------------------------------------------------------------------------- |
-| Anthropic | `anthropic/{model-id}` | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
-| Google    | `google/{model-id}`    | `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`                                   |
-| OpenAI    | `openai/{model-id}`    | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`                                                |
-| xAI       | `x-ai/{model-id}`      | `grok-4.6`, `grok-4.5`                                                                             |
+| Provider          | Format                             | Examples                                                                                           |
+| ----------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Anthropic         | `anthropic/{model-id}`             | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
+| Google            | `google/{model-id}`                | `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`                                   |
+| OpenAI            | `openai/{model-id}`                | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`                                                |
+| xAI               | `x-ai/{model-id}`                  | `grok-4.6`, `grok-4.5`                                                                             |
+| Octavus           | `octavus/{model-id}`               | `octo-1`                                                                                           |
+| OpenRouter        | `openrouter/{provider}/{model-id}` | `openrouter/deepseek/deepseek-v3.2`, `openrouter/moonshotai/kimi-k2`                               |
+| Vercel AI Gateway | `vercel/{provider}/{model-id}`     | `vercel/anthropic/claude-sonnet-4.6`, `vercel/openai/gpt-5.4`                                      |
+
+Chat models outside the direct providers are reached through a gateway. A gateway route is the gateway's prefix followed by that gateway's own model id, passed to the gateway as-is:
+
+- **OpenRouter** - `openrouter/` plus an id from [OpenRouter's model list](https://openrouter.ai/models). The catalog lists these routes, so you can copy one exactly as it's listed. OpenRouter's variant ids with a `:` suffix (such as `:free` or `:batch`) and its `~` "latest" aliases aren't valid model ids.
+- **Vercel AI Gateway** - `vercel/` plus an id from [Vercel's model list](https://vercel.com/ai-gateway/models). Vercel names some providers and models differently from OpenRouter (GLM 4.6 is `vercel/zai/glm-4.6` but `openrouter/z-ai/glm-4.6`), so use the id Vercel lists.
+
+### Unsupported Models
+
+Every model an agent uses must be one Octavus supports:
+
+- **Direct providers** (Anthropic, Google, OpenAI, xAI, Octavus) - chat and image models must come from the [model catalog](https://octavus.ai/pricing/models), and video, speech, and transcription models from the tables in [Generating video](#generating-video), [Speech Generation](#speech-generation), and [Transcription](#transcription).
+- **Gateway routes** (`openrouter/...`, `vercel/...`) - any chat model the gateway serves. The id is passed to the gateway as-is and the gateway validates it, so a model it doesn't serve fails with the gateway's own error when the session runs. OpenRouter's auto-routing models (such as `openrouter/openrouter/auto`) are not supported, since they have no fixed price. Image, video, speech, and transcription models are always called on their provider directly, so they can't use a gateway route.
+
+A direct-provider model outside the catalog or those tables, an unknown provider, or an OpenRouter auto-routing model is rejected before it runs:
+
+- **At validation and deploy** - a protocol that names one (including as an input's `default`) fails validation with code `MODEL_NOT_SUPPORTED`.
+- **At runtime** - a session whose model resolves to one (for example from a `MODEL` input) fails with a `not_found_error` stream error whose `code` is `MODEL_NOT_SUPPORTED`. The message links to the catalog. An unsupported video, speech, or transcription model fails its tool call or block with the same code.
 
 ### Examples
 
@@ -90,7 +110,7 @@ agent:
   model: x-ai/grok-4.6
 ```
 
-> **Note**: Model IDs are passed directly to the provider SDK. Check the provider's documentation for the latest available models.
+> **Note**: Model IDs are passed directly to the provider SDK. Check the [model catalog](https://octavus.ai/pricing/models) for the models you can use and their pricing.
 
 ### Dynamic Model Selection
 
@@ -417,11 +437,11 @@ When `imageModel` is configured, the `octavus_generate_image` tool becomes avail
 
 ### Supported Image Providers
 
-| Provider | Model Types                             | Examples                                                  |
-| -------- | --------------------------------------- | --------------------------------------------------------- |
-| OpenAI   | Dedicated image models                  | `gpt-image-1`                                             |
-| Google   | Gemini native (contains "image")        | `gemini-2.5-flash-image`, `gemini-3-flash-image-generate` |
-| Google   | Imagen dedicated (starts with "imagen") | `imagen-4.0-generate-001`                                 |
+| Provider | Model Types                             | Examples                                           |
+| -------- | --------------------------------------- | -------------------------------------------------- |
+| OpenAI   | Dedicated image models                  | `gpt-image-1`                                      |
+| Google   | Gemini native (contains "image")        | `gemini-2.5-flash-image`, `gemini-3.1-flash-image` |
+| Google   | Imagen dedicated (starts with "imagen") | `imagen-4.0-generate-001`                          |
 
 > **Note**: Google has two image generation approaches. Gemini "native" models (containing "image" in the ID) generate images using the language model API with `responseModalities`. Imagen models (starting with "imagen") use a dedicated image generation API.
 
@@ -436,7 +456,6 @@ Supported aspect ratios by model family:
 | Gemini native (`gemini-*-image`) | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` |
 | Imagen (`imagen-*`)              | `1:1`, `3:4`, `4:3`, `9:16`, `16:9`                                     |
 | `gpt-image-*`                    | `1:1`, `3:2`, `2:3`                                                     |
-| `dall-e-3`                       | `1:1`, `16:9`, `9:16`                                                   |
 
 Resolution is a Gemini 3 image feature. When a model has no resolution axis, the `resolution` field is not offered and any value is ignored (the model produces its default 1K output).
 
@@ -502,9 +521,9 @@ The tool generates a short clip (a few seconds) from a text prompt, and optional
 
 Video generation is Google-only today (Veo). Generation runs a slow provider job (tens of seconds to a couple of minutes) inside the turn, so the tool call stays pending until the clip is ready. Cancelling the run abandons it without delivering a partial clip.
 
-| Provider | Model examples                                                                                                       |
-| -------- | -------------------------------------------------------------------------------------------------------------------- |
-| Google   | `veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`, `veo-3.0-generate-001` |
+| Provider | Models                                                                                                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google   | `veo-3.1-generate`, `veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`, `veo-3.0-generate-001`, `veo-3.0-fast-generate-001`, `veo-2.0-generate-001` |
 
 Use the `generate-video` block (see [Handlers](/docs/protocol/handlers)) for deterministic, pipeline-style generation, the same way `generate-image` mirrors `imageModel`.
 
@@ -523,7 +542,7 @@ agent:
 
 The tool turns a block of text into natural spoken audio and delivers it into the conversation as a playable audio file (with a download option) - the agent receives a reference (URL, format, size), never raw bytes. It supports an optional `voice`, an output `format` (default `mp3`), optional delivery `instructions`, and an optional `language`. The advertised voices and formats are narrowed to what the configured model supports, so the LLM only ever picks a valid option. Set `speechVoice` (a literal voice id or a variable reference) to fix the default voice used when the model does not specify one.
 
-| Provider | Model examples                         |
+| Provider | Models                                 |
 | -------- | -------------------------------------- |
 | OpenAI   | `gpt-4o-mini-tts`, `tts-1`, `tts-1-hd` |
 
@@ -543,7 +562,7 @@ agent:
 
 The tool takes the URL of an audio (or video) file and returns its transcript as text - so transcription works regardless of whether the chat model can natively "hear" the file. It auto-detects the spoken language by default, accepts an optional `language` hint, and can return timestamped segments (`timestamps: true`) where the model supports them (for OpenAI, `whisper-1`). Short transcripts return inline; long transcripts are delivered as a downloadable transcript file with only a bounded preview returned, so a multi-hour transcript never floods the model context.
 
-| Provider | Model examples                                             |
+| Provider | Models                                                     |
 | -------- | ---------------------------------------------------------- |
 | OpenAI   | `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, `whisper-1` |
 

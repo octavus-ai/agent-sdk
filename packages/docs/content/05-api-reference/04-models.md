@@ -7,6 +7,8 @@ description: Public catalog of usable models with pricing.
 
 List the models you can use in an agent, each with a copy-ready model id and per-1M-token pricing. This is the same catalog shown at [octavus.ai/pricing/models](https://octavus.ai/pricing/models) and behind the MCP [`list_models`](/docs/mcp/tools#models) tool, shaped for programmatic use - for example, building a model picker or comparing costs.
 
+Direct-provider chat and image models (Anthropic, Google, OpenAI, xAI, Octavus) must come from this catalog: a protocol that names any other direct-provider model fails validation, and a session that resolves to one fails with `MODEL_NOT_SUPPORTED`. OpenRouter and Vercel AI Gateway routes pass through to the gateway, which validates them itself. See [Unsupported Models](/docs/protocol/agent-config#unsupported-models), which also covers video, speech, and transcription models.
+
 ## Public access
 
 Unlike the rest of the API, this endpoint is **public - no authentication required**. It is rate-limited per client IP (exceeding the limit returns `429`) and cached, so treat it as reference data rather than a high-frequency call.
