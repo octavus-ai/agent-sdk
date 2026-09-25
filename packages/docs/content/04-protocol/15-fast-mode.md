@@ -45,14 +45,7 @@ Falling back to standard speed is a prompt-cache miss, since fast and standard r
 
 ## Routing
 
-A supported Opus model can be reached through more than one route, and fast mode is expressed differently on each:
-
-| Route            | Example model                               | How fast mode is enabled         |
-| ---------------- | ------------------------------------------- | -------------------------------- |
-| Direct Anthropic | `anthropic/claude-opus-4-8`                 | `speed: fast`                    |
-| OpenRouter       | `openrouter/anthropic/claude-opus-4.8-fast` | The dedicated `-fast` model slug |
-
-Through OpenRouter, fast mode is available only where OpenRouter offers a dedicated `-fast` model slug; `speed` is ignored on that route (validation warns).
+`speed: fast` applies on the direct Anthropic route (`anthropic/claude-opus-4-8`). Through OpenRouter, `speed` is ignored (validation warns): OpenRouter expresses fast mode only as a dedicated `-fast` model slug, which an agent can use once the [model catalog](https://octavus.ai/pricing/models) lists it.
 
 ## Passing speed as input
 

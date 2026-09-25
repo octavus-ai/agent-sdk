@@ -70,7 +70,7 @@ Specify models in `provider/model-id` format, using a model from the [model cata
 
 Chat models outside the direct providers are reached through OpenRouter: `openrouter/` plus OpenRouter's own model id. The catalog lists these routes, so copy one exactly as it's listed. OpenRouter's variant ids with a `:` suffix (such as `:free` or `:batch`) and its `~` "latest" aliases aren't valid model ids. See [OpenRouter routing](#openrouter-routing) for how these requests are routed.
 
-The Vercel AI Gateway (`vercel/...`) is no longer a route: a protocol that names one fails validation with code `RETIRED_MODEL_PROVIDER` and the message names the replacement - the direct id for the Anthropic, OpenAI, Google and xAI families, `openrouter/<id>` for everything else.
+The Vercel AI Gateway (`vercel/...`) is no longer a route: a protocol that names one fails validation with code `RETIRED_MODEL_PROVIDER`, and the message suggests the likely replacement - the direct id for the Anthropic, OpenAI, Google and xAI families, the OpenRouter id for everything else. The two gateways name some providers and models differently, so confirm the exact id in the [model catalog](https://octavus.ai/pricing/models).
 
 ### Unsupported Models
 
