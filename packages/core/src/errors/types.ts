@@ -60,6 +60,12 @@ export interface ProviderErrorInfo {
    * argument") while the body holds field-level violations.
    */
   details?: string;
+  /**
+   * The upstream deployment that served or rejected the request when the
+   * provider is a gateway that reports it (e.g. the OpenRouter host `DeepInfra`).
+   * Absent for direct providers and when the gateway did not name the host.
+   */
+  upstream?: string;
 }
 
 /**

@@ -104,6 +104,12 @@ export interface StepStatsTrace {
    * Undefined means standard speed.
    */
   speed?: 'fast' | 'standard';
+  /**
+   * The upstream deployment that served this step when the provider is a
+   * gateway that reports it (e.g. the OpenRouter host `Xiaomi`). Undefined for
+   * direct providers and when the gateway did not name the host.
+   */
+  upstream?: string;
 }
 
 /**

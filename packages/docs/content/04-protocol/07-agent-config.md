@@ -55,33 +55,31 @@ agent:
 
 ## Models
 
-Specify models in `provider/model-id` format, using a model from the [model catalog](https://octavus.ai/pricing/models) or, for chat models, any OpenRouter or Vercel AI Gateway route. The same catalog is available programmatically from the [Models API](/docs/api-reference/models) and the MCP [`list_models`](/docs/mcp/tools#models) tool. It syncs with provider catalogs automatically, so new models appear shortly after release.
+Specify models in `provider/model-id` format, using a model from the [model catalog](https://octavus.ai/pricing/models). The same catalog is available programmatically from the [Models API](/docs/api-reference/models) and the MCP [`list_models`](/docs/mcp/tools#models) tool. It syncs with provider catalogs automatically, so new models appear shortly after release.
 
 ### Supported Providers
 
-| Provider          | Format                             | Examples                                                                                           |
-| ----------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Anthropic         | `anthropic/{model-id}`             | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
-| Google            | `google/{model-id}`                | `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`                                   |
-| OpenAI            | `openai/{model-id}`                | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`                                                |
-| xAI               | `x-ai/{model-id}`                  | `grok-4.6`, `grok-4.5`                                                                             |
-| Octavus           | `octavus/{model-id}`               | `octo-1`                                                                                           |
-| OpenRouter        | `openrouter/{provider}/{model-id}` | `openrouter/deepseek/deepseek-v3.2`, `openrouter/moonshotai/kimi-k2`                               |
-| Vercel AI Gateway | `vercel/{provider}/{model-id}`     | `vercel/anthropic/claude-sonnet-4.6`, `vercel/openai/gpt-5.4`                                      |
+| Provider   | Format                             | Examples                                                                                           |
+| ---------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Anthropic  | `anthropic/{model-id}`             | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
+| Google     | `google/{model-id}`                | `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`                                   |
+| OpenAI     | `openai/{model-id}`                | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`                                                |
+| xAI        | `x-ai/{model-id}`                  | `grok-4.6`, `grok-4.5`                                                                             |
+| Octavus    | `octavus/{model-id}`               | `octo-1`                                                                                           |
+| OpenRouter | `openrouter/{provider}/{model-id}` | `openrouter/xiaomi/mimo-v2.6-pro`, `openrouter/moonshotai/kimi-k2.6`                               |
 
-Chat models outside the direct providers are reached through a gateway. A gateway route is the gateway's prefix followed by that gateway's own model id, passed to the gateway as-is:
+Chat models outside the direct providers are reached through OpenRouter: `openrouter/` plus OpenRouter's own model id. The catalog lists these routes, so copy one exactly as it's listed. OpenRouter's variant ids with a `:` suffix (such as `:free` or `:batch`) and its `~` "latest" aliases aren't valid model ids. See [OpenRouter routing](#openrouter-routing) for how these requests are routed.
 
-- **OpenRouter** - `openrouter/` plus an id from [OpenRouter's model list](https://openrouter.ai/models). The catalog lists these routes, so you can copy one exactly as it's listed. OpenRouter's variant ids with a `:` suffix (such as `:free` or `:batch`) and its `~` "latest" aliases aren't valid model ids.
-- **Vercel AI Gateway** - `vercel/` plus an id from [Vercel's model list](https://vercel.com/ai-gateway/models). Vercel names some providers and models differently from OpenRouter (GLM 4.6 is `vercel/zai/glm-4.6` but `openrouter/z-ai/glm-4.6`), so use the id Vercel lists.
+The Vercel AI Gateway (`vercel/...`) is no longer a route: a protocol that names one fails validation with code `RETIRED_MODEL_PROVIDER`, and the message suggests the likely replacement - the direct id for the Anthropic, OpenAI, Google and xAI families, the OpenRouter id for everything else. The two gateways name some providers and models differently, so confirm the exact id in the [model catalog](https://octavus.ai/pricing/models).
 
 ### Unsupported Models
 
 Every model an agent uses must be one Octavus supports:
 
 - **Direct providers** (Anthropic, Google, OpenAI, xAI, Octavus) - chat and image models must come from the [model catalog](https://octavus.ai/pricing/models), and video, speech, and transcription models from the tables in [Generating video](#generating-video), [Speech Generation](#speech-generation), and [Transcription](#transcription).
-- **Gateway routes** (`openrouter/...`, `vercel/...`) - any chat model the gateway serves. The id is passed to the gateway as-is and the gateway validates it, so a model it doesn't serve fails with the gateway's own error when the session runs. OpenRouter's auto-routing models (such as `openrouter/openrouter/auto`) are not supported, since they have no fixed price. Image, video, speech, and transcription models are always called on their provider directly, so they can't use a gateway route.
+- **OpenRouter routes** (`openrouter/...`) - chat models must come from the [model catalog](https://octavus.ai/pricing/models) as well. The catalog syncs with OpenRouter's model list every few hours, so a model OpenRouter has just added becomes available after the next sync. OpenRouter's auto-routing models (such as `openrouter/openrouter/auto`) are not supported, since they have no fixed price. Image, video, speech, and transcription models are always called on their provider directly, so they can't use an OpenRouter route.
 
-A direct-provider model outside the catalog or those tables, an unknown provider, or an OpenRouter auto-routing model is rejected before it runs:
+A model outside the catalog or those tables, an unknown provider, or an OpenRouter auto-routing model is rejected before it runs:
 
 - **At validation and deploy** - a protocol that names one (including as an input's `default`) fails validation with code `MODEL_NOT_SUPPORTED`.
 - **At runtime** - a session whose model resolves to one (for example from a `MODEL` input) fails with a `not_found_error` stream error whose `code` is `MODEL_NOT_SUPPORTED`. The message links to the catalog. An unsupported video, speech, or transcription model fails its tool call or block with the same code.
@@ -111,6 +109,18 @@ agent:
 ```
 
 > **Note**: Model IDs are passed directly to the provider SDK. Check the [model catalog](https://octavus.ai/pricing/models) for the models you can use and their pricing.
+
+### OpenRouter routing
+
+OpenRouter serves most models from several hosts and, by default, load-balances every request across them. Octavus applies its own routing policy to every OpenRouter request - on platform keys and on your own OpenRouter key alike - so a long agentic session behaves predictably:
+
+- **One host per session.** A session's requests carry a sticky routing key, so the whole session stays on one host (see [Prompt Caching](#prompt-caching) - the key is sent unless `cache: off`).
+- **Reasoning is honored or reported.** When `thinking` is declared, the request is routed only to hosts that support reasoning, so a declared level is never silently ignored. If none of a model's hosts support reasoning, `thinking` is not sent: validation warns (`THINKING_UNSUPPORTED_MODEL`) and the session's execution log records the downgrade as a `block-operation` entry.
+- **Endpoints verified for agentic use.** Models from the major open-weight providers run on endpoints Octavus has verified for tool calling, reasoning and tool-result vision - normally the provider's own deployment - and are priced at that endpoint's rate, which is the price the [model catalog](https://octavus.ai/pricing/models) shows.
+
+The `step-stats` entry the execution log records after every model step carries `upstream`, the OpenRouter host that served it, next to the provider and model; an OpenRouter error carries the host on `provider.upstream`. A host rejecting an image inside a tool result surfaces as a `validation_error` with code `HOST_UNSUPPORTED_TOOL_CONTENT`, which the backup model takes over from.
+
+On your own OpenRouter key, your account's provider restrictions remain the ceiling: if they exclude every host Octavus routes a model to, OpenRouter rejects the request with a 404 that names the cause and the backup model takes over.
 
 ### Dynamic Model Selection
 
@@ -328,8 +338,7 @@ Each provider translates `thinking` into its own reasoning controls:
 | Google (Gemini 3.x)                                                        | `thinkingLevel: low / high` (`medium` rounds up to `high`)                                              |
 | Google (Gemini 1.x / 2.x)                                                  | Token budgets: `low` 1,024, `medium` 8,192, `high` 24,576, `max` 65,536                                 |
 | xAI (Grok)                                                                 | `reasoningEffort: low / medium / high / xhigh` (`max` maps to `xhigh` on `grok-4.6`, `high` elsewhere)  |
-| OpenRouter                                                                 | Unified `reasoning.max_tokens` (translated upstream)                                                    |
-| Vercel AI Gateway                                                          | Forwards the underlying provider's options                                                              |
+| OpenRouter                                                                 | Unified `reasoning.max_tokens` (translated upstream), routed only to hosts that support reasoning       |
 
 ## Prompt Caching
 
@@ -351,13 +360,14 @@ agent:
 
 The `cache` field is provider-agnostic at the protocol level - each provider translates it into its own cache retention policy:
 
-| Provider  | `auto` TTL                | `extended` TTL |
-| --------- | ------------------------- | -------------- |
-| Anthropic | 5 minutes                 | 1 hour         |
-| OpenAI    | in-memory (~5-10 minutes) | 24 hours       |
-| Google    | Implicit (Gemini 2.5+)    | Implicit       |
+| Provider   | `auto` TTL                                                           | `extended` TTL |
+| ---------- | -------------------------------------------------------------------- | -------------- |
+| Anthropic  | 5 minutes                                                            | 1 hour         |
+| OpenAI     | in-memory (~5-10 minutes)                                            | 24 hours       |
+| Google     | Implicit (Gemini 2.5+)                                               | Implicit       |
+| OpenRouter | Sticky session routing (one host per session) + the host's own cache | Same as `auto` |
 
-On `off`, Octavus emits no explicit cache options. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently - `off` just disables Octavus's opt-in behavior.
+On OpenRouter, `cache` controls the session's sticky routing key (`session_id`): with `auto` or `extended` a session's requests stay on the host whose prompt cache is warm; the host's own automatic caching does the rest. On `off`, Octavus emits no explicit cache options and no routing key. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently - `off` just disables Octavus's opt-in behavior.
 
 ### Threads don't inherit
 
