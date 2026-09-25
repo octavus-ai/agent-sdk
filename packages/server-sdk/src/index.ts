@@ -44,6 +44,7 @@ export {
 export {
   WorkforceApi,
   isTerminalThreadStatus,
+  isSettledRecordingStatus,
   type WorkforceThreadStatus,
   type WorkforceDispatchResult,
   type WorkforceThread,

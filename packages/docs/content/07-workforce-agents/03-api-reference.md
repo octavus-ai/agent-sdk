@@ -129,7 +129,22 @@ GET /api/v1/workforce/agents/{agentId}/threads/{threadId}
 | `usage`         | object \| null | Per-run cost + token summary: `costUsd` (model/provider cost), `totalFeeUsd` (provider + bandwidth fee), `byok`, and input/output/total tokens. |
 | `recording`     | object \| null | The execution recording when the run was recorded: `status`, `visibility`, a playable `url` once ready, and `error`. Null when not recorded.    |
 
-Keep polling while the status is `pending`, `queued`, or `running`. Stop when it is `completed`, `failed`, `cancelled`, or `blocked`. A `blocked` thread means a usage or spending limit was reached (see `failureReason`); the thread is created even when the run is blocked before it starts, so a blocked attempt is still a pollable thread rather than an error.
+Keep polling while the status is `pending`, `queued`, or `running`. Stop when it is `completed`, `failed`, `cancelled`, or `blocked`. A `blocked` thread means a usage or spending limit was reached (see `failureReason`); the thread is created even when the run is blocked before it starts, so a blocked attempt is still a pollable thread rather than an error. If the run was recorded and you need the video, keep polling until the recording is final too (see [Recording](#recording)).
+
+### Recording
+
+A recorded run's `recording` has its own lifecycle, and it settles shortly after the run ends: a thread can read `completed` while its recording is still `processing`. To get the video, keep polling the thread until `recording.status` is `ready`, `failed`, or `unavailable`. It normally takes a few seconds.
+
+| Status        | Meaning                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `requested`   | Recording was requested, but the run has not started yet (for example, it is queued behind another run) |
+| `recording`   | The run is being recorded                                                                               |
+| `processing`  | The run has ended; the video is being finalized                                                         |
+| `ready`       | Final. `url` plays the video                                                                            |
+| `failed`      | Final. The video could not be produced; `error` says why                                                |
+| `unavailable` | Final. The recording never started (for example, the plan does not include recording); `error` says why |
+
+`recording` is `null` only when the run was not recorded.
 
 ### Example
 
