@@ -103,7 +103,7 @@ octoagent run --config run.json "..."
 }
 ```
 
-Precedence: explicit flags > `--config` file > the agent's dashboard defaults. Any model from the [model catalog](https://octavus.ai/pricing/models) is allowed, as is any OpenRouter or Vercel AI Gateway route, as long as a key resolves for its provider (your project/org key or the platform default); any other model (see [Unsupported Models](/docs/protocol/agent-config#unsupported-models)), or an unrunnable or malformed one, is rejected up front, before the run starts. Capability toggles are bounded to the capabilities the agent's protocol declares.
+Precedence: explicit flags > `--config` file > the agent's dashboard defaults. Any model from the [model catalog](https://octavus.ai/pricing/models) is allowed, as long as a key resolves for its provider (your project/org key or the platform default); any other model (see [Unsupported Models](/docs/protocol/agent-config#unsupported-models)), or an unrunnable or malformed one, is rejected up front, before the run starts. Capability toggles are bounded to the capabilities the agent's protocol declares.
 
 ## Machine-readable output
 

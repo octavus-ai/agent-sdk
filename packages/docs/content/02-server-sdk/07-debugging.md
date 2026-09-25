@@ -10,7 +10,7 @@ description: Execution log telemetry, model request tracing, and debugging tools
 Every session's execution log includes lightweight model telemetry by default - no configuration needed:
 
 - **Model request markers** - a `model-request` entry for every provider call (LLM and media generation) recording when the request happened, plus the provider and model. Without tracing enabled, the entry carries no request payload, so it stays cheap even for high-volume production sessions.
-- **Step stats** - a `step-stats` entry after each LLM step with the token usage breakdown: input tokens, cache reads and writes, output tokens, and reasoning tokens, plus the prompt-cache mode the provider applied. This is the primary signal for understanding where a session's tokens and cost go.
+- **Step stats** - a `step-stats` entry after each LLM step with the token usage breakdown: input tokens, cache reads and writes, output tokens, and reasoning tokens, plus the prompt-cache mode the provider applied and, on an OpenRouter model, `upstream` - the host that served the step. This is the primary signal for understanding where a session's tokens and cost go, and which deployment ran each step.
 
 Both appear in the execution log timeline - via [`getLogs()`](/docs/server-sdk/sessions#getting-execution-logs) and in the dashboard's execution log views. To capture the full request payloads as well, enable model request tracing.
 

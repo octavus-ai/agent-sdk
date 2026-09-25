@@ -48,7 +48,7 @@ Configure how the agent runs for this thread without changing its dashboard sett
 | `record`           | boolean                   | Record this run's execution view (working process + computer) to a shareable video.                     |
 | `recordVisibility` | string                    | Where a recording is stored: `private` (default) or `public` (permanent URL). Ignored without `record`. |
 
-Any model from the [model catalog](https://octavus.ai/pricing/models) is allowed, as is any OpenRouter or Vercel AI Gateway route, as long as a key resolves for its provider (your project/org key or the platform default); any other model is rejected (see [Unsupported Models](/docs/protocol/agent-config#unsupported-models)). Capability toggles are bounded to the capabilities the agent's protocol declares.
+Any model from the [model catalog](https://octavus.ai/pricing/models) is allowed, as long as a key resolves for its provider (your project/org key or the platform default); any other model is rejected (see [Unsupported Models](/docs/protocol/agent-config#unsupported-models)). Capability toggles are bounded to the capabilities the agent's protocol declares.
 
 ### Response
 
