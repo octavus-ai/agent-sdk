@@ -104,6 +104,7 @@ GET /api/v1/workforce/agents/{agentId}/threads/{threadId}
   "threadId": "cm5xyz123abc456def",
   "status": "completed",
   "failureReason": null,
+  "failureType": null,
   "messages": [],
   "runConfig": { "model": "anthropic/claude-sonnet-5", "thinking": "high" },
   "usage": {
@@ -124,6 +125,7 @@ GET /api/v1/workforce/agents/{agentId}/threads/{threadId}
 | `threadId`      | string         | The thread identifier                                                                                                                           |
 | `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, `cancelled`, or `blocked`                                                        |
 | `failureReason` | string \| null | Why the run stopped, when `status` is `failed` or `blocked` (a usage/spending limit)                                                            |
+| `failureType`   | string \| null | The class of `failureReason` - see [Failure types](#failure-types). Null when there is no failure.                                              |
 | `messages`      | UIMessage[]    | The conversation - see [UIMessage parts](/docs/api-reference/sessions)                                                                          |
 | `runConfig`     | object \| null | The effective per-run config the thread ran under (`model`, `backupModel`, `thinking`, `capabilities`). Null for a run with no per-run config.  |
 | `usage`         | object \| null | Per-run cost + token summary: `costUsd` (model/provider cost), `totalFeeUsd` (provider + bandwidth fee), `byok`, and input/output/total tokens. |
@@ -145,6 +147,25 @@ A recorded run's `recording` has its own lifecycle, and it settles shortly after
 | `unavailable` | Final. The recording never started (for example, the plan does not include recording); `error` says why |
 
 `recording` is `null` only when the run was not recorded.
+
+### Failure types
+
+`failureType` classifies why a `failed` or `blocked` run stopped, so you can tell the agent failing at its task from a problem reaching it without parsing `failureReason`.
+
+| Type                   | Meaning                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `computer_unreachable` | The agent's computer could not be reached, so the run never started                                         |
+| `network`              | A connectivity failure on the way to the run: it could not be handed off, or its connection dropped mid-run |
+| `transport`            | The run's connection to Octavus kept dropping and could not be recovered                                    |
+| `platform`             | A failure on the Octavus side                                                                               |
+| `provider`             | The model provider returned an error, was overloaded, or rate limited the run                               |
+| `timeout`              | A request timed out, usually to the model provider                                                          |
+| `billing`              | A plan allowance was reached; accompanies `blocked`                                                         |
+| `limit`                | A spending limit was reached; accompanies `blocked`                                                         |
+| `session_too_large`    | The thread can no longer be stored; continue in a new thread                                                |
+| `unknown`              | The failure could not be classified                                                                         |
+
+Only `computer_unreachable` guarantees the run never started. Every other type can follow work the agent already did, so check `messages` before retrying a task with side effects. New types may be added; treat an unrecognized value like `unknown`.
 
 ### Example
 

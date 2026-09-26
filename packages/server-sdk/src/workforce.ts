@@ -84,12 +84,36 @@ const recordingSchema = z.object({
   error: z.string().nullable(),
 });
 
+/**
+ * Machine-readable class of a thread's `failureReason` (see the API reference's
+ * failure types). Only `computer_unreachable` guarantees the run never started;
+ * any other class can follow work the agent already did, so check the thread's
+ * messages before retrying a task with side effects. `billing` and `limit`
+ * accompany a `blocked` thread. Validated leniently (any string) so a class the
+ * platform adds later never breaks a read.
+ */
+export type WorkforceFailureType =
+  | 'network'
+  | 'computer_unreachable'
+  | 'platform'
+  | 'provider'
+  | 'timeout'
+  | 'transport'
+  | 'unknown'
+  | 'limit'
+  | 'billing'
+  | 'session_too_large';
+
 const threadResponseSchema = z.object({
   threadId: z.string(),
   status: threadStatusSchema,
   failureReason: z.string().nullable(),
   messages: z.array(uiMessageSchema),
   // Optional read fields; an older platform may omit them, so default to null.
+  failureType: z
+    .string()
+    .nullish()
+    .transform((v) => (v ?? null) as WorkforceFailureType | null),
   runConfig: threadRunConfigSchema.nullish().transform((v) => v ?? null),
   usage: usageSummarySchema.nullish().transform((v) => v ?? null),
   recording: recordingSchema.nullish().transform((v) => v ?? null),
@@ -182,6 +206,12 @@ export interface WorkforceThread {
   status: WorkforceThreadStatus;
   /** A human-readable reason when the run ended in `failed` or `blocked`; null otherwise. */
   failureReason: string | null;
+  /**
+   * The class of `failureReason` (see `WorkforceFailureType`); null when there
+   * is no failure reason. Lets a caller tell the agent failing at its task from
+   * a problem reaching it without parsing prose.
+   */
+  failureType: WorkforceFailureType | null;
   /** The thread's UI messages (the conversation a user would see). */
   messages: UIMessage[];
   /** The effective per-run config the thread ran under; null for a run with no per-run config. */
