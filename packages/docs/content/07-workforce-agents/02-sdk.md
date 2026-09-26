@@ -94,8 +94,10 @@ const thread = await client.workforce.run(agentId, 'Summarize the latest sales r
 
 console.log(thread.runConfig); // the effective config the run used
 console.log(thread.usage?.costUsd, thread.usage?.totalTokens);
-console.log(thread.recording?.url); // playable URL once the recording is ready
+console.log(thread.recording?.url); // playable URL - run() waits (bounded) for the recording to settle
 ```
+
+A recording settles a few seconds after its run ends, so `run()` and `waitForCompletion()` keep polling a recorded run until its recording is final (`ready`, `failed`, or `unavailable`), up to `recordingTimeoutMs`. See [Recording](/docs/workforce-agents/api-reference#recording) for the statuses.
 
 This makes the SDK a drop-in benchmark harness: sweep models or capability sets across runs and read `runConfig` + `usage` back off each thread to attribute the result.
 
@@ -103,11 +105,12 @@ This makes the SDK a drop-in benchmark harness: sweep models or capability sets 
 
 `run()` and `waitForCompletion()` accept polling options. Full runs can take several minutes, so the defaults are generous.
 
-| Option           | Type        | Default  | Description                                   |
-| ---------------- | ----------- | -------- | --------------------------------------------- |
-| `pollIntervalMs` | number      | `3000`   | Delay between status checks                   |
-| `timeoutMs`      | number      | `900000` | Max time to wait before throwing (15 minutes) |
-| `signal`         | AbortSignal | -        | Cancel the wait early                         |
+| Option               | Type        | Default  | Description                                                                                                                            |
+| -------------------- | ----------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `pollIntervalMs`     | number      | `3000`   | Delay between status checks                                                                                                            |
+| `timeoutMs`          | number      | `900000` | Max time to wait before throwing (15 minutes)                                                                                          |
+| `recordingTimeoutMs` | number      | `120000` | After the run finishes, how long to wait for a recorded run's recording to settle; it is returned as-is after that. `0` skips the wait |
+| `signal`             | AbortSignal | -        | Cancel the wait early                                                                                                                  |
 
 `dispatch()`, `followUp()`, and `run()` also accept `files` (an array of `FileReference`) to attach hosted files to the message.
 
@@ -134,6 +137,6 @@ If the timeout elapses first, `waitForCompletion()` and `run()` throw. The run k
 | `usage`         | object \| null | Per-run cost + token summary (`costUsd`, `totalFeeUsd`, `byok`, token counts); zeros until the run accrues spend |
 | `recording`     | object \| null | The execution recording when recorded (`status`, `visibility`, `url`, `error`); null otherwise                   |
 
-Use `isTerminalThreadStatus(status)` to check whether a run has finished.
+Use `isTerminalThreadStatus(status)` to check whether a run has finished, and `isSettledRecordingStatus(status)` to check whether a recording is final.
 
 The same operations are available as plain HTTP - see the [API reference](/docs/workforce-agents/api-reference).
