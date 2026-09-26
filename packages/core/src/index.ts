@@ -102,6 +102,8 @@ export type {
   // Octavus-Specific
   BlockStartEvent,
   BlockEndEvent,
+  StepStartEvent,
+  StepDiscardEvent,
   ResourceUpdateEvent,
   PendingToolCall,
   ToolRequestEvent,

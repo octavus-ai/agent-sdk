@@ -242,6 +242,18 @@ export const blockEndEventSchema = z.object({
   workerId: z.string().optional(),
 });
 
+// --------------------------------- Step --------------------------------------
+
+export const stepStartEventSchema = z.object({
+  type: z.literal('step-start'),
+  workerId: z.string().optional(),
+});
+
+export const stepDiscardEventSchema = z.object({
+  type: z.literal('step-discard'),
+  workerId: z.string().optional(),
+});
+
 export const resourceUpdateEventSchema = z.object({
   type: z.literal('resource-update'),
   name: z.string(),
@@ -417,6 +429,8 @@ export const streamEventSchema = z.union([
   // Octavus-specific events
   blockStartEventSchema,
   blockEndEventSchema,
+  stepStartEventSchema,
+  stepDiscardEventSchema,
   resourceUpdateEventSchema,
   toolRequestEventSchema,
   clientToolRequestEventSchema,
