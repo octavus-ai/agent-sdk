@@ -91,12 +91,16 @@ A block that calls tools runs several model steps in one turn. Step events mark 
 // A later model step is starting (never sent for a block's first step).
 // The live counterpart of the `step-start` message part, so a message built
 // from the stream has the same structure as one loaded from history.
-{ type: 'step-start' }
+{
+  type: 'step-start';
+}
 
 // The current step's partial output is abandoned: drop everything streamed
 // since the step began (after the last `step-start`, or since the block's
 // output began). A fresh attempt at the same step streams next.
-{ type: 'step-discard' }
+{
+  type: 'step-discard';
+}
 ```
 
 `step-discard` is sent when the platform rolls a step back to re-issue it - for example when a transient provider failure interrupted the stream before anything from the step had executed. Only the interrupted step is affected; output committed by earlier steps stays. A client that ignores the event keeps the abandoned output and sees the retried step appended after it, which is why the [Client SDK](/docs/client-sdk/streaming) handles it for you.
