@@ -127,15 +127,16 @@ If the timeout elapses first, `waitForCompletion()` and `run()` throw. The run k
 
 `getThread()`, `waitForCompletion()`, and `run()` return a thread:
 
-| Field           | Type           | Description                                                                                                      |
-| --------------- | -------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `threadId`      | string         | The thread identifier                                                                                            |
-| `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, `cancelled`, or `blocked`                         |
-| `failureReason` | string \| null | Why the run stopped, when `status` is `failed` or `blocked` (a usage/spending limit)                             |
-| `messages`      | UIMessage[]    | The conversation - text, tool and skill steps, and files (see [UIMessage parts](/docs/api-reference/sessions))   |
-| `runConfig`     | object \| null | The effective per-run config the thread ran under (model, backupModel, thinking, capabilities); null if none     |
-| `usage`         | object \| null | Per-run cost + token summary (`costUsd`, `totalFeeUsd`, `byok`, token counts); zeros until the run accrues spend |
-| `recording`     | object \| null | The execution recording when recorded (`status`, `visibility`, `url`, `error`); null otherwise                   |
+| Field           | Type           | Description                                                                                                                                                                                   |
+| --------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `threadId`      | string         | The thread identifier                                                                                                                                                                         |
+| `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, `cancelled`, or `blocked`                                                                                                      |
+| `failureReason` | string \| null | Why the run stopped, when `status` is `failed` or `blocked` (a usage/spending limit)                                                                                                          |
+| `failureType`   | string \| null | The class of `failureReason` (`WorkforceFailureType`); only `computer_unreachable` guarantees the run never started - see [Failure types](/docs/workforce-agents/api-reference#failure-types) |
+| `messages`      | UIMessage[]    | The conversation - text, tool and skill steps, and files (see [UIMessage parts](/docs/api-reference/sessions))                                                                                |
+| `runConfig`     | object \| null | The effective per-run config the thread ran under (model, backupModel, thinking, capabilities); null if none                                                                                  |
+| `usage`         | object \| null | Per-run cost + token summary (`costUsd`, `totalFeeUsd`, `byok`, token counts); zeros until the run accrues spend                                                                              |
+| `recording`     | object \| null | The execution recording when recorded (`status`, `visibility`, `url`, `error`); null otherwise                                                                                                |
 
 Use `isTerminalThreadStatus(status)` to check whether a run has finished, and `isSettledRecordingStatus(status)` to check whether a recording is final.
 

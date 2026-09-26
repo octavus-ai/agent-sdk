@@ -46,6 +46,7 @@ export {
   isTerminalThreadStatus,
   isSettledRecordingStatus,
   type WorkforceThreadStatus,
+  type WorkforceFailureType,
   type WorkforceDispatchResult,
   type WorkforceThread,
   type WorkforceThreadRunConfig,
