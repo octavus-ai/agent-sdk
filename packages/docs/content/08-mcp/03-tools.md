@@ -87,9 +87,9 @@ The write loop mirrors editing an agent:
 
 Look up the models you can use in an agent - each with a copy-ready id like `anthropic/claude-sonnet-4-5` or `openrouter/deepseek/deepseek-chat` - so you can pick one or compare costs without leaving your editor. Available on any connection; the same catalog shown at [octavus.ai/pricing/models](https://octavus.ai/pricing/models).
 
-| Tool          | Access | Description                                                                                                                                                                |
-| ------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list_models` | read   | List the models you can use in an agent, with a copy-ready id, display name, provider, routing, context length, and per-1M-token pricing. Optionally filter by `provider`. |
+| Tool          | Access | Description                                                                                                                                                                                                        |
+| ------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `list_models` | read   | List the models you can use in an agent, with a copy-ready id, display name, provider, routing, the id that runs it through OpenRouter, context length, and per-1M-token pricing. Optionally filter by `provider`. |
 
 Outside your editor, the same catalog is available as a public REST endpoint - see the [Models API](/docs/api-reference/models).
 
