@@ -32,6 +32,20 @@ export function isTerminalThreadStatus(status: WorkforceThreadStatus): boolean {
   return TERMINAL_STATUSES.has(status);
 }
 
+const SETTLED_RECORDING_STATUSES: ReadonlySet<WorkforceRecording['status']> = new Set([
+  'ready',
+  'failed',
+  'unavailable',
+]);
+
+/**
+ * Whether a recording status is final (`ready`, `failed`, or `unavailable`).
+ * Unknown values are treated as not final, like thread statuses.
+ */
+export function isSettledRecordingStatus(status: WorkforceRecording['status']): boolean {
+  return SETTLED_RECORDING_STATUSES.has(status);
+}
+
 /**
  * Status is validated leniently (any string) so a newly-added platform status
  * never breaks polling; unknown values are simply treated as non-terminal.
@@ -143,10 +157,18 @@ export interface WorkforceUsageSummary {
   totalTokens: number;
 }
 
-/** A thread's execution recording (present when the run was recorded). */
+/**
+ * A thread's execution recording (present when the run was recorded). It settles
+ * after the run: a finished thread can still report `recording` or `processing`
+ * for a few seconds while the video is uploaded.
+ */
 export interface WorkforceRecording {
-  /** Recording lifecycle: `recording` | `processing` | `ready` | `failed` | `unavailable`. */
-  status: 'recording' | 'processing' | 'ready' | 'failed' | 'unavailable';
+  /**
+   * Recording lifecycle: `requested` (the run has not started yet), `recording`,
+   * `processing` (the run ended; the video is being uploaded), then one of the
+   * final states `ready`, `failed`, or `unavailable` (it never started).
+   */
+  status: 'requested' | 'recording' | 'processing' | 'ready' | 'failed' | 'unavailable';
   /** `private` (played via a signed URL after authorization) or `public` (permanent URL). */
   visibility: 'private' | 'public';
   /** Playable URL once `ready`; null otherwise. */
@@ -197,6 +219,14 @@ export interface WorkforceWaitOptions {
    * size this generously. Default: 900000 (15 minutes).
    */
   timeoutMs?: number;
+  /**
+   * Once the run has finished, how long to keep polling for a recorded run's
+   * recording to reach a final status (`ready`, `failed`, or `unavailable`). A
+   * recording normally settles within seconds; if it has not by then, the thread
+   * is returned with its recording still in progress (never an error). `0` returns
+   * as soon as the run finishes. Default: 120000 (2 minutes).
+   */
+  recordingTimeoutMs?: number;
   /** Abort the wait early. */
   signal?: AbortSignal;
 }
@@ -205,6 +235,7 @@ export type WorkforceRunOptions = WorkforceDispatchOptions & WorkforceWaitOption
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1_000;
+const DEFAULT_RECORDING_TIMEOUT_MS = 2 * 60 * 1_000;
 
 /**
  * Workforce Agents API - drive a single OctoAgent ("Workforce Agent") headlessly
@@ -279,7 +310,9 @@ export class WorkforceApi extends BaseApiClient {
   /**
    * Poll a thread until it reaches a terminal status, then return it. Throws if
    * the timeout elapses first (the thread keeps running server-side and can be
-   * read later with `getThread`).
+   * read later with `getThread`). A recorded run's recording settles shortly after
+   * the run, so the wait continues (up to `recordingTimeoutMs`) until the recording
+   * is final as well.
    */
   async waitForCompletion(
     agentId: string,
@@ -293,7 +326,7 @@ export class WorkforceApi extends BaseApiClient {
     for (;;) {
       const thread = await this.getThread(agentId, threadId);
       if (isTerminalThreadStatus(thread.status)) {
-        return thread;
+        return await this.waitForRecording(agentId, thread, pollIntervalMs, options);
       }
       if (Date.now() + pollIntervalMs >= deadline) {
         throw new Error(
@@ -307,7 +340,8 @@ export class WorkforceApi extends BaseApiClient {
   /**
    * Dispatch a message and wait for the run to finish - the all-in-one method
    * for automating an agent. Returns the completed thread (the agent's latest
-   * turn is the tail of `messages`).
+   * turn is the tail of `messages`; a recorded run's recording is given
+   * `recordingTimeoutMs` to settle, as in `waitForCompletion`).
    */
   async run(
     agentId: string,
@@ -319,6 +353,32 @@ export class WorkforceApi extends BaseApiClient {
       config: options.config,
     });
     return await this.waitForCompletion(agentId, threadId, options);
+  }
+
+  /**
+   * Keep reading a finished thread until its recording is final, within the
+   * budget. Always returns a finished read: if the thread starts another run
+   * meanwhile (a follow-up), the last finished read is returned.
+   */
+  private async waitForRecording(
+    agentId: string,
+    finished: WorkforceThread,
+    pollIntervalMs: number,
+    options: WorkforceWaitOptions,
+  ): Promise<WorkforceThread> {
+    const deadline = Date.now() + (options.recordingTimeoutMs ?? DEFAULT_RECORDING_TIMEOUT_MS);
+    let thread = finished;
+    while (
+      thread.recording &&
+      !isSettledRecordingStatus(thread.recording.status) &&
+      Date.now() + pollIntervalMs < deadline
+    ) {
+      await delay(pollIntervalMs, options.signal);
+      const latest = await this.getThread(agentId, thread.threadId);
+      if (!isTerminalThreadStatus(latest.status)) return thread;
+      thread = latest;
+    }
+    return thread;
   }
 }
 
