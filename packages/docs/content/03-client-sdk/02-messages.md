@@ -143,7 +143,9 @@ interface UIWorkerPart {
   status: 'running' | 'done' | 'error' | 'cancelled';
 }
 
-// Step boundary marker (structural, not rendered visually)
+// Step boundary marker between the model steps of a multi-step turn
+// (structural, not rendered visually). Present both in messages loaded from
+// history and in messages built live from the stream.
 interface UIStepStartPart {
   type: 'step-start';
 }

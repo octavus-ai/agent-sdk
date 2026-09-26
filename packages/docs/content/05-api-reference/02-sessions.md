@@ -316,6 +316,8 @@ data: [DONE]
 | `error`                 | Error occurred                     |
 | `block-start`           | Execution block started            |
 | `block-end`             | Execution block completed          |
+| `step-start`            | A later model step started         |
+| `step-discard`          | Current step's output retracted    |
 | `text-start`            | Text generation started            |
 | `text-delta`            | Incremental text content           |
 | `text-end`              | Text generation ended              |

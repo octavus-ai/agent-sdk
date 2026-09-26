@@ -116,6 +116,12 @@ function ReasoningPart({ part }: { part: UIReasoningPart }) {
 }
 ```
 
+### Steps and retracted output
+
+An agent that calls tools runs several model steps inside one assistant message. The SDK mirrors the platform's step structure into `parts`: a `step-start` part is inserted between steps as they stream (the same marker a message loaded from history carries - render it as nothing), so a live message and a reloaded one always have the same shape.
+
+Occasionally the platform has to redo a step - for example when the connection to the model provider dropped mid-stream before anything from the step had executed. It then sends a `step-discard` event, and the SDK removes everything the interrupted step had streamed (its reasoning, text, and tool calls) before the retried step streams into the same place. Output committed by earlier steps is untouched. You do not need to handle this yourself: `messages` simply updates, and any part you were rendering from the abandoned step disappears in that update.
+
 ## Tool Call States
 
 Tool calls progress through multiple states:

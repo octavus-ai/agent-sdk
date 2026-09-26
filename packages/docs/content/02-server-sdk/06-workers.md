@@ -371,8 +371,8 @@ Workers emit standard stream events plus worker-specific events.
 | `text-start`            | Text generation started       |
 | `text-delta`            | Text chunk received           |
 | `text-end`              | Text generation ended         |
-| `block-start`           | Step started                  |
-| `block-end`             | Step completed                |
+| `block-start`           | Execution block started       |
+| `block-end`             | Execution block completed     |
 | `tool-input-available`  | Tool arguments ready          |
 | `tool-output-available` | Tool result ready             |
 | `client-tool-request`   | Client tools need execution   |

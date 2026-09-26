@@ -527,6 +527,39 @@ export interface BlockEndEvent {
   workerId?: string;
 }
 
+// --------------------------------- Step --------------------------------------
+
+/**
+ * A new model step is starting inside a block that already streamed output in
+ * an earlier step of the same turn (a multi-step agentic response). The live
+ * counterpart of the persisted `step-start` message part: clients that mirror
+ * the wire into `parts[]` insert the same structural marker, so a message
+ * built live matches the message reloaded from history. Carries no payload
+ * and renders nothing. Not emitted for a block's first step.
+ */
+export interface StepStartEvent {
+  type: 'step-start';
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
+}
+
+/**
+ * The current step's partial output is abandoned: everything streamed since
+ * the step began (its reasoning, text, and tool inputs - after the last
+ * `step-start`, or since the block's output began for a first step) must be
+ * discarded. Emitted when the runtime rolls a step back to re-issue it, for
+ * example after a transient provider failure interrupted the stream before
+ * anything from the step had executed; a fresh attempt at the same step
+ * streams next. Output committed by earlier steps is untouched. Clients that
+ * do not understand this event keep the abandoned output visible and simply
+ * see the retried step appended after it.
+ */
+export interface StepDiscardEvent {
+  type: 'step-discard';
+  /** Worker ID if this event originated from a worker execution */
+  workerId?: string;
+}
+
 // Deprecated via prose, not an `@deprecated` tag: this is a `StreamEvent` union
 // member, so the tag would cascade `no-deprecated` disables across the union and
 // its handlers. The tagged, consumer-facing signals are `Resource` and
@@ -814,6 +847,8 @@ export type StreamEvent =
   // Octavus-specific events
   | BlockStartEvent
   | BlockEndEvent
+  | StepStartEvent
+  | StepDiscardEvent
   | ResourceUpdateEvent
   | ToolRequestEvent
   | ClientToolRequestEvent

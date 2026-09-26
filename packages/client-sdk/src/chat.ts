@@ -12,6 +12,7 @@ import {
   type UISourcePart,
   type UIFilePart,
   type UIObjectPart,
+  type UIStepStartPart,
   type UIWorkerPart,
   type UIWorkerStatus,
   type UITodoPart,
@@ -300,6 +301,12 @@ interface WorkerPartState {
   toolInputBuffers: Map<string, string>;
   /** Accumulated raw JSON for progressive worker input parsing */
   inputBuffer: string;
+  /**
+   * Index into the worker's nested `parts` where the current model step's
+   * output begins; a `step-discard` truncates back to it. Advanced past each
+   * `step-start` marker and reset at every `block-start` inside the worker.
+   */
+  stepAnchorIndex: number;
 }
 
 interface StreamingState {
@@ -315,6 +322,13 @@ interface StreamingState {
   activeWorkers: Map<string, WorkerPartState>;
   /** Accumulated raw JSON text per tool call ID for progressive partial parsing */
   toolInputBuffers: Map<string, string>;
+  /**
+   * Index into `parts` where the current model step's output begins; a
+   * `step-discard` truncates back to it. Advanced past each `step-start`
+   * marker and reset at every `block-start`, so a discard never reaches into
+   * an earlier step's committed output or a previous block.
+   */
+  stepAnchorIndex: number;
 }
 
 type Listener = () => void;
@@ -455,6 +469,20 @@ function createEmptyStreamingState(): StreamingState {
     accumulatedJson: '',
     activeWorkers: new Map(),
     toolInputBuffers: new Map(),
+    stepAnchorIndex: 0,
+  };
+}
+
+function createWorkerPartState(partIndex: number): WorkerPartState {
+  return {
+    partIndex,
+    currentTextPartIndex: null,
+    currentReasoningPartIndex: null,
+    currentObjectPartIndex: null,
+    accumulatedJson: '',
+    toolInputBuffers: new Map(),
+    inputBuffer: '',
+    stepAnchorIndex: 0,
   };
 }
 
@@ -1445,6 +1473,16 @@ export class OctavusChat {
         state.currentTextPartIndex = null;
         state.currentReasoningPartIndex = null;
 
+        // A block's first step has no `step-start` marker, so the block's own
+        // start is where a `step-discard` for that step rolls back to.
+        if (workerState) {
+          workerState.stepAnchorIndex = (
+            state.parts[workerState.partIndex] as UIWorkerPart
+          ).parts.length;
+        } else {
+          state.stepAnchorIndex = state.parts.length;
+        }
+
         this.updateStreamingMessage();
         break;
       }
@@ -1481,6 +1519,37 @@ export class OctavusChat {
         this.updateStreamingMessage();
         break;
       }
+
+      case 'step-start': {
+        // A later model step of a multi-step turn. Insert the same structural
+        // marker the persisted message carries (so a message built live matches
+        // one reloaded from history) and move the step anchor past it: the
+        // previous step's output is now committed and out of reach of a
+        // `step-discard`.
+        const workerId = event.workerId;
+        const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+        const marker: UIStepStartPart = { type: 'step-start' };
+
+        if (workerState) {
+          const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+          const newParts = [...workerPart.parts, marker];
+          state.parts[workerState.partIndex] = { ...workerPart, parts: newParts };
+          workerState.stepAnchorIndex = newParts.length;
+          workerState.currentTextPartIndex = null;
+          workerState.currentReasoningPartIndex = null;
+        } else {
+          state.parts.push(marker);
+          state.stepAnchorIndex = state.parts.length;
+          state.currentTextPartIndex = null;
+          state.currentReasoningPartIndex = null;
+        }
+        this.updateStreamingMessage();
+        break;
+      }
+
+      case 'step-discard':
+        this.discardCurrentStep(state, event.workerId);
+        break;
 
       case 'reasoning-start': {
         const workerId = event.workerId;
@@ -2077,18 +2146,7 @@ export class OctavusChat {
           status: 'running',
         };
         state.parts.push(workerPart);
-        const partIndex = state.parts.length - 1;
-
-        const workerState: WorkerPartState = {
-          partIndex,
-          currentTextPartIndex: null,
-          currentReasoningPartIndex: null,
-          currentObjectPartIndex: null,
-          accumulatedJson: '',
-          toolInputBuffers: new Map(),
-          inputBuffer: '',
-        };
-        state.activeWorkers.set(event.workerId, workerState);
+        state.activeWorkers.set(event.workerId, createWorkerPartState(state.parts.length - 1));
         this.updateStreamingMessage();
         break;
       }
@@ -2133,16 +2191,7 @@ export class OctavusChat {
         // worker-input-start already created one so progressive input parsing
         // state isn't reset.
         if (!state.activeWorkers.has(event.workerId)) {
-          const workerState: WorkerPartState = {
-            partIndex,
-            currentTextPartIndex: null,
-            currentReasoningPartIndex: null,
-            currentObjectPartIndex: null,
-            accumulatedJson: '',
-            toolInputBuffers: new Map(),
-            inputBuffer: '',
-          };
-          state.activeWorkers.set(event.workerId, workerState);
+          state.activeWorkers.set(event.workerId, createWorkerPartState(partIndex));
         }
         this.updateStreamingMessage();
         break;
@@ -2366,6 +2415,74 @@ export class OctavusChat {
     this.streamingState = createEmptyStreamingState();
     this.revealState.clear();
     if (!this._batching) this.notifyListeners();
+  }
+
+  /**
+   * Drop the current model step's partial output and stay live: the runtime
+   * rolled the step back to re-issue it (a transient provider failure
+   * interrupted the stream before anything from the step had executed).
+   * Everything after the step anchor - the reasoning, text, and tool inputs
+   * streamed since the step began - is removed along with the per-part
+   * bookkeeping that pointed into it, so the fresh attempt streams into a clean
+   * step while earlier steps' committed output stays untouched. Scoped to the
+   * worker's nested parts when the event carries a `workerId`; because a discard
+   * is destructive, a worker event whose tracker is unknown is ignored rather
+   * than applied to the parent's step. Batch-aware like every other handler, so
+   * a discard inside a late-join replay is applied silently and painted with
+   * the rest.
+   */
+  private discardCurrentStep(state: StreamingState, workerId: string | undefined): void {
+    const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
+    if (workerId && !workerState) return;
+
+    if (workerState) {
+      const workerPart = state.parts[workerState.partIndex] as UIWorkerPart;
+      const anchor = workerState.stepAnchorIndex;
+      for (const part of workerPart.parts.slice(anchor)) {
+        if (part.type === 'tool-call') workerState.toolInputBuffers.delete(part.toolCallId);
+      }
+      state.parts[workerState.partIndex] = {
+        ...workerPart,
+        parts: workerPart.parts.slice(0, anchor),
+      };
+      workerState.currentTextPartIndex = null;
+      workerState.currentReasoningPartIndex = null;
+      workerState.currentObjectPartIndex = null;
+      workerState.accumulatedJson = '';
+      this.forgetRevealFrom(`${workerState.partIndex}.`, anchor);
+    } else {
+      const anchor = state.stepAnchorIndex;
+      for (const part of state.parts.slice(anchor)) {
+        if (part.type === 'tool-call') state.toolInputBuffers.delete(part.toolCallId);
+        // A stream worker pre-created by `worker-input-start` in this step never
+        // ran; drop its tracker so a stale part index cannot be routed to.
+        if (part.type === 'worker') state.activeWorkers.delete(part.workerId);
+      }
+      state.parts.length = anchor;
+      state.currentTextPartIndex = null;
+      state.currentReasoningPartIndex = null;
+      state.currentObjectPartIndex = null;
+      state.accumulatedJson = '';
+      this.forgetRevealFrom('', anchor);
+    }
+
+    this.updateStreamingMessage();
+  }
+
+  /**
+   * Forget the reveal progress of the parts at or after `fromIndex` within one
+   * scope - `''` for the message's top-level parts, `'<workerPartIndex>.'` for a
+   * worker's nested parts. Reveal keys are index paths, so the parts a retried
+   * step streams land on the same keys as the discarded ones; without this the
+   * new text would appear instantly up to the old revealed length instead of
+   * being typed out.
+   */
+  private forgetRevealFrom(scopePrefix: string, fromIndex: number): void {
+    for (const key of [...this.revealState.keys()]) {
+      if (!key.startsWith(scopePrefix)) continue;
+      const index = Number.parseInt(key.slice(scopePrefix.length));
+      if (Number.isInteger(index) && index >= fromIndex) this.revealState.delete(key);
+    }
   }
 
   /**
