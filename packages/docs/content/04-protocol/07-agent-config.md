@@ -77,7 +77,7 @@ The Vercel AI Gateway (`vercel/...`) is no longer a route: a protocol that names
 Every model an agent uses must be one Octavus supports:
 
 - **Direct providers** (Anthropic, Google, OpenAI, xAI, Octavus) - chat and image models must come from the [model catalog](https://octavus.ai/pricing/models), and video, speech, and transcription models from the tables in [Generating video](#generating-video), [Speech Generation](#speech-generation), and [Transcription](#transcription).
-- **OpenRouter routes** (`openrouter/...`) - chat models must come from the [model catalog](https://octavus.ai/pricing/models) as well, which lists every model OpenRouter does, [routers](#routers) included. The catalog syncs with OpenRouter's model list every few hours, so a model OpenRouter has just added becomes available after the next sync - or right away on [your own OpenRouter key](#your-own-openrouter-key), which can run any OpenRouter model. Image, video, speech, and transcription models are always called on their provider directly, so they can't use an OpenRouter route.
+- **OpenRouter routes** (`openrouter/...`) - chat models must come from the [model catalog](https://octavus.ai/pricing/models) as well, which lists every model OpenRouter does, plus the [routers](#routers) Octavus has verified. The catalog syncs with OpenRouter's model list every few hours, so a model OpenRouter has just added becomes available after the next sync - or right away on [your own OpenRouter key](#your-own-openrouter-key), which can run any OpenRouter model. Image, video, speech, and transcription models are always called on their provider directly, so they can't use an OpenRouter route.
 
 A model outside the catalog or those tables, or an unknown provider, is rejected before it runs:
 
@@ -126,7 +126,7 @@ On your own OpenRouter key, your account's provider restrictions remain the ceil
 
 #### Routers
 
-An OpenRouter router - such as `openrouter/openrouter/auto` or `openrouter/typesafe/jev-router` - picks the model that answers each request. Name one anywhere a model can be named, the backup model and worker threads included; the catalog lists routers alongside the models they pick from.
+An OpenRouter router - such as `openrouter/openrouter/auto` or `openrouter/typesafe/jev-router` - picks the model that answers each request. Name one anywhere a model can be named, the backup model and worker threads included. The catalog lists the routers Octavus has verified for agent runs alongside the models they pick from; on platform keys only those run, while [your own OpenRouter key](#your-own-openrouter-key) can run any router OpenRouter offers.
 
 - **Where a step can land.** A router picks freely among the models it knows, but only on the endpoints Octavus routes the major providers to - never on another host. A request carrying structured output (`responseType`) is kept off the endpoints that refuse it.
 - **Billing.** A router has no price of its own: each step is billed at the cost OpenRouter reports for the model the router picked. The [Models API](/docs/api-reference/models) lists a router with `pricingBasis: "served-model"` and no rates.
