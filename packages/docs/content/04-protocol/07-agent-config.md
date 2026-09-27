@@ -77,11 +77,11 @@ The Vercel AI Gateway (`vercel/...`) is no longer a route: a protocol that names
 Every model an agent uses must be one Octavus supports:
 
 - **Direct providers** (Anthropic, Google, OpenAI, xAI, Octavus) - chat and image models must come from the [model catalog](https://octavus.ai/pricing/models), and video, speech, and transcription models from the tables in [Generating video](#generating-video), [Speech Generation](#speech-generation), and [Transcription](#transcription).
-- **OpenRouter routes** (`openrouter/...`) - chat models must come from the [model catalog](https://octavus.ai/pricing/models) as well. The catalog syncs with OpenRouter's model list every few hours, so a model OpenRouter has just added becomes available after the next sync. OpenRouter's auto-routing models (such as `openrouter/openrouter/auto`) are not supported, since they have no fixed price. Image, video, speech, and transcription models are always called on their provider directly, so they can't use an OpenRouter route.
+- **OpenRouter routes** (`openrouter/...`) - chat models must come from the [model catalog](https://octavus.ai/pricing/models) as well, which lists every model OpenRouter does, plus the [routers](#routers) Octavus has verified. The catalog syncs with OpenRouter's model list every few hours, so a model OpenRouter has just added becomes available after the next sync - or right away on [your own OpenRouter key](#your-own-openrouter-key), which can run any OpenRouter model. Image, video, speech, and transcription models are always called on their provider directly, so they can't use an OpenRouter route.
 
-A model outside the catalog or those tables, an unknown provider, or an OpenRouter auto-routing model is rejected before it runs:
+A model outside the catalog or those tables, or an unknown provider, is rejected before it runs:
 
-- **At validation and deploy** - a protocol that names one (including as an input's `default`) fails validation with code `MODEL_NOT_SUPPORTED`.
+- **At validation and deploy** - a protocol that names one (including as an input's `default`) fails validation with code `MODEL_NOT_SUPPORTED`. An OpenRouter model the catalog doesn't list passes with a `MODEL_NOT_IN_CATALOG` warning instead when the project or organization has its own OpenRouter key.
 - **At runtime** - a session whose model resolves to one (for example from a `MODEL` input) fails with a `not_found_error` stream error whose `code` is `MODEL_NOT_SUPPORTED`. The message links to the catalog. An unsupported video, speech, or transcription model fails its tool call or block with the same code.
 
 ### Examples
@@ -116,11 +116,31 @@ OpenRouter serves most models from several hosts and, by default, load-balances 
 
 - **One host per session.** A session's requests carry a sticky routing key, so the whole session stays on one host (see [Prompt Caching](#prompt-caching) - the key is sent unless `cache: off`).
 - **Reasoning is honored or reported.** When `thinking` is declared, the request is routed only to hosts that support reasoning, so a declared level is never silently ignored. If none of a model's hosts support reasoning, `thinking` is not sent: validation warns (`THINKING_UNSUPPORTED_MODEL`) and the session's execution log records the downgrade as a `block-operation` entry.
-- **One endpoint per provider.** Models from the major providers, open-weight and proprietary alike, run only on the provider's own endpoint, which Octavus has verified for tool calling, reasoning and tool-result vision, and are priced at that endpoint's rate - the price the [model catalog](https://octavus.ai/pricing/models) shows. A model its provider doesn't serve on OpenRouter can't run through OpenRouter, so the catalog doesn't offer it there.
+- **One endpoint per provider.** Models from the major providers, open-weight and proprietary alike, run only on the provider's own endpoint, which Octavus has verified for tool calling, reasoning and tool-result vision. A model its provider doesn't serve on OpenRouter itself - an older release, or an open-weight model only other hosts run - runs on OpenRouter's default routing, like a model from any other provider.
 
-The `step-stats` entry the execution log records after every model step carries `upstream`, the OpenRouter host that served it, next to the provider and model; an OpenRouter error carries the host on `provider.upstream`. A host rejecting an image inside a tool result surfaces as a `validation_error` with code `HOST_UNSUPPORTED_TOOL_CONTENT`, which the backup model takes over from. A host rejecting structured output (`responseType`) outright surfaces the same way, with code `HOST_UNSUPPORTED_RESPONSE_FORMAT`.
+**Billing.** On platform keys, a request through OpenRouter is billed the exact cost OpenRouter reports for it: the serving host's rate at that moment (off-peak discounts and long-context tiers included) and any work a router did inside the request. For a model that runs on its provider's own endpoint, the rate the [model catalog](https://octavus.ai/pricing/models) shows is the most a request costs; a model on OpenRouter's default routing is billed what the host that served it charged, which can differ from the rate shown.
+
+The `step-stats` entry the execution log records after every model step carries `upstream`, the OpenRouter host that served it, `servedModel`, the model that answered, and `reportedCost`, what OpenRouter charged for the step (see [Debugging](/docs/server-sdk/debugging)); an OpenRouter error carries the host on `provider.upstream`. A host rejecting an image inside a tool result surfaces as a `validation_error` with code `HOST_UNSUPPORTED_TOOL_CONTENT`, which the backup model takes over from. A host rejecting structured output (`responseType`) outright surfaces the same way, with code `HOST_UNSUPPORTED_RESPONSE_FORMAT`.
 
 On your own OpenRouter key, your account's provider restrictions remain the ceiling: if they exclude the host Octavus routes a model to, OpenRouter rejects the request with a 404 that names the cause and the backup model takes over.
+
+#### Routers
+
+An OpenRouter router - such as `openrouter/openrouter/auto` or `openrouter/typesafe/jev-router` - picks the model that answers each request. Name one anywhere a model can be named, the backup model and worker threads included. The catalog lists the routers Octavus has verified for agent runs alongside the models they pick from; on platform keys only those run, while [your own OpenRouter key](#your-own-openrouter-key) can run any router OpenRouter offers.
+
+- **Where a step can land.** A router picks freely among the models it knows, but only on the endpoints Octavus routes the major providers to - never on another host. A request carrying structured output (`responseType`) is kept off the endpoints that refuse it.
+- **Billing.** A router has no price of its own: each step is billed at the cost OpenRouter reports for the model the router picked. The [Models API](/docs/api-reference/models) lists a router with `pricingBasis: "served-model"` and no rates.
+- **Thinking.** A declared `thinking` level is sent as the router's reasoning effort (`max` as its deepest, `xhigh`) and fixes the effort for every step. `thinking: auto`, or no `thinking`, leaves the effort to the router.
+- **One conversation per session.** A session, and each named thread in it, is one conversation to the router whatever the `cache` setting, so a tool loop normally stays on one model. The model can change between user turns, and a router can pick again mid-turn when a request needs a capability the current model lacks, such as seeing an image in a tool result.
+- **Latency and cost.** A router can escalate a hard step by consulting a stronger model before answering, which can take minutes and cost far more than the step's visible tokens. Your spend limits apply to the exact cost as with any model.
+- **Data.** The router's provider reads the conversation text to decide which model answers.
+- **Context.** Before a router's first step, the session budgets context against a conservative default window; after, against the window of the model that answered.
+
+When the router reports its decision, `step-stats` carries it as `router`: why it chose (`reason`, such as `initial`, `continuation` or `escalation`), the `effort` the model ran at, and any `advisorModel` it consulted.
+
+#### Your own OpenRouter key
+
+On a project's or organization's own OpenRouter key, an agent can name any OpenRouter model, including one the catalog doesn't list: OpenRouter reports the cost of every request, and your account decides what it can run. Validation passes such a model with a `MODEL_NOT_IN_CATALOG` warning, and it bills a bandwidth fee of $0.30 per 1M tokens when the catalog has no rate for it. On platform keys, only catalog models run.
 
 ### Dynamic Model Selection
 
@@ -314,15 +334,16 @@ Enable extended reasoning for complex tasks:
 ```yaml
 agent:
   model: anthropic/claude-sonnet-4-5
-  thinking: medium # low | medium | high | max
+  thinking: medium # low | medium | high | max | auto
 ```
 
-| Level    | Use Case                           |
-| -------- | ---------------------------------- |
-| `low`    | Simple reasoning                   |
-| `medium` | Moderate complexity                |
-| `high`   | Complex analysis                   |
-| `max`    | Maximum reasoning budget available |
+| Level    | Use Case                                                    |
+| -------- | ----------------------------------------------------------- |
+| `low`    | Simple reasoning                                            |
+| `medium` | Moderate complexity                                         |
+| `high`   | Complex analysis                                            |
+| `max`    | Maximum reasoning budget available                          |
+| `auto`   | The model decides how much to reason (a router, the effort) |
 
 Thinking content streams to the UI and can be displayed to users.
 
@@ -339,6 +360,20 @@ Each provider translates `thinking` into its own reasoning controls:
 | Google (Gemini 1.x / 2.x)                                                  | Token budgets: `low` 1,024, `medium` 8,192, `high` 24,576, `max` 65,536                                 |
 | xAI (Grok)                                                                 | `reasoningEffort: low / medium / high / xhigh` (`max` maps to `xhigh` on `grok-4.6`, `high` elsewhere)  |
 | OpenRouter                                                                 | Unified `reasoning.max_tokens` (translated upstream), routed only to hosts that support reasoning       |
+| OpenRouter routers                                                         | `reasoning.effort: low / medium / high / xhigh` (`max` maps to `xhigh`)                                 |
+
+`auto` leaves the decision to the model wherever the provider has such a mode, and otherwise to the provider's default:
+
+| Provider                          | `thinking: auto`                                                  |
+| --------------------------------- | ----------------------------------------------------------------- |
+| Anthropic 4.6+                    | Adaptive thinking with no `effort` - the model decides            |
+| Anthropic older (4.5 and earlier) | No thinking (these models need a fixed budget)                    |
+| Google (Gemini 3.x)               | Dynamic thinking - no `thinkingLevel`, thoughts still streamed    |
+| Google (Gemini 1.x / 2.x)         | Dynamic thinking budget (`-1`)                                    |
+| OpenAI, xAI, Octavus              | No effort sent - the model reasons at its default effort          |
+| OpenRouter                        | No `reasoning` sent - the model's default, or a router's own pick |
+
+`auto` is never reported as a downgrade: leaving the decision to the model is honored whatever the provider sends.
 
 ## Prompt Caching
 
@@ -367,7 +402,7 @@ The `cache` field is provider-agnostic at the protocol level - each provider tra
 | Google     | Implicit (Gemini 2.5+)                                               | Implicit       |
 | OpenRouter | Sticky session routing (one host per session) + the host's own cache | Same as `auto` |
 
-On OpenRouter, `cache` controls the session's sticky routing key (`session_id`): with `auto` or `extended` a session's requests stay on the host whose prompt cache is warm; the host's own automatic caching does the rest. On `off`, Octavus emits no explicit cache options and no routing key. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently - `off` just disables Octavus's opt-in behavior.
+On OpenRouter, `cache` controls the session's sticky routing key (`session_id`): with `auto` or `extended` a session's requests stay on the host whose prompt cache is warm; the host's own automatic caching does the rest. On `off`, Octavus emits no explicit cache options and no routing key - except to a [router](#routers), which always gets the key, since it is what keeps a conversation on the model the router picked. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently - `off` just disables Octavus's opt-in behavior.
 
 ### Threads don't inherit
 
@@ -696,7 +731,7 @@ input:
     optional: true
   THINKING:
     type: string
-    description: Override thinking effort (low/medium/high/max, or "off")
+    description: Override thinking effort (low/medium/high/max/auto, or "off")
     optional: true
   MAX_STEPS:
     type: integer
@@ -725,11 +760,11 @@ const sessionId = await client.agentSessions.create('my-agent', {
 
 The resolver accepts the natural type for each field, plus a string fallback so consumers can pass values from form inputs without coercing first.
 
-| Field         | Suggested input type                       | Value at session creation                          |
-| ------------- | ------------------------------------------ | -------------------------------------------------- |
-| `temperature` | `number` (or `string` for `"off"` support) | A number `0`-`2`, a numeric string, or `"off"`     |
-| `thinking`    | `string`                                   | `"low"`, `"medium"`, `"high"`, `"max"`, or `"off"` |
-| `maxSteps`    | `integer` (or `string`)                    | A positive integer or a positive integer string    |
+| Field         | Suggested input type                       | Value at session creation                                    |
+| ------------- | ------------------------------------------ | ------------------------------------------------------------ |
+| `temperature` | `number` (or `string` for `"off"` support) | A number `0`-`2`, a numeric string, or `"off"`               |
+| `thinking`    | `string`                                   | `"low"`, `"medium"`, `"high"`, `"max"`, `"auto"`, or `"off"` |
+| `maxSteps`    | `integer` (or `string`)                    | A positive integer or a positive integer string              |
 
 The protocol's `input:` declaration enforces what the consumer can pass. Pick `type: number` / `type: integer` if you want native numeric overrides; pick `type: string` (or `type: unknown`) if you also need to pass the `"off"` sentinel for `temperature`.
 

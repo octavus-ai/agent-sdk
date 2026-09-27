@@ -10,9 +10,32 @@ description: Execution log telemetry, model request tracing, and debugging tools
 Every session's execution log includes lightweight model telemetry by default - no configuration needed:
 
 - **Model request markers** - a `model-request` entry for every provider call (LLM and media generation) recording when the request happened, plus the provider and model. Without tracing enabled, the entry carries no request payload, so it stays cheap even for high-volume production sessions.
-- **Step stats** - a `step-stats` entry after each LLM step with the token usage breakdown: input tokens, cache reads and writes, output tokens, and reasoning tokens, plus the prompt-cache mode the provider applied and, on an OpenRouter model, `upstream` - the host that served the step. This is the primary signal for understanding where a session's tokens and cost go, and which deployment ran each step.
+- **Step stats** - a `step-stats` entry after each LLM step with the token usage breakdown: input tokens, cache reads and writes, output tokens, and reasoning tokens, plus the prompt-cache mode the provider applied and, on an OpenRouter model, what the response reported (below). This is the primary signal for understanding where a session's tokens and cost go, and which deployment ran each step.
 
 Both appear in the execution log timeline - via [`getLogs()`](/docs/server-sdk/sessions#getting-execution-logs) and in the dashboard's execution log views. To capture the full request payloads as well, enable model request tracing.
+
+### OpenRouter step fields
+
+On an OpenRouter model, `stepStats` also carries what OpenRouter reported about the step:
+
+| Field          | Description                                                                                                                                                                                                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `upstream`     | The host that served the step (e.g. `DeepSeek`).                                                                                                                                                                                                                              |
+| `servedModel`  | The model that answered, as a model id (e.g. `openrouter/openai/gpt-6-sol`). It differs from `model` when `model` is a [router](/docs/protocol/agent-config#routers).                                                                                                         |
+| `reportedCost` | What OpenRouter charged for the step, in USD as numeric strings (a very small amount can use exponent notation, e.g. `3.6e-7`): `total`, the upstream provider's charge as `upstream` when reported, and `byok` - whether the OpenRouter account ran on its own provider key. |
+| `router`       | A router's decision, when it reports one: `reason` (e.g. `initial`, `continuation`, `escalation`), the `effort` the model ran at, the `incumbentModel`, any `advisorModel` it consulted, and `serverTools` it ran.                                                            |
+
+```typescript
+const result = await client.agentSessions.getLogs(sessionId);
+
+if (result.status !== 'expired') {
+  for (const entry of result.entries) {
+    if (entry.type !== 'step-stats' || !entry.stepStats) continue;
+    const { model, servedModel, reportedCost, router } = entry.stepStats;
+    console.log(model, '->', servedModel, reportedCost?.total, router?.reason);
+  }
+}
+```
 
 ## Model Request Tracing
 

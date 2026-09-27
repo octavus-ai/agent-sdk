@@ -789,9 +789,10 @@ export interface WorkerExecutionCost {
   /** True when any model call used your own provider key (BYOK). */
   byok: boolean;
   /**
-   * Estimated provider cost at Octavus (pass-through) rates - what the models
-   * would have cost on Octavus keys. Present only for BYOK executions; omitted
-   * otherwise, where `providerFee` already reflects the real charge.
+   * Estimated provider cost - what the models would have cost on Octavus keys:
+   * the cost OpenRouter reported for an OpenRouter call, Octavus (pass-through)
+   * rates otherwise. Present only for BYOK executions; omitted otherwise, where
+   * `providerFee` already reflects the real charge.
    */
   estimatedProviderFee?: number;
 }

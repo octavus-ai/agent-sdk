@@ -119,8 +119,8 @@ const threadResponseSchema = z.object({
   recording: recordingSchema.nullish().transform((v) => v ?? null),
 });
 
-/** Thinking/reasoning effort for a run. */
-export type WorkforceThinkingEffort = 'off' | 'low' | 'medium' | 'high' | 'max';
+/** Thinking/reasoning effort for a run; `auto` lets the model (or a router) decide. */
+export type WorkforceThinkingEffort = 'off' | 'low' | 'medium' | 'high' | 'max' | 'auto';
 
 /**
  * Per-run configuration for a Workforce run, applied when starting a new thread

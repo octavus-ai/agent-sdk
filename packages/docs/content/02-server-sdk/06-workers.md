@@ -77,7 +77,10 @@ interface WorkerExecutionCost {
   totalFee: number;
   /** True when any model call used your own provider key (BYOK). */
   byok: boolean;
-  /** BYOK only: estimated provider cost at Octavus rates (the "would-be" cost). */
+  /**
+   * BYOK only: estimated provider cost (the "would-be" cost) - OpenRouter's
+   * reported cost for an OpenRouter call, Octavus rates otherwise.
+   */
   estimatedProviderFee?: number;
 }
 

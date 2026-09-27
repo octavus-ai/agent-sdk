@@ -193,6 +193,8 @@ export type {
   LoggedToolCall,
   ModelRequestTrace,
   StepStatsTrace,
+  StepReportedCost,
+  StepRouterDecision,
   ExecutionLogError,
   ExecutionLogEntryType,
   ExecutionLogEntryBase,

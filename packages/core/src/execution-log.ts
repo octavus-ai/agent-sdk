@@ -110,6 +110,52 @@ export interface StepStatsTrace {
    * direct providers and when the gateway did not name the host.
    */
   upstream?: string;
+  /**
+   * The model that answered this step, as a model id (e.g.
+   * `openrouter/openai/gpt-6-sol`), when the provider reports it. It differs
+   * from `model` when `model` is a router, which picks the model per step.
+   * Undefined for direct providers.
+   */
+  servedModel?: string;
+  /**
+   * What the gateway reported it charged for this step, when it reports a cost
+   * (OpenRouter does on every response). Undefined for direct providers.
+   */
+  reportedCost?: StepReportedCost;
+  /** Why a router picked the model that served this step, when it says. */
+  router?: StepRouterDecision;
+}
+
+/**
+ * The cost a gateway reported for one step, in USD. Amounts are numeric
+ * strings so no precision is lost in transit; a very small amount can use
+ * exponent notation (`3.6e-7`), which decimal parsers accept.
+ */
+export interface StepReportedCost {
+  /** The total the gateway charged for the step. */
+  total: string;
+  /**
+   * The upstream provider's own charge for the step, when reported. When
+   * `byok` is true, the upstream provider billed this amount to the gateway
+   * account's own provider key, on top of `total`.
+   */
+  upstream?: string;
+  /** Whether the gateway served the step on the gateway account's own provider key. */
+  byok: boolean;
+}
+
+/** A router's decision for one step. */
+export interface StepRouterDecision {
+  /** Why the router chose as it did, in its own vocabulary (e.g. `initial`, `continuation`, `escalation`). */
+  reason?: string;
+  /** The reasoning effort the served model ran at. */
+  effort?: string;
+  /** The model the conversation was on before this step. */
+  incumbentModel?: string;
+  /** The model the router consulted before answering, when it escalated. */
+  advisorModel?: string;
+  /** Tools the router ran server-side within the request (e.g. `openrouter:advisor`). */
+  serverTools?: string[];
 }
 
 /**
