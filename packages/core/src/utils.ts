@@ -28,7 +28,7 @@ export function generateId(): string {
  *    Google/Gemini ("only allowed for OBJECT type", plus a cascading "property
  *    is not defined"). Both are OBJECT-only keywords in JSON Schema, but MCP
  *    schemas routinely omit the implied `type` on an object node or an `anyOf`
- *    branch, and conversion to Gemini's schema format forwards them verbatim
+ *    branch, and `@ai-sdk/google` forwards a tool schema to Gemini as-is,
  *    without inferring it. The implied `type: "object"` is made explicit (only
  *    when `type` is absent, so a declared type is never overridden), and
  *    `required` is pruned to names that actually appear in `properties` -
