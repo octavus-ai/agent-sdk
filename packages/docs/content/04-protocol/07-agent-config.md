@@ -64,19 +64,19 @@ Specify models in `provider/model-id` format, using a model from the [model cata
 | Anthropic  | `anthropic/{model-id}`             | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
 | Google     | `google/{model-id}`                | `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`                                   |
 | OpenAI     | `openai/{model-id}`                | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`                                                |
-| xAI        | `x-ai/{model-id}`                  | `grok-4.6`, `grok-4.5`                                                                             |
+| SpaceXAI   | `x-ai/{model-id}`                  | `grok-4.6`, `grok-4.5`                                                                             |
 | Octavus    | `octavus/{model-id}`               | `octo-1`                                                                                           |
 | OpenRouter | `openrouter/{provider}/{model-id}` | `openrouter/xiaomi/mimo-v2.6-pro`, `openrouter/moonshotai/kimi-k2.6`                               |
 
 Chat models outside the direct providers are reached through OpenRouter: `openrouter/` plus OpenRouter's own model id. The catalog lists these routes, so copy one exactly as it's listed. A direct-provider chat model can also run through OpenRouter - for example on your own OpenRouter key - under the `openrouter/` id the [Models API](/docs/api-reference/models) returns as its `openRouterId`; copy that one exactly too, since OpenRouter's spelling can differ from the direct id (`openrouter/anthropic/claude-opus-5.5` for `anthropic/claude-opus-5-5`). OpenRouter's variant ids with a `:` suffix (such as `:free` or `:batch`) and its `~` "latest" aliases aren't valid model ids. See [OpenRouter routing](#openrouter-routing) for how these requests are routed.
 
-The Vercel AI Gateway (`vercel/...`) is no longer a route: a protocol that names one fails validation with code `RETIRED_MODEL_PROVIDER`, and the message suggests the likely replacement - the direct id for the Anthropic, OpenAI, Google and xAI families, the OpenRouter id for everything else. The two gateways name some providers and models differently, so confirm the exact id in the [model catalog](https://octavus.ai/pricing/models).
+The Vercel AI Gateway (`vercel/...`) is no longer a route: a protocol that names one fails validation with code `RETIRED_MODEL_PROVIDER`, and the message suggests the likely replacement - the direct id for the Anthropic, OpenAI, Google and SpaceXAI families, the OpenRouter id for everything else. The two gateways name some providers and models differently, so confirm the exact id in the [model catalog](https://octavus.ai/pricing/models).
 
 ### Unsupported Models
 
 Every model an agent uses must be one Octavus supports:
 
-- **Direct providers** (Anthropic, Google, OpenAI, xAI, Octavus) - chat and image models must come from the [model catalog](https://octavus.ai/pricing/models), and video, speech, and transcription models from the tables in [Generating video](#generating-video), [Speech Generation](#speech-generation), and [Transcription](#transcription).
+- **Direct providers** (Anthropic, Google, OpenAI, SpaceXAI, Octavus) - chat and image models must come from the [model catalog](https://octavus.ai/pricing/models), and video, speech, and transcription models from the tables in [Generating video](#generating-video), [Speech Generation](#speech-generation), and [Transcription](#transcription).
 - **OpenRouter routes** (`openrouter/...`) - chat models must come from the [model catalog](https://octavus.ai/pricing/models) as well, which lists every model OpenRouter does, plus the [routers](#routers) Octavus has verified. The catalog syncs with OpenRouter's model list every few hours, so a model OpenRouter has just added becomes available after the next sync - or right away on [your own OpenRouter key](#your-own-openrouter-key), which can run any OpenRouter model. Image, video, speech, and transcription models are always called on their provider directly, so they can't use an OpenRouter route.
 
 A model outside the catalog or those tables, or an unknown provider, is rejected before it runs:
@@ -103,7 +103,7 @@ agent:
 agent:
   model: openai/o3-mini
 
-# xAI Grok
+# SpaceXAI Grok
 agent:
   model: x-ai/grok-4.6
 ```
@@ -358,7 +358,7 @@ Each provider translates `thinking` into its own reasoning controls:
 | OpenAI (GPT-5.x, o-series)                                                 | `reasoningEffort: low / medium / high / max` (`max` on GPT-5.6+, `high` on older models)                |
 | Google (Gemini 3.x)                                                        | `thinkingLevel: low / high` (`medium` rounds up to `high`)                                              |
 | Google (Gemini 1.x / 2.x)                                                  | Token budgets: `low` 1,024, `medium` 8,192, `high` 24,576, `max` 65,536                                 |
-| xAI (Grok)                                                                 | `reasoningEffort: low / medium / high / xhigh` (`max` maps to `xhigh` on `grok-4.6`, `high` elsewhere)  |
+| SpaceXAI (Grok)                                                            | `reasoningEffort: low / medium / high / xhigh` (`max` maps to `xhigh` on `grok-4.6`, `high` elsewhere)  |
 | OpenRouter                                                                 | Unified `reasoning.max_tokens` (translated upstream), routed only to hosts that support reasoning       |
 | OpenRouter routers                                                         | `reasoning.effort: low / medium / high / xhigh` (`max` maps to `xhigh`)                                 |
 
@@ -370,7 +370,7 @@ Each provider translates `thinking` into its own reasoning controls:
 | Anthropic older (4.5 and earlier) | No thinking (these models need a fixed budget)                    |
 | Google (Gemini 3.x)               | Dynamic thinking - no `thinkingLevel`, thoughts still streamed    |
 | Google (Gemini 1.x / 2.x)         | Dynamic thinking budget (`-1`)                                    |
-| OpenAI, xAI, Octavus              | No effort sent - the model reasons at its default effort          |
+| OpenAI, SpaceXAI, Octavus         | No effort sent - the model reasons at its default effort          |
 | OpenRouter                        | No `reasoning` sent - the model's default, or a router's own pick |
 
 `auto` is never reported as a downgrade: leaving the decision to the model is honored whatever the provider sends.
