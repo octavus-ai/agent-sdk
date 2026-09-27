@@ -116,11 +116,11 @@ OpenRouter serves most models from several hosts and, by default, load-balances 
 
 - **One host per session.** A session's requests carry a sticky routing key, so the whole session stays on one host (see [Prompt Caching](#prompt-caching) - the key is sent unless `cache: off`).
 - **Reasoning is honored or reported.** When `thinking` is declared, the request is routed only to hosts that support reasoning, so a declared level is never silently ignored. If none of a model's hosts support reasoning, `thinking` is not sent: validation warns (`THINKING_UNSUPPORTED_MODEL`) and the session's execution log records the downgrade as a `block-operation` entry.
-- **Endpoints verified for agentic use.** Models from the major open-weight providers run on endpoints Octavus has verified for tool calling, reasoning and tool-result vision - normally the provider's own deployment - and are priced at that endpoint's rate, which is the price the [model catalog](https://octavus.ai/pricing/models) shows.
+- **One endpoint per provider.** Models from the major providers, open-weight and proprietary alike, run only on the provider's own endpoint, which Octavus has verified for tool calling, reasoning and tool-result vision, and are priced at that endpoint's rate - the price the [model catalog](https://octavus.ai/pricing/models) shows. A model its provider doesn't serve on OpenRouter can't run through OpenRouter, so the catalog doesn't offer it there.
 
-The `step-stats` entry the execution log records after every model step carries `upstream`, the OpenRouter host that served it, next to the provider and model; an OpenRouter error carries the host on `provider.upstream`. A host rejecting an image inside a tool result surfaces as a `validation_error` with code `HOST_UNSUPPORTED_TOOL_CONTENT`, which the backup model takes over from.
+The `step-stats` entry the execution log records after every model step carries `upstream`, the OpenRouter host that served it, next to the provider and model; an OpenRouter error carries the host on `provider.upstream`. A host rejecting an image inside a tool result surfaces as a `validation_error` with code `HOST_UNSUPPORTED_TOOL_CONTENT`, which the backup model takes over from. A host rejecting structured output (`responseType`) outright surfaces the same way, with code `HOST_UNSUPPORTED_RESPONSE_FORMAT`.
 
-On your own OpenRouter key, your account's provider restrictions remain the ceiling: if they exclude every host Octavus routes a model to, OpenRouter rejects the request with a 404 that names the cause and the backup model takes over.
+On your own OpenRouter key, your account's provider restrictions remain the ceiling: if they exclude the host Octavus routes a model to, OpenRouter rejects the request with a 404 that names the cause and the backup model takes over.
 
 ### Dynamic Model Selection
 

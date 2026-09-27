@@ -47,18 +47,18 @@ GET /api/models
       }
     },
     {
-      "id": "openrouter/deepseek/deepseek-chat",
-      "name": "DeepSeek: DeepSeek V3",
+      "id": "openrouter/deepseek/deepseek-v4.1-flash",
+      "name": "DeepSeek: DeepSeek V4.1 Flash",
       "provider": "deepseek",
       "routing": "openrouter",
-      "openRouterId": "openrouter/deepseek/deepseek-chat",
-      "contextLength": 163840,
+      "openRouterId": "openrouter/deepseek/deepseek-v4.1-flash",
+      "contextLength": 1048576,
       "pricing": {
-        "inputPer1M": "0.32",
-        "outputPer1M": "0.89",
-        "cacheReadPer1M": null,
+        "inputPer1M": "0.30",
+        "outputPer1M": "1.20",
+        "cacheReadPer1M": "0.007",
         "reasoningPer1M": null,
-        "bandwidthPer1M": "0.10",
+        "bandwidthPer1M": "0.104",
         "tiers": []
       }
     }
@@ -66,20 +66,20 @@ GET /api/models
 }
 ```
 
-| Field                    | Type           | Description                                                                                                                                                                                                                  |
-| ------------------------ | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                     | string         | Copy-ready model id for an agent's [`model`](/docs/protocol/agent-config) field.                                                                                                                                             |
-| `name`                   | string         | Human-readable display name.                                                                                                                                                                                                 |
-| `provider`               | string         | Underlying provider slug (e.g. `anthropic`, `deepseek`).                                                                                                                                                                     |
-| `routing`                | string         | `direct` for the direct providers (OpenAI, Anthropic, Google, xAI), or `openrouter` otherwise.                                                                                                                               |
-| `openRouterId`           | string \| null | The id that runs the model through OpenRouter (for your own OpenRouter key): the same as `id` for an OpenRouter route, an `openrouter/`-prefixed id for a direct-provider model, or `null` when OpenRouter does not list it. |
-| `contextLength`          | number \| null | Maximum context window in tokens, when known.                                                                                                                                                                                |
-| `pricing.inputPer1M`     | string         | Input token price per 1M tokens, in USD.                                                                                                                                                                                     |
-| `pricing.outputPer1M`    | string         | Output token price per 1M tokens, in USD.                                                                                                                                                                                    |
-| `pricing.cacheReadPer1M` | string \| null | Cached input read price per 1M tokens, when the model supports prompt caching.                                                                                                                                               |
-| `pricing.reasoningPer1M` | string \| null | Reasoning output price per 1M tokens, when priced separately.                                                                                                                                                                |
-| `pricing.bandwidthPer1M` | string         | Platform bandwidth fee per 1M tokens.                                                                                                                                                                                        |
-| `pricing.tiers`          | array          | Context-length pricing tiers (empty for flat pricing). Each entry has a `minInputTokens` threshold and its own `inputPer1M` / `outputPer1M`.                                                                                 |
+| Field                    | Type           | Description                                                                                                                                                                                                                             |
+| ------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                     | string         | Copy-ready model id for an agent's [`model`](/docs/protocol/agent-config) field.                                                                                                                                                        |
+| `name`                   | string         | Human-readable display name.                                                                                                                                                                                                            |
+| `provider`               | string         | Underlying provider slug (e.g. `anthropic`, `deepseek`).                                                                                                                                                                                |
+| `routing`                | string         | `direct` for the direct providers (OpenAI, Anthropic, Google, xAI), or `openrouter` otherwise.                                                                                                                                          |
+| `openRouterId`           | string \| null | The id that runs the model through OpenRouter (for your own OpenRouter key): the same as `id` for an OpenRouter route, an `openrouter/`-prefixed id for a direct-provider model, or `null` when the model can't run through OpenRouter. |
+| `contextLength`          | number \| null | Maximum context window in tokens, when known.                                                                                                                                                                                           |
+| `pricing.inputPer1M`     | string         | Input token price per 1M tokens, in USD.                                                                                                                                                                                                |
+| `pricing.outputPer1M`    | string         | Output token price per 1M tokens, in USD.                                                                                                                                                                                               |
+| `pricing.cacheReadPer1M` | string \| null | Cached input read price per 1M tokens, when the model supports prompt caching.                                                                                                                                                          |
+| `pricing.reasoningPer1M` | string \| null | Reasoning output price per 1M tokens, when priced separately.                                                                                                                                                                           |
+| `pricing.bandwidthPer1M` | string         | Platform bandwidth fee per 1M tokens.                                                                                                                                                                                                   |
+| `pricing.tiers`          | array          | Context-length pricing tiers (empty for flat pricing). Each entry has a `minInputTokens` threshold and its own `inputPer1M` / `outputPer1M`.                                                                                            |
 
 Prices are strings to preserve decimal precision. Models outside the direct providers are routed through OpenRouter and carry the `openrouter/` prefix - copy the `id` exactly as shown. To run a direct-provider model through OpenRouter instead (for example on your own OpenRouter key), use its `openRouterId` exactly as shown too: OpenRouter's spelling can differ from the direct id, as in `openrouter/anthropic/claude-sonnet-4.5` next to `anthropic/claude-sonnet-4-5`, and the platform bills both at the same rate.
 

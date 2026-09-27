@@ -80,7 +80,7 @@ Configure how the agent runs for a single invocation without changing its dashbo
 
 ```bash
 # Choose the model + backup model for this run only.
-octoagent run --model openrouter/moonshotai/kimi-k2 --backup-model anthropic/claude-sonnet-5 "..."
+octoagent run --model openrouter/moonshotai/kimi-k2.6 --backup-model anthropic/claude-sonnet-5 "..."
 
 # Set the thinking/reasoning effort for this run only (max = the provider's maximum).
 octoagent run --model anthropic/claude-opus-4-8 --thinking max "..."
@@ -96,7 +96,7 @@ octoagent run --config run.json "..."
 
 ```json
 {
-  "model": "openrouter/moonshotai/kimi-k2",
+  "model": "openrouter/moonshotai/kimi-k2.6",
   "backupModel": "anthropic/claude-sonnet-5",
   "thinking": "high",
   "capabilities": { "memory": false }
