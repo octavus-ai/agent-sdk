@@ -263,6 +263,13 @@ export const resourceUpdateEventSchema = z.object({
 // --------------------------------- File --------------------------------------
 
 /**
+ * An image's pixel width or height, when the producer recorded it. Tolerant: a
+ * malformed value is dropped rather than rejecting the whole reference, so a
+ * caller that sends a stray value is not refused over an optional hint.
+ */
+const imageDimensionSchema = z.number().int().positive().optional().catch(undefined);
+
+/**
  * Schema for file references used in trigger input, user messages, and tool results.
  */
 export const fileReferenceSchema = z.object({
@@ -271,6 +278,8 @@ export const fileReferenceSchema = z.object({
   url: z.string(),
   filename: z.string().optional(),
   size: z.number().optional(),
+  width: imageDimensionSchema,
+  height: imageDimensionSchema,
 });
 
 // --------------------------------- Tool --------------------------------------

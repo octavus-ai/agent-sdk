@@ -317,10 +317,11 @@ agent:
   maxImageDimension: 2000 # downscale any image above 2000px on its longest side
 ```
 
-- On every request, an image whose longest side exceeds the cap is delivered **downscaled to fit** (aspect ratio preserved).
-- The cap only touches the images it actually changes. An image already within it is delivered exactly as it would be with no cap set - same bytes, same delivery path, no re-encoding and no quality change - so setting a cap costs nothing for the images it does not affect.
+- On every request, an image whose longest side exceeds the cap is delivered **downscaled to fit** (aspect ratio preserved). The downscaled copy is made once and reused for the rest of the session, so a long session does not re-process its images on every request.
+- **The model is told.** A downscaled image arrives with a short note giving the size it is shown at, its original size, and the limit - for example `[chart.png is shown at 1265x2000, downscaled from 1850x2925 to fit the 2000px image limit]` - so the agent knows its view of that image is reduced.
+- The cap only touches the images it actually changes. An image already within it is delivered exactly as it would be with no cap set - same bytes, same delivery path, no re-encoding and no quality change - so setting a cap costs nothing for the images it does not affect. Images uploaded with the client SDK or returned through the server SDK's tool-result normalizers carry their pixel dimensions (`width` / `height` on the [file reference](/docs/protocol/types)), so the runtime knows they fit without fetching them. Set the same fields on any file reference you build yourself, but only to the image's true pixel size: the runtime trusts them, so a smaller value lets an over-cap image skip the cap.
 - This is a **model-view transform only**. Your stored conversation history, the files surface, and download URLs always keep the original full-resolution bytes, so nothing is lost.
-- It is deterministic (the same image and cap always produce the same delivered bytes), so prompt caching is unaffected.
+- It is deterministic: the same image and cap always produce the same delivered image and note, so consecutive requests share the same prompt prefix and prompt caching keeps hitting.
 - Omit the field to deliver images at full resolution and rely on whatever the provider does on its own.
 
 Setting `maxImageDimension` is the recommended way to keep image-heavy sessions (screenshots, generated images, uploaded assets) from failing on a provider's per-image dimension limit. For agents that also declare [`contextManagement`](/docs/protocol/context-management), a reactive safety net additionally recovers from image-count and byte limits (and from a provider tightening its limits below your cap) - see that page. Every adaptation is recorded in the session trace, so you can always see what the model actually received.

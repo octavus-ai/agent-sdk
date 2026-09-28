@@ -377,9 +377,10 @@ export interface ToolOutputBoundedLogEntry extends ExecutionLogEntryBase {
  * satisfy a count limit).
  *
  * A model-view transform only: stored history, the files surface, and download
- * URLs always keep the original full-resolution bytes. Emitted once per image
- * for the declared cap (first time it crosses the cap); the proactive budget
- * emits once per prune (not per step); recovery emits one entry per recovery.
+ * URLs always keep the original full-resolution bytes. A downscale is recorded
+ * each time one runs - once per image and cap in a session, since the
+ * downscaled copy is kept and reused; the proactive budget emits once per prune
+ * (not per step); recovery emits one entry per recovery.
  */
 export interface ImageAdaptedLogEntry extends ExecutionLogEntryBase {
   type: 'image-adapted';

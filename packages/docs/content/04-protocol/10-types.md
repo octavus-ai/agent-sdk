@@ -58,8 +58,12 @@ interface FileReference {
   url: string; // Presigned download URL
   filename?: string; // Original filename
   size?: number; // File size in bytes
+  width?: number; // Image width in pixels, when known
+  height?: number; // Image height in pixels, when known
 }
 ```
+
+`width` and `height` are optional hints for images. The SDK records them when it holds the bytes (client-side uploads and server-side tool-result normalization); with them, the runtime can tell whether an image fits [`maxImageDimension`](/docs/protocol/agent-config#image-delivery-limits) without fetching it. If you set them yourself, use the image's true pixel size: the runtime trusts them, so a smaller value lets an over-cap image skip the cap.
 
 > **Note:** There is no standalone `array` or `object` type. If you need typed arrays or objects, define a [custom type](#defining-types). If you don't care about the internal structure, use `unknown`.
 
