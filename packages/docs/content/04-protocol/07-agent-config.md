@@ -396,14 +396,15 @@ agent:
 
 The `cache` field is provider-agnostic at the protocol level - each provider translates it into its own cache retention policy:
 
-| Provider   | `auto` TTL                                                           | `extended` TTL |
-| ---------- | -------------------------------------------------------------------- | -------------- |
-| Anthropic  | 5 minutes                                                            | 1 hour         |
-| OpenAI     | in-memory (~5-10 minutes)                                            | 24 hours       |
-| Google     | Implicit (Gemini 2.5+)                                               | Implicit       |
-| OpenRouter | Sticky session routing (one host per session) + the host's own cache | Same as `auto` |
+| Provider                  | `auto` TTL                                                           | `extended` TTL |
+| ------------------------- | -------------------------------------------------------------------- | -------------- |
+| Anthropic                 | 5 minutes                                                            | 1 hour         |
+| OpenAI                    | in-memory (~5-10 minutes)                                            | 24 hours       |
+| Google                    | Implicit (Gemini 2.5+)                                               | Implicit       |
+| OpenRouter, Claude models | 5 minutes                                                            | 1 hour         |
+| OpenRouter, other models  | Sticky session routing (one host per session) + the host's own cache | Same as `auto` |
 
-On OpenRouter, `cache` controls the session's sticky routing key (`session_id`): with `auto` or `extended` a session's requests stay on the host whose prompt cache is warm; the host's own automatic caching does the rest. On `off`, Octavus emits no explicit cache options and no routing key - except to a [router](#routers), which always gets the key, since it is what keeps a conversation on the model the router picked. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently - `off` just disables Octavus's opt-in behavior.
+On OpenRouter, Claude models (`openrouter/anthropic/*`) cache only when a request asks, so on Anthropic's own endpoint (see [OpenRouter routing](#openrouter-routing)) Octavus sends Anthropic's caching directive with the TTL your mode maps to - the same caching as the direct Anthropic provider. For every other model, `cache` controls the session's sticky routing key (`session_id`): with `auto` or `extended` a session's requests stay on the host whose prompt cache is warm, and the host's own caching does the rest. Two cases get no caching directive, so their Claude steps are not cached: an older Claude release that runs on OpenRouter's default routing, and a [router](#routers), since the model it picks is only known once the request is served. On `off`, Octavus sends no caching directive and no routing key - except to a router, which always gets the key, since it is what keeps a conversation on the model the router picked. Providers that auto-cache (OpenAI on prefixes ≥ 1,024 tokens, Gemini 2.5+) may still cache transparently - `off` just disables Octavus's opt-in behavior.
 
 ### Threads don't inherit
 
@@ -427,7 +428,7 @@ This is intentional: named threads are often used for short, one-shot work (summ
 ### Cost trade-offs
 
 - **Cache reads** are always much cheaper than uncached input on any provider - caching is effectively free if your prefix is stable.
-- **Cache writes** on Anthropic cost ~1.25× input for `auto` and 2× input for `extended`. OpenAI and Google don't charge separately for cache writes.
+- **Cache writes** on Claude models, direct or through OpenRouter, cost ~1.25× input for `auto` and 2× input for `extended`. OpenAI bills cache writes at ~1.25× input from GPT-5.6 on; earlier OpenAI models and Google don't charge separately for cache writes.
 - Use `extended` only when the same prefix is genuinely reused across sessions that span hours; otherwise the higher write cost dominates the savings.
 
 ## Skills
