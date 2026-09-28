@@ -186,8 +186,11 @@ export interface FileReference {
   size?: number;
   /**
    * Pixel dimensions, recorded at ingestion when the raster bytes were in hand.
-   * Absent when the producer never held the bytes (a tool returning a URL) or
-   * the payload was not a decodable raster image.
+   * They let the runtime tell whether an image fits a declared
+   * `maxImageDimension` without fetching it, so they must be the image's true
+   * size: a smaller value lets an over-cap image skip the cap. Absent when the
+   * producer never held the bytes (a tool returning a URL) or the payload was
+   * not a decodable raster image.
    */
   width?: number;
   height?: number;

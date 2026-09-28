@@ -1,4 +1,4 @@
-import type { FileReference } from '@octavus/core';
+import { sniffImageDimensions, type FileReference, type ImageDimensions } from '@octavus/core';
 
 /**
  * Response from the upload URLs endpoint
@@ -62,6 +62,12 @@ const UPLOAD_DEFAULTS = {
   maxRetries: 2,
   retryDelayMs: 1_000,
 } as const;
+
+/**
+ * Leading bytes read to find an image's dimensions: every PNG, GIF, and WebP
+ * header, and a JPEG frame header behind typical EXIF or color-profile data.
+ */
+const IMAGE_HEADER_BYTES = 64 * 1024;
 
 class UploadError extends Error {
   constructor(
@@ -138,6 +144,21 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
+ * An image file's pixel dimensions, read from its header so the file reference
+ * carries them (see `FileReference.width`). Best-effort: `undefined` for a
+ * non-image, a header it cannot read, or a failed read.
+ */
+async function readImageDimensions(file: File): Promise<ImageDimensions | undefined> {
+  if (!file.type.startsWith('image/')) return undefined;
+  try {
+    const head = await file.slice(0, IMAGE_HEADER_BYTES).arrayBuffer();
+    return sniffImageDimensions(new Uint8Array(head));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Upload a single file with automatic retries on transient failures.
  * Only the S3 PUT is retried - the presigned URL stays valid for 15 minutes.
  */
@@ -177,7 +198,8 @@ async function uploadFileWithRetry(
  * This function:
  * 1. Requests presigned upload URLs from the platform
  * 2. Uploads each file directly to S3 with progress tracking
- * 3. Returns file references that can be used in trigger input
+ * 3. Returns file references that can be used in trigger input (an image's
+ *    reference also carries its pixel dimensions, read from its header)
  *
  * Uploads include automatic timeout (default 60s) and retry (default 2 retries)
  * for transient failures like network errors or server issues.
@@ -246,6 +268,7 @@ export async function uploadFiles(
       url: uploadInfo.downloadUrl,
       filename: file.name,
       size: file.size,
+      ...(await readImageDimensions(file)),
     });
   }
 

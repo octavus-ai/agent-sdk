@@ -5,6 +5,7 @@ import {
   inlineMediaType,
   extensionForMediaType,
   sniffImageMediaType,
+  sniffImageDimensions,
   NOT_A_VALID_IMAGE_NOTE,
   type InlineMediaKind,
   type ToolResult,
@@ -27,9 +28,10 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * upload them to S3 via presigned URLs, and replace the base64 `data` with a
  * compact URL reference.
  *
- * Images are additionally attached as `FileReference`s so the model receives
- * them as vision; audio and other binaries become a URL + metadata only - the
- * agent gets a link, never the raw bytes.
+ * Images are additionally attached as `FileReference`s (with their pixel
+ * dimensions, read from the header) so the model receives them as vision;
+ * audio and other binaries become a URL + metadata only - the agent gets a
+ * link, never the raw bytes.
  *
  * Runs at the server-sdk streaming layer so payloads are uploaded before tool
  * results travel over the network (WebSocket, HTTP continuation). Handles both
@@ -122,7 +124,14 @@ export async function normalizeToolResultMedia(
 
       if (ok) {
         if (asImage) {
-          files.push({ id: info.id, mediaType, url: info.downloadUrl, filename, size });
+          files.push({
+            id: info.id,
+            mediaType,
+            url: info.downloadUrl,
+            filename,
+            size,
+            ...sniffImageDimensions(new Uint8Array(buffers[i]!)),
+          });
         }
         // A part the tool declared an image but whose bytes are not a
         // decodable/supported image is delivered as a download link with a

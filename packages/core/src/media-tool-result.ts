@@ -112,6 +112,131 @@ export function sniffImageMediaType(bytes: Uint8Array): string | undefined {
   return undefined;
 }
 
+/** Pixel dimensions of a raster image. */
+export interface ImageDimensions {
+  width: number;
+  height: number;
+}
+
+/**
+ * Read the pixel dimensions of a PNG, JPEG, GIF, or WebP payload from its
+ * header, without decoding the image. Returns `undefined` for any other format
+ * or for a header too short or malformed to read, and never throws.
+ *
+ * These are the stored dimensions, before any EXIF orientation is applied, so a
+ * longest-side comparison reads the same either way. Dependency-free like
+ * `sniffImageMediaType`, and it needs only the leading bytes (the frame header
+ * for JPEG, the first few dozen bytes otherwise), so any producer holding an
+ * image's bytes can record its size.
+ */
+export function sniffImageDimensions(bytes: Uint8Array): ImageDimensions | undefined {
+  const mediaType = sniffImageMediaType(bytes);
+  if (mediaType === 'image/png') return pngDimensions(bytes);
+  if (mediaType === 'image/jpeg') return jpegDimensions(bytes);
+  if (mediaType === 'image/gif') return gifDimensions(bytes);
+  if (mediaType === 'image/webp') return webpDimensions(bytes);
+  return undefined;
+}
+
+function positiveDimensions(width: number, height: number): ImageDimensions | undefined {
+  return width > 0 && height > 0 ? { width, height } : undefined;
+}
+
+function readUint16BE(b: Uint8Array, offset: number): number {
+  return (b[offset]! << 8) | b[offset + 1]!;
+}
+
+function readUint16LE(b: Uint8Array, offset: number): number {
+  return b[offset]! | (b[offset + 1]! << 8);
+}
+
+function readUint24LE(b: Uint8Array, offset: number): number {
+  return b[offset]! | (b[offset + 1]! << 8) | (b[offset + 2]! << 16);
+}
+
+function readUint32BE(b: Uint8Array, offset: number): number {
+  return (
+    ((b[offset]! << 24) | (b[offset + 1]! << 16) | (b[offset + 2]! << 8) | b[offset + 3]!) >>> 0
+  );
+}
+
+/** PNG: `IHDR` is always the first chunk, right after the 8-byte signature. */
+function pngDimensions(b: Uint8Array): ImageDimensions | undefined {
+  if (b.length < 24) return undefined;
+  const isIhdr = b[12] === 0x49 && b[13] === 0x48 && b[14] === 0x44 && b[15] === 0x52;
+  if (!isIhdr) return undefined;
+  return positiveDimensions(readUint32BE(b, 16), readUint32BE(b, 20));
+}
+
+/** GIF: the logical screen width and height follow the 6-byte signature. */
+function gifDimensions(b: Uint8Array): ImageDimensions | undefined {
+  if (b.length < 10) return undefined;
+  return positiveDimensions(readUint16LE(b, 6), readUint16LE(b, 8));
+}
+
+/** WebP: the first chunk after the RIFF header is `VP8 ` (lossy), `VP8L` (lossless), or `VP8X` (extended). */
+function webpDimensions(b: Uint8Array): ImageDimensions | undefined {
+  if (b.length < 30) return undefined;
+  const chunk = String.fromCharCode(b[12]!, b[13]!, b[14]!, b[15]!);
+  if (chunk === 'VP8 ') {
+    // A 3-byte frame tag and the 9d 01 2a start code, then 14-bit width and height.
+    if (b[23] !== 0x9d || b[24] !== 0x01 || b[25] !== 0x2a) return undefined;
+    return positiveDimensions(readUint16LE(b, 26) & 0x3fff, readUint16LE(b, 28) & 0x3fff);
+  }
+  if (chunk === 'VP8L') {
+    // A 0x2f signature byte, then width-1 and height-1 packed as consecutive 14-bit fields.
+    if (b[20] !== 0x2f) return undefined;
+    const bits = b[21]! | (b[22]! << 8) | (b[23]! << 16) | (b[24]! << 24);
+    return positiveDimensions((bits & 0x3fff) + 1, ((bits >>> 14) & 0x3fff) + 1);
+  }
+  if (chunk === 'VP8X') {
+    // Flags and reserved bytes, then the canvas width-1 and height-1 as 24-bit fields.
+    return positiveDimensions(readUint24LE(b, 24) + 1, readUint24LE(b, 27) + 1);
+  }
+  return undefined;
+}
+
+/**
+ * JPEG: walk the marker segments to the first frame header (SOFn). Any
+ * number of `APPn` / table segments (EXIF, ICC, quantization tables) may come
+ * first; scan data or the end of the image before a frame header means there
+ * is nothing to read.
+ */
+function jpegDimensions(b: Uint8Array): ImageDimensions | undefined {
+  let offset = 2;
+  while (offset + 1 < b.length) {
+    if (b[offset] !== 0xff) return undefined;
+    const marker = b[offset + 1]!;
+    // A marker may be preceded by any number of 0xFF fill bytes.
+    if (marker === 0xff) {
+      offset += 1;
+      continue;
+    }
+    // Standalone markers (TEM, RSTn, SOI) carry no length field.
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
+      offset += 2;
+      continue;
+    }
+    // End of image, or the start of scan data, before any frame header.
+    if (marker === 0xd9 || marker === 0xda) return undefined;
+    if (offset + 3 >= b.length) return undefined;
+    if (isJpegStartOfFrame(marker)) {
+      // Frame header: length (2), sample precision (1), height (2), width (2).
+      if (offset + 8 >= b.length) return undefined;
+      return positiveDimensions(readUint16BE(b, offset + 7), readUint16BE(b, offset + 5));
+    }
+    const length = readUint16BE(b, offset + 2);
+    if (length < 2) return undefined;
+    offset += 2 + length;
+  }
+  return undefined;
+}
+
+/** SOF0-SOF15, minus DHT (C4), JPG (C8), and DAC (CC), which share the range. */
+function isJpegStartOfFrame(marker: number): boolean {
+  return marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+}
+
 /**
  * Note attached to a tool-result media part that was declared an image but whose
  * bytes are not a decodable/supported image, so it was delivered as a download

@@ -1,5 +1,6 @@
 import {
   sniffImageMediaType,
+  sniffImageDimensions,
   NOT_A_VALID_IMAGE_NOTE,
   type ToolResult,
   type FileReference,
@@ -83,8 +84,9 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * tool-result wire (which would inflate continue payloads and bypass S3).
  *
  * An output labeled an image (`image/*`, typically guessed from its extension)
- * is attached for the model to see only if its bytes are a recognizable image;
- * a valid image with a wrong extension is corrected to its true type. A
+ * is attached for the model to see only if its bytes are a recognizable image
+ * (with its pixel dimensions, read from the header); a valid image with a wrong
+ * extension is corrected to its true type. A
  * non-image saved with an image name (an error page saved as `.jpg`) is still
  * uploaded and its link returned, but never attached as an image, and its
  * summary carries `NOT_A_VALID_IMAGE_NOTE` so the agent learns why the model
@@ -173,6 +175,7 @@ export async function normalizeToolResultOutputFiles(
             url: info.downloadUrl,
             filename: request.filename,
             size: request.size,
+            ...sniffImageDimensions(new Uint8Array(buffers[i]!)),
           });
         }
         summaries.push({

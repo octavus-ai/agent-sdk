@@ -246,8 +246,14 @@ interface FileReference {
   filename?: string;
   /** File size in bytes */
   size?: number;
+  /** Image width in pixels, when known */
+  width?: number;
+  /** Image height in pixels, when known */
+  height?: number;
 }
 ```
+
+For image files, `uploadFiles` reads the pixel dimensions from the file header and sets `width` and `height`, so an agent with a [`maxImageDimension`](/docs/protocol/agent-config#image-delivery-limits) knows whether the image fits without fetching it.
 
 ## Protocol Integration
 
