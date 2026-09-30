@@ -116,20 +116,24 @@ GET /api/v1/workforce/agents/{agentId}/threads/{threadId}
     "outputTokens": 1207,
     "totalTokens": 19441
   },
-  "recording": null
+  "recording": null,
+  "startedAt": "2026-03-04T10:12:03.418Z",
+  "completedAt": "2026-03-04T10:19:47.902Z"
 }
 ```
 
-| Field           | Type           | Description                                                                                                                                     |
-| --------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `threadId`      | string         | The thread identifier                                                                                                                           |
-| `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, `cancelled`, or `blocked`                                                        |
-| `failureReason` | string \| null | Why the run stopped, when `status` is `failed` or `blocked` (a usage/spending limit)                                                            |
-| `failureType`   | string \| null | The class of `failureReason` - see [Failure types](#failure-types). Null when there is no failure.                                              |
-| `messages`      | UIMessage[]    | The conversation - see [UIMessage parts](/docs/api-reference/sessions)                                                                          |
-| `runConfig`     | object \| null | The effective per-run config the thread ran under (`model`, `backupModel`, `thinking`, `capabilities`). Null for a run with no per-run config.  |
-| `usage`         | object \| null | Per-run cost + token summary: `costUsd` (model/provider cost), `totalFeeUsd` (provider + bandwidth fee), `byok`, and input/output/total tokens. |
-| `recording`     | object \| null | The execution recording when the run was recorded: `status`, `visibility`, a playable `url` once ready, and `error`. Null when not recorded.    |
+| Field           | Type           | Description                                                                                                                                                                                                                                            |
+| --------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `threadId`      | string         | The thread identifier                                                                                                                                                                                                                                  |
+| `status`        | string         | `idle`, `queued`, `pending`, `running`, `completed`, `failed`, `cancelled`, or `blocked`                                                                                                                                                               |
+| `failureReason` | string \| null | Why the run stopped, when `status` is `failed` or `blocked` (a usage/spending limit)                                                                                                                                                                   |
+| `failureType`   | string \| null | The class of `failureReason` - see [Failure types](#failure-types). Null when there is no failure.                                                                                                                                                     |
+| `messages`      | UIMessage[]    | The conversation - see [UIMessage parts](/docs/api-reference/sessions)                                                                                                                                                                                 |
+| `runConfig`     | object \| null | The effective per-run config the thread ran under (`model`, `backupModel`, `thinking`, `capabilities`). Null for a run with no per-run config.                                                                                                         |
+| `usage`         | object \| null | Per-run cost + token summary: `costUsd` (model/provider cost), `totalFeeUsd` (provider + bandwidth fee), `byok`, and input/output/total tokens.                                                                                                        |
+| `recording`     | object \| null | The execution recording when the run was recorded: `status`, `visibility`, a playable `url` once ready, and `error`. Null when not recorded.                                                                                                           |
+| `startedAt`     | string \| null | When the thread's first run started on the agent's computer (ISO 8601). Null while queued or pending, or when it never started.                                                                                                                        |
+| `completedAt`   | string \| null | When the thread's latest run reached its terminal status (ISO 8601). Null while a run is in flight (a follow-up clears it). With `startedAt`, the thread's own duration - for a single-run thread, the run's - so there is no need to time your polls. |
 
 Keep polling while the status is `pending`, `queued`, or `running`. Stop when it is `completed`, `failed`, `cancelled`, or `blocked`. A `blocked` thread means a usage or spending limit was reached (see `failureReason`); the thread is created even when the run is blocked before it starts, so a blocked attempt is still a pollable thread rather than an error. If the run was recorded and you need the video, keep polling until the recording is final too (see [Recording](#recording)).
 

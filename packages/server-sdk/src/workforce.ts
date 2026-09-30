@@ -117,6 +117,14 @@ const threadResponseSchema = z.object({
   runConfig: threadRunConfigSchema.nullish().transform((v) => v ?? null),
   usage: usageSummarySchema.nullish().transform((v) => v ?? null),
   recording: recordingSchema.nullish().transform((v) => v ?? null),
+  startedAt: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
+  completedAt: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
 });
 
 /** Thinking/reasoning effort for a run; `auto` lets the model (or a router) decide. */
@@ -220,6 +228,18 @@ export interface WorkforceThread {
   usage: WorkforceUsageSummary | null;
   /** The thread's execution recording; null unless the run was recorded. */
   recording: WorkforceRecording | null;
+  /**
+   * When the thread's first run started on the agent's computer (ISO 8601); null
+   * while it is queued or pending, or when it never started. With `completedAt` this
+   * is the thread's own duration, so a caller that polls late need not time it from
+   * its reads.
+   */
+  startedAt: string | null;
+  /**
+   * When the thread's latest run reached its terminal status (ISO 8601); null while a
+   * run is in flight (a follow-up clears it).
+   */
+  completedAt: string | null;
 }
 
 export interface WorkforceDispatchOptions {
