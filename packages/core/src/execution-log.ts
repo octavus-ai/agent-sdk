@@ -392,9 +392,15 @@ export interface ImageAdaptedLogEntry extends ExecutionLogEntryBase {
    * `contextManagement`).
    */
   source: 'declared-cap' | 'provider-budget' | 'reactive-recovery';
-  /** `downscaled` = an over-limit image was shrunk; `count-elided` = oldest images dropped from the view. */
-  adaptation: 'downscaled' | 'count-elided';
-  /** Original longest-side dimensions of a downscaled image. */
+  /**
+   * `downscaled` = an over-limit image was shrunk; `count-elided` = oldest images
+   * dropped from the view; `delivered-by-reference` = an over-limit image could
+   * not be downscaled (too large to decode, or undecodable), so the model
+   * received a factual note with its dimensions and download URL in place of
+   * the image.
+   */
+  adaptation: 'downscaled' | 'count-elided' | 'delivered-by-reference';
+  /** Original longest-side dimensions of a downscaled or by-reference image. */
   originalWidth?: number;
   originalHeight?: number;
   /** Delivered dimensions after downscaling. */
@@ -402,6 +408,8 @@ export interface ImageAdaptedLogEntry extends ExecutionLogEntryBase {
   deliveredHeight?: number;
   /** The dimension cap applied (px, longest side). */
   maxImageDimension?: number;
+  /** For by-reference delivery: why the image could not be downscaled. */
+  reason?: 'exceeds-decode-budget' | 'undecodable';
   /** For count-elision: how many older images were dropped from the model view. */
   imagesElided?: number;
   /** For reactive recovery: the provider constraint that triggered it (parsed limit or table fallback). */
