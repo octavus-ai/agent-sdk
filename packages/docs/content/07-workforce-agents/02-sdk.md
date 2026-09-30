@@ -137,6 +137,8 @@ If the timeout elapses first, `waitForCompletion()` and `run()` throw. The run k
 | `runConfig`     | object \| null | The effective per-run config the thread ran under (model, backupModel, thinking, capabilities); null if none                                                                                  |
 | `usage`         | object \| null | Per-run cost + token summary (`costUsd`, `totalFeeUsd`, `byok`, token counts); zeros until the run accrues spend                                                                              |
 | `recording`     | object \| null | The execution recording when recorded (`status`, `visibility`, `url`, `error`); null otherwise                                                                                                |
+| `startedAt`     | string \| null | When the thread's first run started on the agent's computer (ISO 8601); null while queued or pending, or when it never started                                                                |
+| `completedAt`   | string \| null | When the thread's latest run reached its terminal status (ISO 8601); null while a run is in flight (a follow-up clears it). With `startedAt`, the thread's own duration                       |
 
 Use `isTerminalThreadStatus(status)` to check whether a run has finished, and `isSettledRecordingStatus(status)` to check whether a recording is final.
 
