@@ -22,20 +22,13 @@ Fast mode is orthogonal to thinking - it's a speed/price knob, not an intelligen
 
 ## Supported models
 
-Fast mode only applies to **Anthropic Opus 5, 4.8, 4.7, and 4.6**. On any other model or provider it is a **no-op**: the request runs at standard speed and price, and never errors. This makes it safe to leave `speed: fast` set when using a dynamic model (resolved from input) that might turn out not to support it.
+Fast mode only applies to **Anthropic Opus 5.5, 5, and 4.8**. On any other model or provider it is a **no-op**: the request runs at standard speed and price, and never errors. This makes it safe to leave `speed: fast` set when using a dynamic model (resolved from input) that might turn out not to support it.
 
 When you set `speed: fast` on a literal model that does not support it, the protocol validator surfaces a non-fatal warning in the dashboard.
 
 ## Premium pricing
 
-Fast mode applies a per-model multiplier over the model's standard rates, to both input and output across the full context window:
-
-| Model          | Fast-mode cost |
-| -------------- | -------------- |
-| Opus 5 / 4.8   | ~2x standard   |
-| Opus 4.7 / 4.6 | ~6x standard   |
-
-Prompt-caching costs continue to apply on top of the fast-mode base rates. Billing always reflects the speed a request **actually** ran at: a request that falls back to standard speed (see below) is billed at standard rates, so requesting fast never by itself triggers premium billing.
+Fast mode costs about 2x the model's standard rates, for both input and output across the full context window. Prompt-caching costs continue to apply on top of the fast-mode base rates. Billing always reflects the speed a request **actually** ran at: a request that falls back to standard speed (see below) is billed at standard rates, so requesting fast never by itself triggers premium billing.
 
 ## Rate limits and fallback
 
