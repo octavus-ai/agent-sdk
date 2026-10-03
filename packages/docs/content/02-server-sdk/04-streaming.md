@@ -71,6 +71,8 @@ The stream emits various event types for lifecycle, text, reasoning, and tool in
 { type: 'error', errorType: 'internal_error', message: 'Something went wrong', source: 'platform', retryable: false }
 ```
 
+A generation the model did not finish is never delivered as a `finish`: a safety refusal or a response cut off at the output token limit surfaces as an `error` event (`provider_error` with code `CONTENT_FILTER` or `OUTPUT_TRUNCATED`) after the configured backup model, if any, has had its attempt - see [maxOutputTokens](/docs/protocol/agent-config#maxoutputtokens).
+
 ### Block Events
 
 Track execution progress:

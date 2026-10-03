@@ -192,7 +192,7 @@ When a provider error occurs, the system retries once with the backup model. If 
 
 - Only transient provider errors trigger fallback - authentication and validation errors are not retried
 - Provider-specific options (like `anthropic:`) are only forwarded to the backup model if it uses the same provider
-- For streaming responses, fallback only occurs if no content has been sent to the client yet
+- For streaming responses, fallback only occurs if no content has been sent to the client yet - except for a step the primary model voided: a safety refusal (`content-filter`), an empty response (`NO_CONTENT_GENERATED`), or a generation cut off at the output limit (`OUTPUT_TRUNCATED`). Those produced no committed answer, so the partial step is retracted (a `step-discard` event) and the backup model re-runs it
 
 Like `model`, `backupModel` supports variable references:
 
@@ -299,6 +299,8 @@ agent:
 Caps the output tokens of a single generation, passed straight through to the provider's `max_tokens`. When omitted, the provider/SDK default applies - it varies by model and can be very large. Setting an explicit value gives you a predictable, model-independent ceiling on the cost of any one generation.
 
 This is a **per-step** cap, not a budget for the whole run. A long agentic run makes many generations, each capped independently; use `maxSteps` to bound the number of steps.
+
+It is a safety ceiling, not a way to shape answer length. A generation that hits the cap (`finishReason: 'length'`) is incomplete - a cut-off answer, a partial tool call, or reasoning that consumed the whole budget - so the step fails as a `provider_error` with code `OUTPUT_TRUNCATED` rather than delivering the truncated output as a finished turn. A configured [backup model](#backup-model) gets one attempt first; the error is not retried on the same model. The same holds for a step that ends with no response at all (no text and no tool call, for example a reasoning-only generation): it fails with code `NO_CONTENT_GENERATED`, which is retried on the same model and falls back to the backup, instead of completing the turn with an empty message.
 
 ### loopGuard
 
@@ -608,7 +610,7 @@ agent:
   agentic: true
 ```
 
-The tool takes the URL of an audio (or video) file and returns its transcript as text - so transcription works regardless of whether the chat model can natively "hear" the file. It auto-detects the spoken language by default, accepts an optional `language` hint, and can return timestamped segments (`timestamps: true`) where the model supports them (for OpenAI, `whisper-1`). Short transcripts return inline; long transcripts are delivered as a downloadable transcript file with only a bounded preview returned, so a multi-hour transcript never floods the model context.
+The tool takes the URL of an audio (or video) file and returns its transcript as text - so transcription works regardless of whether the chat model can natively "hear" the file. It auto-detects the spoken language by default, accepts an optional `language` hint, and can return timestamped segments (`timestamps: true`) where the model supports them (for OpenAI, `whisper-1`). Short transcripts return inline; long transcripts are delivered as a downloadable transcript file with only a bounded preview returned, so a multi-hour transcript never floods the model context. A file with no recognizable speech (silence, music, sound effects) is a successful result with an empty transcript and `speechDetected: false`, not an error - and not a statement about whether the file has an audio track.
 
 | Provider | Models                                                     |
 | -------- | ---------------------------------------------------------- |

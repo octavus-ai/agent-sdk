@@ -296,8 +296,11 @@ export const pendingToolCallSchema = z.object({
   // Must be declared here as well as on the type: stream events are parsed with
   // this schema and z.object() strips unknown keys, so an undeclared `suspend`
   // would be silently dropped in transit and the executor would treat the call
-  // as an ordinary (rejectable) client tool instead of holding it open.
+  // as an ordinary (rejectable) client tool instead of holding it open. The
+  // same holds for `interactionId`: dropped in transit, the executor could not
+  // scope the events it delivers to the interaction the park awaits.
   suspend: z.boolean().optional(),
+  interactionId: z.string().optional(),
 });
 
 export const toolResultSchema = z.object({

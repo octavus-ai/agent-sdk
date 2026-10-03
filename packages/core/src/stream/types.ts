@@ -601,6 +601,14 @@ export interface PendingToolCall {
    * delivered by the coordination hub, not reject or execute it locally.
    */
   suspend?: boolean;
+  /**
+   * For a suspending call, the identity of the interaction it awaits (set by
+   * the tool that opened the interaction). The resident executor matches the
+   * events it is handed against it, so an event from an interaction that already
+   * closed never resolves a park waiting on the next one. Absent when the
+   * opening tool declared no identity.
+   */
+  interactionId?: string;
 }
 
 /**
