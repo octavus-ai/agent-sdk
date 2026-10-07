@@ -104,6 +104,7 @@ export type {
   BlockEndEvent,
   StepStartEvent,
   StepDiscardEvent,
+  PersistedEvent,
   ResourceUpdateEvent,
   PendingToolCall,
   ToolRequestEvent,

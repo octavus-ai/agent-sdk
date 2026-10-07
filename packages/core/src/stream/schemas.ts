@@ -254,6 +254,15 @@ export const stepDiscardEventSchema = z.object({
   workerId: z.string().optional(),
 });
 
+// ------------------------------- Persisted -----------------------------------
+
+export const persistedEventSchema = z.object({
+  type: z.literal('persisted'),
+  executionId: z.string(),
+  round: z.number().int().nonnegative(),
+  messageId: z.string().optional(),
+});
+
 export const resourceUpdateEventSchema = z.object({
   type: z.literal('resource-update'),
   name: z.string(),
@@ -443,6 +452,7 @@ export const streamEventSchema = z.union([
   blockEndEventSchema,
   stepStartEventSchema,
   stepDiscardEventSchema,
+  persistedEventSchema,
   resourceUpdateEventSchema,
   toolRequestEventSchema,
   clientToolRequestEventSchema,
@@ -544,6 +554,7 @@ export const workerPartInfoSchema = z.object({
   workerSlug: z.string(),
   description: z.string().optional(),
   input: z.record(z.string(), z.unknown()).optional(),
+  toolCallId: z.string().optional(),
   // Worker nested parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
   nestedParts: z.array(baseMessagePartSchema),
   output: z.unknown().optional(),

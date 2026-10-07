@@ -11,22 +11,32 @@ import type { StreamEvent, ToolResult } from '@octavus/core';
  * between buffered replay (late join / reconnect) and live streaming.
  *
  * - `replay-start`: the events that follow re-describe content the agent has
- *   already produced this turn. The chat rebuilds its current turn silently and
- *   does not notify subscribers per event.
+ *   already produced this turn. The chat applies them silently and does not
+ *   notify subscribers per event. With `sinceRound`, the transport subscribed
+ *   from a persisted round the chat already holds (its in-progress message was
+ *   supplied with `initialMessages`, or it processed that round's `persisted`
+ *   marker): when the replay opens with that round's `persisted` event the
+ *   chat rewinds only what it streamed after the marker and resumes; a replay
+ *   that opens with a `start` for a different message describes another
+ *   execution, so the chat settles the message in progress and opens the new
+ *   one; any other opening event means the replay describes the turn from its
+ *   start, and the chat rebuilds the turn from scratch. Without `sinceRound`
+ *   it always rebuilds.
  * - `live`: replay is finished. The chat flushes the rebuilt turn in a single
  *   update, then resumes per-event notifications for genuinely new output.
- * - `reset-turn`: discard the partially-streamed current turn and continue live.
+ * - `reset-turn`: the executor restarted the execution from scratch (e.g. it
+ *   re-issued the trigger after a dropped stream) and a fresh attempt streams
+ *   next, as a new execution with its own message. The chat drops what the
+ *   abandoned attempt streamed after its last persisted marker, settles the
+ *   turn's message as interrupted, and starts a new message for the attempt.
  *   Unlike `replay-start`, the events that follow are genuinely new (not a
- *   replay) and render per-event. Used when the executor restarts a turn from
- *   scratch (e.g. it re-issued the trigger after a dropped stream) so the
- *   abandoned partial output does not linger in the bubble the new attempt
- *   streams into.
+ *   replay) and render per-event.
  *
  * Transports that do not support late join simply never emit these, so the chat
  * stays in normal per-event mode.
  */
 export type ChatControlSignal =
-  | { type: 'replay-start' }
+  | { type: 'replay-start'; sinceRound?: number }
   | { type: 'live' }
   | { type: 'reset-turn' };
 
