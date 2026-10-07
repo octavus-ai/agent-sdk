@@ -78,7 +78,9 @@ GET /api/agent-sessions/:sessionId
 
 ### Response (Active Session)
 
-When the session is active, the response includes `UIMessage` objects:
+When the session is active, the response includes `UIMessage` objects. Each trigger produces one assistant message for the whole turn, however many tool rounds it takes: the message's `parts` hold every step in order, with a `step-start` part between steps - the same shape the client SDK builds while the turn streams. A handler that adds a message mid-turn (an `add-message` block after output has already been produced) continues in a new assistant message after it, so history keeps its order.
+
+A turn that is paused for tools - waiting for your server or client to continue it - is still in progress: its message has `status: "streaming"`, and its tool calls and sub-agent cards that await a result read `running`. A tool call a finished turn never resolved reads `cancelled`.
 
 ```json
 {
@@ -318,6 +320,7 @@ data: [DONE]
 | `block-end`             | Execution block completed          |
 | `step-start`            | A later model step started         |
 | `step-discard`          | Current step's output retracted    |
+| `persisted`             | Session state saved up to here     |
 | `text-start`            | Text generation started            |
 | `text-delta`            | Incremental text content           |
 | `text-end`              | Text generation ended              |

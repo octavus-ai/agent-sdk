@@ -36,6 +36,39 @@ import {
 /** Block types that are internal operations (not LLM-driven) */
 const OPERATION_BLOCK_TYPES = new Set(['set-resource', 'serialize-thread', 'generate-image']);
 
+/**
+ * Events that add to or settle a sub-agent card's content when they carry a
+ * `workerId`. The card's own lifecycle events (`worker-start`,
+ * `worker-input-start`) create cards themselves, and a `step-discard` is too
+ * destructive to apply to a card this chat has not been tracking.
+ */
+const NESTED_CONTENT_EVENT_TYPES = new Set<StreamEvent['type']>([
+  'block-start',
+  'block-end',
+  'step-start',
+  'reasoning-start',
+  'reasoning-delta',
+  'reasoning-end',
+  'text-start',
+  'text-delta',
+  'text-end',
+  'tool-input-start',
+  'tool-input-delta',
+  'tool-input-end',
+  'tool-input-available',
+  'tool-output-available',
+  'tool-output-error',
+  'source',
+  'file-available',
+  'todo-update',
+  'worker-result',
+  'worker-input-delta',
+  'worker-input-ready',
+]);
+
+/** Slug of a card opened for a sub-agent whose own start this chat never saw. */
+const PLACEHOLDER_WORKER_SLUG = 'unknown';
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -311,6 +344,8 @@ interface WorkerPartState {
 
 interface StreamingState {
   messageId: string;
+  /** Kept across updates so a message resumed from history keeps its timestamp. */
+  createdAt: Date;
   parts: UIMessagePart[];
   activeBlock: BlockState | null;
   blocks: Map<string, BlockState>;
@@ -329,6 +364,18 @@ interface StreamingState {
    * an earlier step's committed output or a previous block.
    */
   stepAnchorIndex: number;
+  /**
+   * The message's parts as they were at the last persisted round: the parts a
+   * message resumed from history started with, replaced by a snapshot of
+   * `parts` at every `persisted` marker. Every handler replaces part objects
+   * rather than mutating them, so the snapshot stays frozen while streaming
+   * continues. A replay that opens at the marker the transport subscribed from
+   * restores it - including each sub-agent card's nested parts and status, so
+   * a card that completed after the checkpoint is reopened rather than kept -
+   * and only what streamed after the last persisted round is re-applied,
+   * never content already persisted.
+   */
+  checkpointParts: UIMessagePart[];
 }
 
 type Listener = () => void;
@@ -460,6 +507,7 @@ function parsePartialJson(jsonText: string): unknown {
 function createEmptyStreamingState(): StreamingState {
   return {
     messageId: generateId(),
+    createdAt: new Date(),
     parts: [],
     activeBlock: null,
     blocks: new Map(),
@@ -470,7 +518,51 @@ function createEmptyStreamingState(): StreamingState {
     activeWorkers: new Map(),
     toolInputBuffers: new Map(),
     stepAnchorIndex: 0,
+    checkpointParts: [],
   };
+}
+
+/**
+ * Streaming state that continues an in-progress assistant message supplied with
+ * the initial messages (its persisted rounds): every part is already there and
+ * persisted, each `running` worker card is an active worker whose nested
+ * events route into it, and the live stream appends from here. Nothing is
+ * mid-stream at a persisted round boundary, so no text, reasoning, object, or
+ * tool-input part is open.
+ */
+function createStreamingStateFromMessage(message: UIMessage): StreamingState {
+  const parts = [...message.parts];
+  return {
+    messageId: message.id,
+    createdAt: message.createdAt,
+    parts,
+    activeBlock: null,
+    blocks: new Map(),
+    currentTextPartIndex: null,
+    currentReasoningPartIndex: null,
+    currentObjectPartIndex: null,
+    accumulatedJson: '',
+    activeWorkers: activeWorkersOf(parts),
+    toolInputBuffers: new Map(),
+    stepAnchorIndex: parts.length,
+    checkpointParts: [...parts],
+  };
+}
+
+/**
+ * Trackers for the `running` sub-agent cards among persisted parts, each
+ * anchored at the end of what its card already holds so nested events append
+ * from there.
+ */
+function activeWorkersOf(parts: UIMessagePart[]): Map<string, WorkerPartState> {
+  const activeWorkers = new Map<string, WorkerPartState>();
+  parts.forEach((part, index) => {
+    if (part.type !== 'worker' || part.status !== 'running') return;
+    const workerState = createWorkerPartState(index);
+    workerState.stepAnchorIndex = part.parts.length;
+    activeWorkers.set(part.workerId, workerState);
+  });
+  return activeWorkers;
 }
 
 function createWorkerPartState(partIndex: number): WorkerPartState {
@@ -492,8 +584,29 @@ function buildMessageFromState(state: StreamingState, status: 'streaming' | 'don
     role: 'assistant',
     parts: [...state.parts],
     status,
-    createdAt: new Date(),
+    createdAt: state.createdAt,
   };
+}
+
+/** The trailing assistant message still in progress, when the caller supplied one. */
+function findResumableMessage(messages: UIMessage[]): UIMessage | undefined {
+  const last = messages[messages.length - 1];
+  return last?.role === 'assistant' && last.status === 'streaming' ? last : undefined;
+}
+
+/**
+ * Whether a `start` opens a message other than the one being built: it names a
+ * message and the turn in progress, which already holds content, is keyed
+ * differently. A continuation round's `start` carries the same id and is not
+ * one; neither is the first `start` of an empty turn, which adopts the id.
+ */
+function startsAnotherMessage(
+  event: Extract<StreamEvent, { type: 'start' }>,
+  state: StreamingState,
+): boolean {
+  return (
+    event.messageId !== undefined && event.messageId !== state.messageId && state.parts.length > 0
+  );
 }
 
 /**
@@ -633,6 +746,12 @@ export class OctavusChat {
   // completed during a reconnect and the buffer was already cleared - leaves the
   // already-visible content intact instead of discarding it.
   private _replayResetPending = false;
+
+  // The persisted round the transport subscribed from for the pending replay
+  // (`replay-start.sinceRound`). When the replay opens with that round's
+  // `persisted` marker the turn is rewound to its checkpoint instead of being
+  // rebuilt from scratch. Undefined for a transport without a cursor.
+  private _replaySinceRound: number | undefined = undefined;
 
   // Last trigger snapshot for retry support
   private _lastTrigger: {
@@ -1100,14 +1219,21 @@ export class OctavusChat {
    * Use this when the page loads and the session is already streaming - the transport
    * will start consuming events without dispatching a new trigger.
    *
-   * When using with `initialMessages`, exclude any in-progress assistant message
-   * from the initial messages to avoid duplication - the event stream will rebuild it.
+   * When the messages end with an assistant message whose `status` is
+   * `streaming` - the execution's in-progress message as persisted so far, with
+   * its pending tool calls `running` and its in-flight sub-agent cards
+   * `running` - observation resumes that message: the stream's events append to
+   * it, tool results land on its pending calls, and nested events route into
+   * its running cards. Replay of content the message already holds is rewound,
+   * never duplicated. Without such a message the stream rebuilds the current
+   * turn from scratch, so callers that cannot supply the in-progress message
+   * should leave it out of the initial messages.
    */
   async observe(): Promise<void> {
     if (!this.transport.observe) {
       throw new Error('Transport does not support observe()');
     }
-    await this._consumeStream(this.transport.observe());
+    await this._consumeStream(this.transport.observe(), findResumableMessage(this._messages));
   }
 
   private async _executeTrigger(
@@ -1121,15 +1247,24 @@ export class OctavusChat {
   /**
    * Shared streaming logic for `send()`, `retry()`, and `observe()`.
    * Sets up streaming state, consumes an event stream, and handles errors.
+   * `resumeFrom` is the in-progress assistant message an observation continues
+   * (see `observe()`); without it the turn starts empty.
    */
-  private async _consumeStream(stream: AsyncIterable<ChatStreamItem>): Promise<void> {
+  private async _consumeStream(
+    stream: AsyncIterable<ChatStreamItem>,
+    resumeFrom?: UIMessage,
+  ): Promise<void> {
     this.setStatus('streaming');
     this.setError(null);
-    this.streamingState = createEmptyStreamingState();
+    this.streamingState = resumeFrom
+      ? createStreamingStateFromMessage(resumeFrom)
+      : createEmptyStreamingState();
     this._batching = false;
     this._replayResetPending = false;
+    this._replaySinceRound = undefined;
     this.revealState.clear();
     this._displayMessages = null;
+    if (resumeFrom) this.revealAllToFull();
 
     // Clear any previous client tool state
     this._pendingToolsByName.clear();
@@ -1147,7 +1282,7 @@ export class OctavusChat {
       for await (const item of stream) {
         if (this.streamingState === null) break;
         if (item.type === 'replay-start') {
-          this.beginReplayBatch();
+          this.beginReplayBatch(item.sinceRound);
           continue;
         }
         if (item.type === 'live') {
@@ -1159,7 +1294,7 @@ export class OctavusChat {
           continue;
         }
 
-        if (this._replayResetPending) this.resetForReplay();
+        if (this._replayResetPending) this.resetForReplay(item);
         this.handleStreamEvent(item, this.streamingState);
       }
       // Stream ended without an explicit `live` marker (e.g. the session ended
@@ -1232,7 +1367,7 @@ export class OctavusChat {
         role: 'assistant',
         parts: finalizeParts(state.parts),
         status: 'done',
-        createdAt: new Date(),
+        createdAt: state.createdAt,
       };
 
       if (lastMsg?.id === state.messageId) {
@@ -1346,6 +1481,7 @@ export class OctavusChat {
     this._pendingClientToolContinuations = 0;
     this._batching = false;
     this._replayResetPending = false;
+    this._replaySinceRound = undefined;
     this.updatePendingClientToolsCache();
 
     this.transport.stop();
@@ -1404,27 +1540,21 @@ export class OctavusChat {
    *      this.setMessages(messages);
    */
   private handleStreamEvent(event: StreamEvent, state: StreamingState): void {
+    // Every nested event is addressed to a card by `workerId`. Content for a
+    // card unknown here (its start was never seen) opens a placeholder card so
+    // it renders as the sub-agent's work - never as the primary's.
+    if (
+      NESTED_CONTENT_EVENT_TYPES.has(event.type) &&
+      'workerId' in event &&
+      typeof event.workerId === 'string' &&
+      !state.activeWorkers.has(event.workerId)
+    ) {
+      this.openPlaceholderWorker(state, event.workerId);
+    }
+
     switch (event.type) {
       case 'start':
-        if (event.executionId) {
-          this.options.onStart?.(event.executionId);
-        }
-        if (event.sessionId && event.sessionId !== this._sessionId) {
-          this._sessionId = event.sessionId;
-          this.options.onSessionCreated?.(event.sessionId);
-        }
-        // Lock the rollback anchor on the first start event only. Continuation
-        // streams (after client tool handling) also emit start events with a
-        // lastMessageId that reflects post-tool-call state, which would move
-        // the rollback point forward into the execution and break retry.
-        // When lastMessageId is undefined (empty session), the anchor from
-        // send() (null = truncate all) is already correct - just lock it.
-        if (!this._rollbackSynced && this._lastTrigger) {
-          if (event.lastMessageId !== undefined) {
-            this._lastTrigger.rollbackAfterMessageId = event.lastMessageId;
-          }
-          this._rollbackSynced = true;
-        }
+        this.handleStart(event);
         break;
 
       case 'block-start': {
@@ -1549,6 +1679,12 @@ export class OctavusChat {
 
       case 'step-discard':
         this.discardCurrentStep(state, event.workerId);
+        break;
+
+      case 'persisted':
+        // Everything built so far is now in persisted state: a later replay
+        // from this round rewinds to here and no further back.
+        state.checkpointParts = [...state.parts];
         break;
 
       case 'reasoning-start': {
@@ -2152,8 +2288,9 @@ export class OctavusChat {
       }
 
       case 'worker-start': {
-        // Check if worker with same workerId already exists (for continuations
-        // and the worker-input-start pre-emission for stream workers).
+        // Check if worker with same workerId already exists (for continuations,
+        // the worker-input-start pre-emission for stream workers, a card resumed
+        // from history, or a placeholder opened for an unannounced worker).
         const existingIndex = state.parts.findIndex(
           (p) => p.type === 'worker' && p.workerId === event.workerId,
         );
@@ -2163,11 +2300,16 @@ export class OctavusChat {
           // Re-use existing worker part. Defensively fill in any fields the
           // existing part doesn't yet have - input/description may be missing
           // if the part was created by worker-input-start before the LLM
-          // finished generating input, and worker-input-ready hasn't arrived.
+          // finished generating input, and worker-input-ready hasn't arrived;
+          // a placeholder learns its identity here.
           const existingPart = state.parts[existingIndex] as UIWorkerPart;
           state.parts[existingIndex] = {
             ...existingPart,
             status: 'running',
+            workerSlug:
+              existingPart.workerSlug === PLACEHOLDER_WORKER_SLUG
+                ? event.workerSlug
+                : existingPart.workerSlug,
             input: existingPart.input ?? event.input,
             description: existingPart.description ?? event.description,
           };
@@ -2284,19 +2426,9 @@ export class OctavusChat {
         }
 
         const finalMessage = buildMessageFromState(state, 'done');
-
-        finalMessage.parts = finalMessage.parts.map((part) => {
-          if (part.type === 'text' || part.type === 'reasoning') {
-            return { ...part, status: 'done' as const };
-          }
-          if (part.type === 'object' && part.status === 'streaming') {
-            return { ...part, status: 'done' as const };
-          }
-          if (part.type === 'todo' && part.status === 'streaming') {
-            return { ...part, status: 'done' as const };
-          }
-          return part;
-        });
+        // The same settle a reload applies: open text/reasoning closes, and a
+        // tool call or card the run ended without resolving reads cancelled.
+        finalMessage.parts = finalizeParts(finalMessage.parts);
 
         const messages = [...this._messages];
         const lastMsg = messages[messages.length - 1];
@@ -2364,27 +2496,120 @@ export class OctavusChat {
   }
 
   /**
-   * Enter replay-batch mode: the events that follow re-describe content already
-   * produced this turn (late join or reconnect). Per-event notifications are
-   * suppressed until the `live` boundary flushes a single update. The drop and
-   * rebuild of the current turn is deferred to the first replayed event
-   * (resetForReplay) so an empty replay does not discard visible content.
+   * A `start` opens the execution's response message. The runtime names the
+   * assistant message the execution produces and persists it under that id, so
+   * a turn that has not built anything yet adopts it (the message the chat
+   * shows live is the message a reload shows: same key, no remount when the two
+   * are reconciled). A `start` naming a different message while the turn
+   * already holds content is a new execution - the retried attempt after a
+   * dropped stream, or a runtime that moved the rest of the turn into a new
+   * message after a block appended one - so the message in progress settles as
+   * interrupted (as a reload shows it) and the new one opens.
    */
-  private beginReplayBatch(): void {
-    this._batching = true;
-    this._replayResetPending = true;
+  private handleStart(event: Extract<StreamEvent, { type: 'start' }>): void {
+    if (event.executionId) {
+      this.options.onStart?.(event.executionId);
+    }
+    if (event.sessionId && event.sessionId !== this._sessionId) {
+      this._sessionId = event.sessionId;
+      this.options.onSessionCreated?.(event.sessionId);
+    }
+
+    if (this.streamingState && startsAnotherMessage(event, this.streamingState)) {
+      this.resetCurrentTurn();
+    }
+    const state = this.streamingState;
+    if (!state) return;
+
+    if (event.messageId && state.parts.length === 0) {
+      const taken = this._messages.some(
+        (m) => m.id === event.messageId && m.id !== state.messageId,
+      );
+      if (!taken) state.messageId = event.messageId;
+    }
+    // Lock the rollback anchor on the first start event only. Continuation
+    // streams (after client tool handling) also emit start events with a
+    // lastMessageId that reflects post-tool-call state, which would move
+    // the rollback point forward into the execution and break retry.
+    // When lastMessageId is undefined (empty session), the anchor from
+    // send() (null = truncate all) is already correct - just lock it.
+    if (!this._rollbackSynced && this._lastTrigger) {
+      if (event.lastMessageId !== undefined) {
+        this._lastTrigger.rollbackAfterMessageId = event.lastMessageId;
+      }
+      this._rollbackSynced = true;
+    }
   }
 
   /**
-   * Drop the partially-built current-turn message and start a fresh streaming
-   * state, so the replay rebuilds the turn from scratch with no duplication.
-   * Runs on the first event of a replay batch - not in beginReplayBatch - so a
-   * replay that delivers no events leaves the existing content untouched.
+   * Open a running card for a sub-agent whose events arrive without a start
+   * this chat saw, so its nested content never lands in the primary's parts.
+   * A later `worker-start` for the same id fills in the card's identity.
    */
-  private resetForReplay(): void {
+  private openPlaceholderWorker(state: StreamingState, workerId: string): void {
+    const existingIndex = state.parts.findIndex(
+      (p) => p.type === 'worker' && p.workerId === workerId,
+    );
+    if (existingIndex !== -1) {
+      const workerState = createWorkerPartState(existingIndex);
+      const existing = state.parts[existingIndex] as UIWorkerPart;
+      workerState.stepAnchorIndex = existing.parts.length;
+      state.parts[existingIndex] = { ...existing, status: 'running' };
+      state.activeWorkers.set(workerId, workerState);
+      return;
+    }
+    const placeholder: UIWorkerPart = {
+      type: 'worker',
+      workerId,
+      workerSlug: PLACEHOLDER_WORKER_SLUG,
+      description: undefined,
+      input: undefined,
+      parts: [],
+      status: 'running',
+    };
+    state.parts.push(placeholder);
+    state.activeWorkers.set(workerId, createWorkerPartState(state.parts.length - 1));
+  }
+
+  /**
+   * Enter replay-batch mode: the events that follow re-describe content already
+   * produced this turn (late join or reconnect). Per-event notifications are
+   * suppressed until the `live` boundary flushes a single update. How the turn
+   * is reconciled with the replay is decided at its first event
+   * (resetForReplay), so an empty replay leaves visible content untouched.
+   */
+  private beginReplayBatch(sinceRound?: number): void {
+    this._batching = true;
+    this._replayResetPending = true;
+    this._replaySinceRound = sinceRound;
+  }
+
+  /**
+   * Reconcile the current turn with a replay, at its first event. A replay
+   * that opens with the `persisted` marker of the round the transport
+   * subscribed from re-describes only what streamed after the turn's last
+   * persisted round: rewind to the checkpoint and let it re-apply. A replay
+   * that opens with a `start` for a different message than the turn holds
+   * describes another execution; the `start` handler settles the turn in
+   * progress and opens the new message, so nothing is dropped here. Any other
+   * opening event means the replay describes the turn from its start (or from
+   * wherever an executor without round markers begins): drop the current-turn
+   * message and rebuild it from scratch with no duplication.
+   */
+  private resetForReplay(first: StreamEvent): void {
     this._replayResetPending = false;
     const state = this.streamingState;
     if (state) {
+      const resumesAtCheckpoint =
+        this._replaySinceRound !== undefined &&
+        first.type === 'persisted' &&
+        first.round === this._replaySinceRound;
+      if (resumesAtCheckpoint) {
+        this.rewindToCheckpoint(state);
+        return;
+      }
+      if (first.type === 'start' && startsAnotherMessage(first, state)) return;
+
       const lastMsg = this._messages[this._messages.length - 1];
       if (lastMsg?.id === state.messageId) {
         this._messages = this._messages.slice(0, -1);
@@ -2395,21 +2620,59 @@ export class OctavusChat {
   }
 
   /**
-   * Drop the partially-streamed current turn and start a fresh streaming state,
-   * staying live. Used when the transport signals `reset-turn` because the
-   * executor restarted the turn from scratch (e.g. it re-issued the trigger
-   * after a dropped stream): the abandoned partial output must not remain in the
-   * bubble the retried attempt will stream into. Unlike `resetForReplay`, this
-   * is not a replay - it paints immediately (when not batching) so the stale
-   * partial clears at once, and the genuinely-new events that follow render
-   * per-event.
+   * Drop what the current execution streamed after its last persisted round:
+   * restore the message's parts to the checkpoint snapshot - which reopens a
+   * card that completed after it and returns its nested parts to what was
+   * persisted - and rebuild the trackers from it, dropping every open-part
+   * pointer and buffer that pointed past the checkpoint. Persisted content is
+   * never touched. The replay or the retried attempt that follows re-streams
+   * the rest.
+   */
+  private rewindToCheckpoint(state: StreamingState): void {
+    state.parts = [...state.checkpointParts];
+    state.activeWorkers = activeWorkersOf(state.parts);
+    state.stepAnchorIndex = state.parts.length;
+    state.currentTextPartIndex = null;
+    state.currentReasoningPartIndex = null;
+    state.currentObjectPartIndex = null;
+    state.accumulatedJson = '';
+    state.toolInputBuffers.clear();
+    state.activeBlock = null;
+    this.updateStreamingMessage();
+    // What remains is persisted content; show it in full rather than typing it.
+    this.revealState.clear();
+    this.revealAllToFull();
+  }
+
+  /**
+   * Another execution takes over the turn: the transport signals `reset-turn`
+   * when the executor re-issued the trigger after a dropped stream, or a
+   * `start` names a different message than the one being built. The new
+   * execution streams next into its own message, continuing from persisted
+   * state. Drop what the abandoned execution streamed after its last persisted
+   * round, settle the turn's message as interrupted - its calls still awaiting
+   * a result are cancelled, as a reload shows them - and start a fresh message.
+   * Unlike `resetForReplay`, this is not a replay: it paints immediately (when
+   * not batching) so the stale partial clears at once, and the genuinely-new
+   * events that follow render per-event.
    */
   private resetCurrentTurn(): void {
     const state = this.streamingState;
     if (state) {
-      const lastMsg = this._messages[this._messages.length - 1];
+      this.rewindToCheckpoint(state);
+      const messages = [...this._messages];
+      const lastMsg = messages[messages.length - 1];
       if (lastMsg?.id === state.messageId) {
-        this._messages = this._messages.slice(0, -1);
+        if (state.parts.length > 0) {
+          messages[messages.length - 1] = {
+            ...lastMsg,
+            parts: finalizeParts(state.parts),
+            status: 'done',
+          };
+        } else {
+          messages.pop();
+        }
+        this._messages = messages;
       }
     }
     this.streamingState = createEmptyStreamingState();
@@ -2494,6 +2757,7 @@ export class OctavusChat {
     if (!this._batching) return;
     this._batching = false;
     this._replayResetPending = false;
+    this._replaySinceRound = undefined;
     // The caught-up turn is painted in one shot - show it fully rather than
     // typing it out. Live text that arrives after this is smoothed as usual.
     if (this._smoothing !== null) this.revealAllToFull();
@@ -2603,7 +2867,7 @@ export class OctavusChat {
       for await (const item of this.transport.continueWithToolResults(executionId, allResults)) {
         if (this.streamingState === null) break;
         if (item.type === 'replay-start') {
-          this.beginReplayBatch();
+          this.beginReplayBatch(item.sinceRound);
           continue;
         }
         if (item.type === 'live') {
@@ -2614,7 +2878,7 @@ export class OctavusChat {
           this.resetCurrentTurn();
           continue;
         }
-        if (this._replayResetPending) this.resetForReplay();
+        if (this._replayResetPending) this.resetForReplay(item);
         this.handleStreamEvent(item, this.streamingState);
       }
       this.endReplayBatch();

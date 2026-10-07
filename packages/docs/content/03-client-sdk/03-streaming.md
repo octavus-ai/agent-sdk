@@ -122,6 +122,15 @@ An agent that calls tools runs several model steps inside one assistant message.
 
 Occasionally the platform has to redo a step - for example when the connection to the model provider dropped mid-stream before anything from the step had executed. It then sends a `step-discard` event, and the SDK removes everything the interrupted step had streamed (its reasoning, text, and tool calls) before the retried step streams into the same place. Output committed by earlier steps is untouched. You do not need to handle this yourself: `messages` simply updates, and any part you were rendering from the abandoned step disappears in that update.
 
+### Observing a turn already in progress
+
+`observe()` attaches to an execution that is already running without triggering a new one - the case when a page loads while the agent is still working. How much of the turn the SDK has to rebuild depends on what you pass as `initialMessages`:
+
+- If the messages end with the turn's in-progress assistant message (its `status` is `streaming`), the SDK resumes that message: the stream's events append to it, tool results land on its pending tool calls, and a sub-agent card that is still `running` receives its nested events. Content the message already holds is never duplicated, even when the transport replays events that produced it.
+- Otherwise the SDK starts an empty assistant message and rebuilds the turn from the stream.
+
+Use the first shape when your transport replays only what streamed after the state you loaded (the platform marks that boundary with the `persisted` stream event); use the second when it replays the whole turn from its start.
+
 ## Tool Call States
 
 Tool calls progress through multiple states:

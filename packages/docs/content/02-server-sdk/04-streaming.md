@@ -107,6 +107,24 @@ A block that calls tools runs several model steps in one turn. Step events mark 
 
 `step-discard` is sent when the platform rolls a step back to re-issue it - for example when a transient provider failure interrupted the stream before anything from the step had executed. Only the interrupted step is affected; output committed by earlier steps stays. A client that ignores the event keeps the abandoned output and sees the retried step appended after it, which is why the [Client SDK](/docs/client-sdk/streaming) handles it for you.
 
+### Persisted Marker
+
+A turn that pauses for tools runs in rounds: each `tool-request` pauses the execution, and the matching continuation resumes it. The platform saves the session's state at the end of every round and marks the stream so a consumer knows how far the saved state reaches:
+
+```typescript
+// Everything streamed before this event is now in saved session state.
+// Sent once per round, after the round's state write and before the
+// tool request that pauses the execution.
+{
+  type: 'persisted';
+  executionId: string;
+  round: number; // rounds of this execution saved so far (1 after the first)
+  messageId?: string; // the in-progress assistant message the round extended
+}
+```
+
+The whole execution - every round until it finishes - is one assistant message in session state, so a message built from the stream has the same shape as the message a later session read returns. Each round's `start` event carries the id of the message it extends as `messageId` (see the [Sessions API](/docs/api-reference/sessions) for the one case where a turn continues in a new message). A consumer that renders a running session from saved state can use the marker to tell which part of the live stream its copy already includes; the [Client SDK](/docs/client-sdk/streaming) uses it to resume an in-progress message rather than rebuilding it.
+
 ### Text Events
 
 Streaming text content:
