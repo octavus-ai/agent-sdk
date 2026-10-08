@@ -13,6 +13,49 @@ Authorization: Bearer oct_agt_...
 
 All endpoints are scoped to one agent through the `{agentId}` path segment - find the agent ID in the agent's page URL in the dashboard. A key only works for the agent it was created for.
 
+## Get an agent
+
+Read whether the agent can take a run now, what it is working on, and the state of its computer.
+
+```
+GET /api/v1/workforce/agents/{agentId}
+```
+
+### Response
+
+```json
+{
+  "agentId": "cm5abc123def456ghi",
+  "name": "Avery Stone",
+  "status": "busy",
+  "unavailableReason": null,
+  "currentThreadId": "cm5xyz123abc456def",
+  "queuedThreads": 0,
+  "computer": { "kind": "dedicated", "os": "linux", "state": "running" },
+  "definition": { "slug": "research-analyst", "version": 12 },
+  "capabilities": { "memory": true, "credentials": false }
+}
+```
+
+| Field               | Type           | Description                                                                                                                                           |
+| ------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`            | string         | `idle` (ready for a run), `busy` (a run is in flight or queued), or `unavailable` (a new run cannot start - see `unavailableReason`)                  |
+| `unavailableReason` | string \| null | `paused` (the owner paused the agent), `computer_down` (its computer cannot be reached), or `cli_only` (it runs only from the Agent CLI)              |
+| `currentThreadId`   | string \| null | The thread holding the agent: the running one, else the oldest dispatched or queued one                                                               |
+| `queuedThreads`     | number         | Threads waiting behind the current one                                                                                                                |
+| `computer`          | object         | `kind` (`dedicated`, `e2b`, `daytona`, `mac`, or `cli`), `os` (`linux`, `windows`, or `macos`), and `state` (see below)                               |
+| `definition`        | object \| null | The pre-built agent the agent was hired from (`slug`) and the version of its definition (`version`); null for an agent not hired from a pre-built one |
+| `capabilities`      | object         | The capabilities the agent's definition declares, each with whether it is enabled                                                                     |
+
+The computer `state` is `running`, `starting`, `paused` (stopped; it resumes on the next run), `down`, or `none` (no computer yet, or the caller's own machine for a CLI agent). The status is computed on every read, so it reflects a dispatch immediately. New values may be added to any of these fields; treat an unrecognized one as unknown.
+
+### Example
+
+```bash
+curl https://octavus.ai/api/v1/workforce/agents/AGENT_ID \
+  -H "Authorization: Bearer oct_agt_..."
+```
+
 ## Start a thread
 
 Dispatch a message to the agent. This starts a new thread and returns immediately.
@@ -29,11 +72,12 @@ POST /api/v1/workforce/agents/{agentId}/threads
 }
 ```
 
-| Field     | Type            | Required | Description                                                                                            |
-| --------- | --------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `message` | string          | Yes      | The task or message for the agent                                                                      |
-| `files`   | FileReference[] | No       | Hosted file attachments                                                                                |
-| `config`  | RunConfig       | No       | Per-run configuration for this thread (see below). Omitted fields inherit the agent's stored settings. |
+| Field     | Type            | Required | Description                                                                                                                                  |
+| --------- | --------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message` | string          | Yes      | The task or message for the agent                                                                                                            |
+| `files`   | FileReference[] | No       | Hosted file attachments                                                                                                                      |
+| `config`  | RunConfig       | No       | Per-run configuration for this thread (see below). Omitted fields inherit the agent's stored settings.                                       |
+| `ifIdle`  | boolean         | No       | Refuse instead of queuing when the agent already has a run in flight or queued (see [Only run on an idle agent](#only-run-on-an-idle-agent)) |
 
 #### RunConfig
 
@@ -52,7 +96,7 @@ Any model from the [model catalog](https://octavus.ai/pricing/models) is allowed
 
 ### Response
 
-Returns `201`.
+Returns `201` (`200` when an [idempotency key](#retry-safely-with-an-idempotency-key) returns an earlier request's thread).
 
 ```json
 {
@@ -62,6 +106,30 @@ Returns `201`.
 ```
 
 Poll the [Get a thread](#get-a-thread) endpoint until the status is terminal.
+
+### Retry safely with an idempotency key
+
+Send an `Idempotency-Key` header with a value unique to the task, such as a job id or a UUID (1-255 printable ASCII characters, no spaces):
+
+```
+Idempotency-Key: job-2026-03-04-reconcile-march
+```
+
+If you send the same key with the same request again - for example because the first response was lost - you get back `200` with the thread the first request created, and no second thread is started. The same key with a different request body is rejected with `409` `IDEMPOTENCY_KEY_REUSED`. A retry that arrives while the first request is still being processed can get `409` `IDEMPOTENCY_KEY_IN_PROGRESS` with a `Retry-After` header; retry after that delay to get the thread. A key stays bound to its thread for at least 7 days.
+
+### Only run on an idle agent
+
+An agent runs one task at a time, so a new thread normally waits behind a run already in flight (`queued`). With `"ifIdle": true` in the body, a dispatch to an agent that already has a run in flight or queued is refused with `409` `AGENT_BUSY` instead, and nothing is created:
+
+```json
+{
+  "error": "The agent already has a run in flight or queued",
+  "code": "AGENT_BUSY",
+  "currentThreadId": "cm5xyz123abc456def"
+}
+```
+
+`currentThreadId` names the thread holding the agent; it can be `null` when another dispatch is just starting. To check without dispatching, use [Get an agent](#get-an-agent).
 
 ### Example
 
@@ -118,7 +186,27 @@ GET /api/v1/workforce/agents/{agentId}/threads/{threadId}
   },
   "recording": null,
   "startedAt": "2026-03-04T10:12:03.418Z",
-  "completedAt": "2026-03-04T10:19:47.902Z"
+  "completedAt": "2026-03-04T10:19:47.902Z",
+  "provenance": {
+    "platform": {
+      "deployments": [
+        {
+          "deploymentId": "dpl_9Xa2mQ7kLp3RtV8Wn",
+          "commitSha": "4f1c2e9a7b3d5f60817c9e2a4b6d8f0a1c3e5b79",
+          "firstSeenAt": "2026-03-04T10:12:03.912Z"
+        }
+      ]
+    },
+    "definition": { "slug": "research-analyst", "version": 12 },
+    "computer": {
+      "kind": "dedicated",
+      "os": "linux",
+      "runtimeVersion": "75",
+      "imageVersion": "46",
+      "region": "us-east-1"
+    },
+    "preparation": null
+  }
 }
 ```
 
@@ -134,6 +222,7 @@ GET /api/v1/workforce/agents/{agentId}/threads/{threadId}
 | `recording`     | object \| null | The execution recording when the run was recorded: `status`, `visibility`, a playable `url` once ready, and `error`. Null when not recorded.                                                                                                           |
 | `startedAt`     | string \| null | When the thread's first run started on the agent's computer (ISO 8601). Null while queued or pending, or when it never started.                                                                                                                        |
 | `completedAt`   | string \| null | When the thread's latest run reached its terminal status (ISO 8601). Null while a run is in flight (a follow-up clears it). With `startedAt`, the thread's own duration - for a single-run thread, the run's - so there is no need to time your polls. |
+| `provenance`    | object \| null | What the thread ran on, recorded while it ran - see [Provenance](#provenance). Null until a step of the thread has run (for example, a `blocked` thread).                                                                                              |
 
 Keep polling while the status is `pending`, `queued`, or `running`. Stop when it is `completed`, `failed`, `cancelled`, or `blocked`. A `blocked` thread means a usage or spending limit was reached (see `failureReason`); the thread is created even when the run is blocked before it starts, so a blocked attempt is still a pollable thread rather than an error. If the run was recorded and you need the video, keep polling until the recording is final too (see [Recording](#recording)).
 
@@ -151,6 +240,19 @@ A recorded run's `recording` has its own lifecycle, and it settles shortly after
 | `unavailable` | Final. The recording never started (for example, the plan does not include recording); `error` says why |
 
 `recording` is `null` only when the run was not recorded.
+
+### Provenance
+
+`provenance` describes the run itself, not whatever is current when you read it, so a result can be attributed to exactly what produced it:
+
+| Field                  | Type           | Description                                                                                                                                                                               |
+| ---------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform.deployments` | object[]       | The platform builds that executed the thread's steps, oldest first: `deploymentId`, `commitSha`, and `firstSeenAt`. Usually one; more than one means a new build was deployed mid-thread. |
+| `definition`           | object \| null | The pre-built agent the agent was hired from (`slug`) and the version of its definition (`version`), as of the thread's latest step. Null for an agent not hired from a pre-built one.    |
+| `computer`             | object \| null | The computer, as of the thread's latest step: `kind`, `os`, `runtimeVersion`, `imageVersion`, and `region`. Null when no step reached a computer.                                         |
+| `preparation`          | object \| null | How the agent's computer was prepared before the thread (`mode`, `snapshotId`, `at`); null when the platform did not prepare it.                                                          |
+
+`computer.kind` is `dedicated`, `e2b`, `daytona`, `mac`, or `cli`. `runtimeVersion` is the computer's runtime release (the desktop app version on a Mac, the Agent CLI version for a CLI run), and `imageVersion` is the image a dedicated computer launched from or the sandbox template of an E2B or Daytona computer.
 
 ### Failure types
 
@@ -253,9 +355,11 @@ curl -X POST https://octavus.ai/api/v1/workforce/agents/AGENT_ID/threads/THREAD_
 
 Errors return `{ "error": string, "code": string }` with an HTTP status:
 
-| Status | Meaning                                           |
-| ------ | ------------------------------------------------- |
-| `401`  | Missing or invalid API key                        |
-| `402`  | The agent is blocked by a usage or spending limit |
-| `403`  | The key is not authorized for this agent          |
-| `404`  | The thread does not exist for this agent          |
+| Status | Meaning                                                                                                                                                                                                                                                          |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | The request is invalid (for example a malformed body or `Idempotency-Key`)                                                                                                                                                                                       |
+| `401`  | Missing or invalid API key                                                                                                                                                                                                                                       |
+| `402`  | The agent is blocked by a usage or spending limit                                                                                                                                                                                                                |
+| `403`  | The key is not authorized for this agent                                                                                                                                                                                                                         |
+| `404`  | The thread does not exist for this agent                                                                                                                                                                                                                         |
+| `409`  | `AGENT_BUSY` (an `ifIdle` dispatch to a busy agent), `IDEMPOTENCY_KEY_REUSED` (a key reused with a different request), `IDEMPOTENCY_KEY_IN_PROGRESS` (the key's first request is still being processed - retry shortly), or `AGENT_PAUSED` (the agent is paused) |

@@ -99,7 +99,59 @@ console.log(thread.recording?.url); // playable URL - run() waits (bounded) for 
 
 A recording settles a few seconds after its run ends, so `run()` and `waitForCompletion()` keep polling a recorded run until its recording is final (`ready`, `failed`, or `unavailable`), up to `recordingTimeoutMs`. See [Recording](/docs/workforce-agents/api-reference#recording) for the statuses.
 
-This makes the SDK a drop-in benchmark harness: sweep models or capability sets across runs and read `runConfig` + `usage` back off each thread to attribute the result.
+This makes the SDK a drop-in benchmark harness: sweep models or capability sets across runs and read `runConfig`, `usage`, and `provenance` back off each thread to attribute the result.
+
+## Know what a run ran on
+
+Each thread's `provenance` is recorded while it runs, so it describes the run itself rather than whatever is current when you read it:
+
+```ts
+const thread = await client.workforce.getThread(agentId, threadId);
+
+console.log(thread.provenance?.platform.deployments); // the platform builds that executed the thread
+console.log(thread.provenance?.definition); // { slug, version } of the agent's definition
+console.log(thread.provenance?.computer); // { kind, os, runtimeVersion, imageVersion, region }
+```
+
+`platform.deployments` usually holds one build; more than one means a new build was deployed while the thread was running. `provenance` is `null` until a step of the thread has run, for example on a `blocked` thread.
+
+## Retry a dispatch safely
+
+Pass an `idempotencyKey` unique to the task, such as a job id. If a dispatch's response is lost and you dispatch again with the same key and the same request, you get back the thread the first request created instead of starting a second run:
+
+```ts
+const { threadId } = await client.workforce.dispatch(agentId, 'Reconcile the March invoices', {
+  idempotencyKey: job.id,
+});
+```
+
+Reusing a key with a different request fails with an `ApiError` whose `code` is `IDEMPOTENCY_KEY_REUSED`. A retry that arrives while the first request is still being processed can fail with `IDEMPOTENCY_KEY_IN_PROGRESS`; retry after a moment to get the thread. `run()` accepts `idempotencyKey` too.
+
+## Only run on an idle agent
+
+`getAgent()` tells you whether the agent can take a run now, what it is working on, and the state of its computer:
+
+```ts
+const agent = await client.workforce.getAgent(agentId);
+
+console.log(agent.status); // 'idle' | 'busy' | 'unavailable'
+console.log(agent.currentThreadId); // the thread holding the agent, when busy
+console.log(agent.computer.state); // 'running' | 'starting' | 'paused' | 'down' | 'none'
+```
+
+An agent runs one task at a time, so a dispatch normally queues behind a run already in flight. With `ifIdle: true` the dispatch refuses instead, and nothing is created:
+
+```ts
+import { ApiError } from '@octavus/server-sdk';
+
+try {
+  await client.workforce.dispatch(agentId, 'Run the nightly audit', { ifIdle: true });
+} catch (error) {
+  if (error instanceof ApiError && error.code === 'AGENT_BUSY') {
+    console.log('Busy with thread', error.details?.currentThreadId);
+  }
+}
+```
 
 ## Options
 
@@ -112,7 +164,7 @@ This makes the SDK a drop-in benchmark harness: sweep models or capability sets 
 | `recordingTimeoutMs` | number      | `120000` | After the run finishes, how long to wait for a recorded run's recording to settle; it is returned as-is after that. `0` skips the wait |
 | `signal`             | AbortSignal | -        | Cancel the wait early                                                                                                                  |
 
-`dispatch()`, `followUp()`, and `run()` also accept `files` (an array of `FileReference`) to attach hosted files to the message.
+`dispatch()`, `followUp()`, and `run()` also accept `files` (an array of `FileReference`) to attach hosted files to the message, and `dispatch()` and `run()` accept `idempotencyKey` and `ifIdle` (see above).
 
 ```ts
 const thread = await client.workforce.run(agentId, 'Review this spec', {
@@ -139,6 +191,7 @@ If the timeout elapses first, `waitForCompletion()` and `run()` throw. The run k
 | `recording`     | object \| null | The execution recording when recorded (`status`, `visibility`, `url`, `error`); null otherwise                                                                                                |
 | `startedAt`     | string \| null | When the thread's first run started on the agent's computer (ISO 8601); null while queued or pending, or when it never started                                                                |
 | `completedAt`   | string \| null | When the thread's latest run reached its terminal status (ISO 8601); null while a run is in flight (a follow-up clears it). With `startedAt`, the thread's own duration                       |
+| `provenance`    | object \| null | What the thread ran on (`platform.deployments`, `definition`, `computer`, `preparation`) - see [Know what a run ran on](#know-what-a-run-ran-on); null until a step has run                   |
 
 Use `isTerminalThreadStatus(status)` to check whether a run has finished, and `isSettledRecordingStatus(status)` to check whether a recording is final.
 

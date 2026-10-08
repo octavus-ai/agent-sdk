@@ -84,6 +84,55 @@ const recordingSchema = z.object({
   error: z.string().nullable(),
 });
 
+/** Nullable strings an older platform may omit, normalized to null. */
+const nullableString = z
+  .string()
+  .nullish()
+  .transform((v) => v ?? null);
+
+const deploymentSchema = z.object({
+  deploymentId: z.string(),
+  commitSha: nullableString,
+  firstSeenAt: z.string(),
+});
+
+const definitionSchema = z.object({ slug: z.string(), version: z.number() });
+
+/** Kinds and states are validated leniently (any string), so a value the platform adds later never breaks a read. */
+const threadComputerSchema = z.object({
+  kind: z.string().transform((k) => k as WorkforceComputerKind),
+  os: nullableString.transform((o) => o as WorkforceComputerOs | null),
+  runtimeVersion: nullableString,
+  imageVersion: nullableString,
+  region: nullableString,
+});
+
+const provenanceSchema = z.object({
+  platform: z.object({ deployments: z.array(deploymentSchema) }),
+  definition: definitionSchema.nullish().transform((v) => v ?? null),
+  computer: threadComputerSchema.nullish().transform((v) => v ?? null),
+  preparation: z
+    .object({ mode: z.string(), snapshotId: nullableString, at: z.string() })
+    .nullish()
+    .transform((v) => v ?? null),
+});
+
+const agentResponseSchema = z.object({
+  agentId: z.string(),
+  name: z.string(),
+  status: z.string().transform((s) => s as WorkforceAgentStatus),
+  unavailableReason: nullableString.transform((r) => r as WorkforceAgentUnavailableReason | null),
+  currentThreadId: nullableString,
+  queuedThreads: z.number(),
+  computer: z.object({
+    kind: z.string().transform((k) => k as WorkforceComputerKind),
+    os: nullableString.transform((o) => o as WorkforceComputerOs | null),
+    state: z.string().transform((s) => s as WorkforceComputerState),
+  }),
+  definition: definitionSchema.nullish().transform((v) => v ?? null),
+  capabilities: z.record(z.string(), z.boolean()),
+});
+
 /**
  * Machine-readable class of a thread's `failureReason` (see the API reference's
  * failure types). Only `computer_unreachable` guarantees the run never started;
@@ -125,6 +174,7 @@ const threadResponseSchema = z.object({
     .string()
     .nullish()
     .transform((v) => v ?? null),
+  provenance: provenanceSchema.nullish().transform((v) => v ?? null),
 });
 
 /** Thinking/reasoning effort for a run; `auto` lets the model (or a router) decide. */
@@ -240,6 +290,107 @@ export interface WorkforceThread {
    * run is in flight (a follow-up clears it).
    */
   completedAt: string | null;
+  /**
+   * What the thread ran on, recorded while it ran: the platform builds that
+   * executed it, the agent's definition version, and its computer. Null until a
+   * step of the thread has run (for example, a `blocked` thread).
+   */
+  provenance: WorkforceThreadProvenance | null;
+}
+
+/** The kind of computer an agent runs on. New kinds may be added. */
+export type WorkforceComputerKind = 'dedicated' | 'e2b' | 'daytona' | 'mac' | 'cli';
+
+/** The operating system of an agent's computer. */
+export type WorkforceComputerOs = 'linux' | 'windows' | 'macos';
+
+/** A platform build that executed part of a thread. */
+export interface WorkforceDeployment {
+  /** The build's deployment identifier. */
+  deploymentId: string;
+  /** The commit the build was made from, when known. */
+  commitSha: string | null;
+  /** When the build first executed a step of the thread (ISO 8601). */
+  firstSeenAt: string;
+}
+
+/** The pre-built agent an agent was hired from, and the version of its definition. */
+export interface WorkforceAgentDefinition {
+  slug: string;
+  version: number;
+}
+
+/** The computer a thread ran on. */
+export interface WorkforceThreadComputer {
+  kind: WorkforceComputerKind;
+  os: WorkforceComputerOs | null;
+  /** The computer's runtime release, the desktop app version, or the Agent CLI version. */
+  runtimeVersion: string | null;
+  /** The image a dedicated computer launched from, or the sandbox template of an E2B or Daytona computer. */
+  imageVersion: string | null;
+  /** The cloud region the computer runs in. */
+  region: string | null;
+}
+
+/** How the agent's computer was prepared for the thread. */
+export interface WorkforcePreparation {
+  mode: string;
+  snapshotId: string | null;
+  at: string;
+}
+
+export interface WorkforceThreadProvenance {
+  /**
+   * The builds that executed the thread's steps, oldest first. Usually one; more
+   * than one means a new build was deployed while the thread was running.
+   */
+  platform: { deployments: WorkforceDeployment[] };
+  /** The definition version, as of the thread's latest step; null for an agent not hired from a pre-built agent. */
+  definition: WorkforceAgentDefinition | null;
+  /** The computer, as of the thread's latest step; null when no step reached a computer. */
+  computer: WorkforceThreadComputer | null;
+  /** How the computer was prepared before the thread; null when the platform did not prepare it. */
+  preparation: WorkforcePreparation | null;
+}
+
+/**
+ * Whether an agent can take a run now: `idle`, `busy` while a run is in flight or
+ * queued, or `unavailable` (see `WorkforceAgentUnavailableReason`). New values may be added.
+ */
+export type WorkforceAgentStatus = 'idle' | 'busy' | 'unavailable';
+
+/**
+ * Why an agent cannot take a run: its owner paused it, its computer is down, or it
+ * runs only from the Agent CLI. New values may be added.
+ */
+export type WorkforceAgentUnavailableReason = 'paused' | 'computer_down' | 'cli_only';
+
+/**
+ * The state of an agent's computer: `running`, `starting`, `paused` (stopped and
+ * resumed on the next run), `down`, or `none` (none yet, or the caller's machine for
+ * a CLI agent). New values may be added.
+ */
+export type WorkforceComputerState = 'running' | 'starting' | 'paused' | 'down' | 'none';
+
+export interface WorkforceAgent {
+  agentId: string;
+  name: string;
+  status: WorkforceAgentStatus;
+  /** Set when `status` is `unavailable`; null otherwise. */
+  unavailableReason: WorkforceAgentUnavailableReason | null;
+  /** The thread holding the agent: the running one, else the oldest dispatched or queued one. */
+  currentThreadId: string | null;
+  /** Threads waiting behind the current one. */
+  queuedThreads: number;
+  computer: {
+    kind: WorkforceComputerKind;
+    os: WorkforceComputerOs | null;
+    state: WorkforceComputerState;
+  };
+  /** Null for an agent not hired from a pre-built agent. */
+  definition: WorkforceAgentDefinition | null;
+  /** The capabilities the agent's definition declares, each with whether it is enabled. */
+  capabilities: Record<string, boolean>;
 }
 
 export interface WorkforceDispatchOptions {
@@ -252,6 +403,24 @@ export interface WorkforceDispatchOptions {
    * `dispatch` / `run` and not by `followUp`.
    */
   config?: WorkforceRunConfig;
+  /**
+   * An idempotency key for the dispatch, sent as the `Idempotency-Key` header. A
+   * retry with the same key and request returns the thread the first request
+   * created instead of starting another, so a dispatch whose response was lost can
+   * be retried safely; the same key with a different request fails with an
+   * `ApiError` coded `IDEMPOTENCY_KEY_REUSED`, and a retry that arrives while the
+   * first request is still being processed with one coded
+   * `IDEMPOTENCY_KEY_IN_PROGRESS` (retry shortly). Use a value unique to the task,
+   * such as a job id.
+   */
+  idempotencyKey?: string;
+  /**
+   * Refuse instead of queuing when the agent already has a run in flight or
+   * queued: the dispatch fails with an `ApiError` coded `AGENT_BUSY` whose
+   * `details.currentThreadId` names the thread holding the agent, and nothing is
+   * created.
+   */
+  ifIdle?: boolean;
 }
 
 /** Options for continuing an existing thread with a follow-up message. */
@@ -297,11 +466,23 @@ const DEFAULT_RECORDING_TIMEOUT_MS = 2 * 60 * 1_000;
  * console.log(thread.status, thread.messages);
  * ```
  *
- * The key only authorizes its own agent: `dispatch` starts a thread, `getThread`
- * reads status + messages, `followUp` continues a thread, `cancel` stops an
- * in-flight run, and `run` does the whole create-wait-return cycle.
+ * The key only authorizes its own agent: `getAgent` reads whether it can take a
+ * run, `dispatch` starts a thread, `getThread` reads status + messages,
+ * `followUp` continues a thread, `cancel` stops an in-flight run, and `run` does
+ * the whole create-wait-return cycle.
  */
 export class WorkforceApi extends BaseApiClient {
+  /**
+   * Read the agent's status: whether it can take a run now, the thread it is
+   * working on, and the state of its computer.
+   */
+  async getAgent(agentId: string): Promise<WorkforceAgent> {
+    return await this.httpGet(
+      `/api/v1/workforce/agents/${encodeURIComponent(agentId)}`,
+      agentResponseSchema,
+    );
+  }
+
   /** Start a new thread and dispatch the first message. Returns immediately. */
   async dispatch(
     agentId: string,
@@ -310,8 +491,9 @@ export class WorkforceApi extends BaseApiClient {
   ): Promise<WorkforceDispatchResult> {
     return await this.httpPost(
       `/api/v1/workforce/agents/${encodeURIComponent(agentId)}/threads`,
-      { message, files: options.files, config: options.config },
+      { message, files: options.files, config: options.config, ifIdle: options.ifIdle },
       dispatchResponseSchema,
+      options.idempotencyKey ? { headers: { 'Idempotency-Key': options.idempotencyKey } } : {},
     );
   }
 
@@ -401,6 +583,8 @@ export class WorkforceApi extends BaseApiClient {
     const { threadId } = await this.dispatch(agentId, message, {
       files: options.files,
       config: options.config,
+      idempotencyKey: options.idempotencyKey,
+      ifIdle: options.ifIdle,
     });
     return await this.waitForCompletion(agentId, threadId, options);
   }

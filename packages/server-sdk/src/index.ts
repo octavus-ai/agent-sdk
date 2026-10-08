@@ -58,6 +58,17 @@ export {
   type WorkforceFollowUpOptions,
   type WorkforceWaitOptions,
   type WorkforceRunOptions,
+  type WorkforceThreadProvenance,
+  type WorkforceDeployment,
+  type WorkforceAgentDefinition,
+  type WorkforceThreadComputer,
+  type WorkforcePreparation,
+  type WorkforceComputerKind,
+  type WorkforceComputerOs,
+  type WorkforceAgent,
+  type WorkforceAgentStatus,
+  type WorkforceAgentUnavailableReason,
+  type WorkforceComputerState,
 } from '@/workforce.js';
 export { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
 // eslint-disable-next-line @typescript-eslint/no-deprecated -- re-exporting the deprecated Resource so existing consumers keep compiling
