@@ -51,10 +51,15 @@ export abstract class BaseApiClient {
     return schema.parse(data);
   }
 
-  protected async httpPost<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
+  protected async httpPost<T>(
+    path: string,
+    body: unknown,
+    schema: ZodType<T>,
+    options: { headers?: Record<string, string> } = {},
+  ): Promise<T> {
     const response = await fetch(`${this.config.baseUrl}${path}`, {
       method: 'POST',
-      headers: await this.config.getHeaders(),
+      headers: { ...(await this.config.getHeaders()), ...options.headers },
       body: JSON.stringify(body),
     });
 
