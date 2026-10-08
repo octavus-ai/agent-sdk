@@ -3,6 +3,7 @@ export type {
   ErrorSource,
   ProviderErrorInfo,
   ToolErrorInfo,
+  BackupFailureInfo,
   OctavusErrorOptions,
 } from './types';
 

@@ -25,10 +25,13 @@ const { error, status } = useOctavusChat({
       retryAfter: err.retryAfter, // Seconds to wait (rate limits)
       code: err.code, // Machine-readable code
       provider: err.provider, // Provider details (if applicable)
+      backup: err.backup, // How the backup model failed too (if one was tried)
     });
   },
 });
 ```
+
+`retryable` is the platform's verdict after its own recovery (a configured backup model, same-provider retries) was spent: `true` means a fresh run of the same turn can still succeed (a provider outage, a rate limit), `false` means it would only repeat the failure (an invalid request, a content filter, a model that ended the turn with no response on every attempt). When the agent has a [backup model](/docs/protocol/agent-config#backup-model) and it failed too, `backup` names the backup model and carries its own `errorType`, `message`, and `code` - the error itself stays the primary model's.
 
 ## Error Classification
 
@@ -284,6 +287,13 @@ interface ErrorEvent {
   tool?: {
     name: string;
     callId?: string;
+  };
+  backup?: {
+    model: string;
+    errorType: ErrorType;
+    message: string;
+    code?: string;
+    provider?: ErrorEvent['provider'];
   };
 }
 ```

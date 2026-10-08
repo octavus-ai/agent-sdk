@@ -1,5 +1,11 @@
 import type { ErrorEvent } from '@/stream/types';
-import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from './types';
+import type {
+  ErrorType,
+  ErrorSource,
+  ProviderErrorInfo,
+  ToolErrorInfo,
+  BackupFailureInfo,
+} from './types';
 import type { OctavusError } from './octavus-error';
 
 /**
@@ -14,6 +20,7 @@ export interface CreateErrorEventOptions {
   code?: string;
   provider?: ProviderErrorInfo;
   tool?: ToolErrorInfo;
+  backup?: BackupFailureInfo;
 }
 
 /**
@@ -31,6 +38,7 @@ export function createErrorEvent(options: CreateErrorEventOptions): ErrorEvent {
     code: options.code,
     provider: options.provider,
     tool: options.tool,
+    backup: options.backup,
   };
 }
 
@@ -47,6 +55,7 @@ export function errorToStreamEvent(error: OctavusError): ErrorEvent {
     code: error.code,
     provider: error.provider,
     tool: error.tool,
+    backup: error.backup,
   });
 }
 

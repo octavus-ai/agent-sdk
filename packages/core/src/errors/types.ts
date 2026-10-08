@@ -79,6 +79,27 @@ export interface ToolErrorInfo {
 }
 
 /**
+ * How the configured backup model failed when it was tried after the primary
+ * model's error. The error it is attached to stays the primary's (its type,
+ * code, and retryability are what drove the failover); this records why the
+ * failover did not rescue the request, which is often the actionable part - a
+ * backup whose provider account is out of credits looks like a plain primary
+ * failure without it.
+ */
+export interface BackupFailureInfo {
+  /** The backup model that was attempted, `provider/model-id`. */
+  model: string;
+  /** Error type classification of the backup's failure */
+  errorType: ErrorType;
+  /** Human-readable message of the backup's failure */
+  message: string;
+  /** Machine-readable error code of the backup's failure */
+  code?: string;
+  /** Provider details of the backup's failure */
+  provider?: ProviderErrorInfo;
+}
+
+/**
  * Options for creating an OctavusError.
  */
 export interface OctavusErrorOptions {
@@ -90,6 +111,7 @@ export interface OctavusErrorOptions {
   code?: string;
   provider?: ProviderErrorInfo;
   tool?: ToolErrorInfo;
+  backup?: BackupFailureInfo;
   cause?: unknown;
   /**
    * Server-side-only diagnostic detail (e.g. a raw provider response body).

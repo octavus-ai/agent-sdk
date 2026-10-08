@@ -323,9 +323,17 @@ Errors are emitted as structured events with type classification:
     name: 'anthropic',
     statusCode: 429,
     requestId: 'req_...'
+  },
+  backup: {                           // How the backup model failed too (when one was tried)
+    model: 'openai/gpt-5.5',
+    errorType: 'rate_limit_error',
+    message: 'You have no credits remaining. ...',
+    code: 'PROVIDER_ACCOUNT_ERROR'
   }
 }
 ```
+
+`retryable` is the platform's verdict once its own recovery (the configured backup model, same-provider retries) is spent: whether a fresh run of the turn can succeed. `backup` is present only when the agent configures a [backup model](/docs/protocol/agent-config#backup-model) and it failed as well; the event itself describes the primary model's failure.
 
 ### Error Types
 

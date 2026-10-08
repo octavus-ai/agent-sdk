@@ -2467,6 +2467,7 @@ export class OctavusChat {
           code: event.code,
           provider: event.provider,
           tool: event.tool,
+          backup: event.backup,
         });
       }
 

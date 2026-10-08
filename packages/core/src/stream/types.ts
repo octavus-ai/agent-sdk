@@ -26,7 +26,13 @@ import type { uiWorkerStatusSchema } from './schemas';
  * type, so a tag would cascade `no-deprecated` disables across every consumer
  * that reads a display mode.
  */
-import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from '@/errors/types';
+import type {
+  ErrorType,
+  ErrorSource,
+  ProviderErrorInfo,
+  ToolErrorInfo,
+  BackupFailureInfo,
+} from '@/errors/types';
 
 export type DisplayMode = 'hidden' | 'name' | 'description' | 'stream' | 'title';
 
@@ -267,7 +273,7 @@ export interface FinishEvent {
 /**
  * Re-export error types for convenience.
  */
-export type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo };
+export type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo, BackupFailureInfo };
 
 /**
  * Error during streaming.
@@ -317,6 +323,13 @@ export interface ErrorEvent {
 
   /** Tool details (when source === 'tool') */
   tool?: ToolErrorInfo;
+
+  /**
+   * How the configured backup model failed too, when it was tried after this
+   * error. The event stays the primary model's failure; this names why the
+   * failover did not rescue the request.
+   */
+  backup?: BackupFailureInfo;
 }
 
 export type FinishReason =
