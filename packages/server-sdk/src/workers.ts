@@ -207,6 +207,7 @@ export class WorkersApi extends BaseApiClient {
           retryable: event.retryable,
           retryAfter: event.retryAfter,
           provider: event.provider,
+          backup: event.backup,
         };
       } else if (event.type === 'worker-result') {
         lastWorkerId = event.workerId;

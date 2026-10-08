@@ -90,6 +90,14 @@ const toolErrorInfoSchema = z.object({
   callId: z.string().optional(),
 });
 
+const backupFailureInfoSchema = z.object({
+  model: z.string(),
+  errorType: errorTypeSchema,
+  message: z.string(),
+  code: z.string().optional(),
+  provider: providerErrorInfoSchema.optional(),
+});
+
 export const errorEventSchema = z.object({
   type: z.literal('error'),
   errorType: errorTypeSchema,
@@ -100,6 +108,7 @@ export const errorEventSchema = z.object({
   code: z.string().optional(),
   provider: providerErrorInfoSchema.optional(),
   tool: toolErrorInfoSchema.optional(),
+  backup: backupFailureInfoSchema.optional(),
 });
 
 // ================================= Text ======================================

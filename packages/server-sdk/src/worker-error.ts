@@ -1,4 +1,4 @@
-import type { ErrorType, ErrorSource, ProviderErrorInfo } from '@octavus/core';
+import type { BackupFailureInfo, ErrorType, ErrorSource, ProviderErrorInfo } from '@octavus/core';
 
 /** Structured error details from the execution error event */
 export interface WorkerErrorDetails {
@@ -14,6 +14,8 @@ export interface WorkerErrorDetails {
   retryAfter?: number;
   /** Provider details when the error originated from an LLM provider */
   provider?: ProviderErrorInfo;
+  /** How the configured backup model failed too, when it was tried after this error */
+  backup?: BackupFailureInfo;
 }
 
 /** Error thrown when a worker execution fails */

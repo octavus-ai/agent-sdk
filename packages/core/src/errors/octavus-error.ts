@@ -3,6 +3,7 @@ import type {
   ErrorSource,
   ProviderErrorInfo,
   ToolErrorInfo,
+  BackupFailureInfo,
   OctavusErrorOptions,
 } from './types';
 
@@ -62,6 +63,9 @@ export class OctavusError extends Error {
   /** Tool details (when source === 'tool') */
   readonly tool?: ToolErrorInfo;
 
+  /** How the backup model failed too, when one was tried after this error */
+  readonly backup?: BackupFailureInfo;
+
   /**
    * Server-side-only diagnostic detail (e.g. a raw provider response body).
    * NEVER serialized to clients - intentionally excluded from {@link toJSON} and
@@ -81,6 +85,7 @@ export class OctavusError extends Error {
     this.code = options.code;
     this.provider = options.provider;
     this.tool = options.tool;
+    this.backup = options.backup;
     this.internalDetails = options.internalDetails;
 
     // Preserve original error stack if available
@@ -117,6 +122,7 @@ export class OctavusError extends Error {
       code: this.code,
       provider: this.provider,
       tool: this.tool,
+      backup: this.backup,
     };
   }
 }

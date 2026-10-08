@@ -1,4 +1,10 @@
-import type { ErrorType, ErrorSource, ProviderErrorInfo, ToolErrorInfo } from './errors/types';
+import type {
+  ErrorType,
+  ErrorSource,
+  ProviderErrorInfo,
+  ToolErrorInfo,
+  BackupFailureInfo,
+} from './errors/types';
 
 // ---------------------------------------------------------------------------
 // Supporting types
@@ -171,6 +177,7 @@ export interface ExecutionLogError {
   code?: string;
   provider?: ProviderErrorInfo;
   tool?: ToolErrorInfo;
+  backup?: BackupFailureInfo;
 }
 
 // ---------------------------------------------------------------------------
