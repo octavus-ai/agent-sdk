@@ -191,7 +191,7 @@ If the timeout elapses first, `waitForCompletion()` and `run()` throw. The run k
 | `recording`     | object \| null | The execution recording when recorded (`status`, `visibility`, `url`, `error`); null otherwise                                                                                                |
 | `startedAt`     | string \| null | When the thread's first run started on the agent's computer (ISO 8601); null while queued or pending, or when it never started                                                                |
 | `completedAt`   | string \| null | When the thread's latest run reached its terminal status (ISO 8601); null while a run is in flight (a follow-up clears it). With `startedAt`, the thread's own duration                       |
-| `provenance`    | object \| null | What the thread ran on (`platform.deployments`, `definition`, `computer`, `preparation`) - see [Know what a run ran on](#know-what-a-run-ran-on); null until a step has run                   |
+| `provenance`    | object \| null | What the thread ran on (`platform.deployments`, `definition`, `computer`) - see [Know what a run ran on](#know-what-a-run-ran-on); null until a step has run                                  |
 
 Use `isTerminalThreadStatus(status)` to check whether a run has finished, and `isSettledRecordingStatus(status)` to check whether a recording is final.
 

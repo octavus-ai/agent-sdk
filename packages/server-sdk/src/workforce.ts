@@ -99,9 +99,12 @@ const deploymentSchema = z.object({
 const definitionSchema = z.object({ slug: z.string(), version: z.number() });
 
 /** Kinds and states are validated leniently (any string), so a value the platform adds later never breaks a read. */
-const threadComputerSchema = z.object({
+const computerIdentitySchema = z.object({
   kind: z.string().transform((k) => k as WorkforceComputerKind),
   os: nullableString.transform((o) => o as WorkforceComputerOs | null),
+});
+
+const threadComputerSchema = computerIdentitySchema.extend({
   runtimeVersion: nullableString,
   imageVersion: nullableString,
   region: nullableString,
@@ -111,10 +114,6 @@ const provenanceSchema = z.object({
   platform: z.object({ deployments: z.array(deploymentSchema) }),
   definition: definitionSchema.nullish().transform((v) => v ?? null),
   computer: threadComputerSchema.nullish().transform((v) => v ?? null),
-  preparation: z
-    .object({ mode: z.string(), snapshotId: nullableString, at: z.string() })
-    .nullish()
-    .transform((v) => v ?? null),
 });
 
 const agentResponseSchema = z.object({
@@ -124,9 +123,7 @@ const agentResponseSchema = z.object({
   unavailableReason: nullableString.transform((r) => r as WorkforceAgentUnavailableReason | null),
   currentThreadId: nullableString,
   queuedThreads: z.number(),
-  computer: z.object({
-    kind: z.string().transform((k) => k as WorkforceComputerKind),
-    os: nullableString.transform((o) => o as WorkforceComputerOs | null),
+  computer: computerIdentitySchema.extend({
     state: z.string().transform((s) => s as WorkforceComputerState),
   }),
   definition: definitionSchema.nullish().transform((v) => v ?? null),
@@ -332,13 +329,6 @@ export interface WorkforceThreadComputer {
   region: string | null;
 }
 
-/** How the agent's computer was prepared for the thread. */
-export interface WorkforcePreparation {
-  mode: string;
-  snapshotId: string | null;
-  at: string;
-}
-
 export interface WorkforceThreadProvenance {
   /**
    * The builds that executed the thread's steps, oldest first. Usually one; more
@@ -349,8 +339,6 @@ export interface WorkforceThreadProvenance {
   definition: WorkforceAgentDefinition | null;
   /** The computer, as of the thread's latest step; null when no step reached a computer. */
   computer: WorkforceThreadComputer | null;
-  /** How the computer was prepared before the thread; null when the platform did not prepare it. */
-  preparation: WorkforcePreparation | null;
 }
 
 /**

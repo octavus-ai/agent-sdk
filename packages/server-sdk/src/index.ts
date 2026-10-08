@@ -62,7 +62,6 @@ export {
   type WorkforceDeployment,
   type WorkforceAgentDefinition,
   type WorkforceThreadComputer,
-  type WorkforcePreparation,
   type WorkforceComputerKind,
   type WorkforceComputerOs,
   type WorkforceAgent,

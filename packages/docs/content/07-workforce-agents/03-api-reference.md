@@ -115,7 +115,7 @@ Send an `Idempotency-Key` header with a value unique to the task, such as a job 
 Idempotency-Key: job-2026-03-04-reconcile-march
 ```
 
-If you send the same key with the same request again - for example because the first response was lost - you get back `200` with the thread the first request created, and no second thread is started. The same key with a different request body is rejected with `409` `IDEMPOTENCY_KEY_REUSED`. A retry that arrives while the first request is still being processed can get `409` `IDEMPOTENCY_KEY_IN_PROGRESS` with a `Retry-After` header; retry after that delay to get the thread. A key stays bound to its thread for at least 7 days.
+If you send the same key with the same request again - for example because the first response was lost - you get back `200` with the thread the first request created and an `Idempotent-Replayed: true` response header, and no second thread is started. The same key with a different request body is rejected with `409` `IDEMPOTENCY_KEY_REUSED`. A retry that arrives while the first request is still being processed can get `409` `IDEMPOTENCY_KEY_IN_PROGRESS` with a `Retry-After` header; retry after that delay to get the thread. A key stays bound to its thread for the thread's lifetime.
 
 ### Only run on an idle agent
 
@@ -129,7 +129,7 @@ An agent runs one task at a time, so a new thread normally waits behind a run al
 }
 ```
 
-`currentThreadId` names the thread holding the agent; it can be `null` when another dispatch is just starting. To check without dispatching, use [Get an agent](#get-an-agent).
+`currentThreadId` names the thread holding the agent; it can be `null` when another dispatch is just starting. To check without dispatching, use [Get an agent](#get-an-agent). `ifIdle` looks at this agent's threads only: a Mac shared with other agents may be running one of theirs, in which case the new thread waits its turn on that computer.
 
 ### Example
 
@@ -204,8 +204,7 @@ GET /api/v1/workforce/agents/{agentId}/threads/{threadId}
       "runtimeVersion": "75",
       "imageVersion": "46",
       "region": "us-east-1"
-    },
-    "preparation": null
+    }
   }
 }
 ```
@@ -250,7 +249,6 @@ A recorded run's `recording` has its own lifecycle, and it settles shortly after
 | `platform.deployments` | object[]       | The platform builds that executed the thread's steps, oldest first: `deploymentId`, `commitSha`, and `firstSeenAt`. Usually one; more than one means a new build was deployed mid-thread. |
 | `definition`           | object \| null | The pre-built agent the agent was hired from (`slug`) and the version of its definition (`version`), as of the thread's latest step. Null for an agent not hired from a pre-built one.    |
 | `computer`             | object \| null | The computer, as of the thread's latest step: `kind`, `os`, `runtimeVersion`, `imageVersion`, and `region`. Null when no step reached a computer.                                         |
-| `preparation`          | object \| null | How the agent's computer was prepared before the thread (`mode`, `snapshotId`, `at`); null when the platform did not prepare it.                                                          |
 
 `computer.kind` is `dedicated`, `e2b`, `daytona`, `mac`, or `cli`. `runtimeVersion` is the computer's runtime release (the desktop app version on a Mac, the Agent CLI version for a CLI run), and `imageVersion` is the image a dedicated computer launched from or the sandbox template of an E2B or Daytona computer.
 
