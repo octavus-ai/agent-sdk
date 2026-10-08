@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const ApiErrorResponseSchema = z.object({
+const ApiErrorResponseSchema = z.looseObject({
   error: z.string().optional(),
   message: z.string().optional(),
   code: z.string().optional(),
@@ -14,6 +14,11 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public code?: string,
+    /**
+     * Any other fields of the error response, for errors that carry data to act
+     * on (for example the `currentThreadId` of an `AGENT_BUSY` error).
+     */
+    public details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -23,6 +28,7 @@ export class ApiError extends Error {
 interface ParsedApiError {
   message: string;
   code?: string;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -39,9 +45,11 @@ export async function parseApiError(
     const parsed = ApiErrorResponseSchema.safeParse(json);
 
     if (parsed.success) {
+      const { error, message, code, ...details } = parsed.data;
       return {
-        message: parsed.data.error ?? parsed.data.message ?? fallbackMessage,
-        code: parsed.data.code,
+        message: error ?? message ?? fallbackMessage,
+        code,
+        ...(Object.keys(details).length > 0 ? { details } : {}),
       };
     }
   } catch {
@@ -55,6 +63,6 @@ export async function parseApiError(
  * Parse error from API response and throw ApiError
  */
 export async function throwApiError(response: Response, defaultMessage: string): Promise<never> {
-  const { message, code } = await parseApiError(response, defaultMessage);
-  throw new ApiError(message, response.status, code);
+  const { message, code, details } = await parseApiError(response, defaultMessage);
+  throw new ApiError(message, response.status, code, details);
 }
