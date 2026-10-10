@@ -154,7 +154,7 @@ Start summary thread:
   mcpServers: [figma, browser] # MCP servers for this thread
   skills: [qr-code] # Octavus skills for this thread
   sandboxTimeout: 600000 # Skill sandbox timeout (default: 5 min, max: 1 hour)
-  imageModel: google/gemini-2.5-flash-image # Image generation model
+  imageModel: openai/gpt-image-2.5-flare # Image generation model
 ```
 
 The `cache` field controls prompt caching for this thread and defaults to `auto` when omitted. Threads do not inherit the agent's `cache` value - see [Prompt Caching](/docs/protocol/agent-config#prompt-caching).
@@ -189,8 +189,10 @@ Generate an image from a prompt variable:
 Generate image:
   block: generate-image
   prompt: OPTIMIZED_PROMPT # Variable containing the prompt
-  imageModel: google/gemini-2.5-flash-image # Required image model
+  imageModel: openai/gpt-image-2.5-flare # Required image model
   aspectRatio: 16:9 # Aspect ratio (default 1:1)
+  quality: low # OpenAI only: low | medium | high | auto
+  outputFormat: jpeg # OpenAI only: png | jpeg | webp
   output: GENERATED_IMAGE # Store URL in variable
   description: Generating your image... # Shown in UI
 ```
@@ -202,7 +204,7 @@ Edit image:
   block: generate-image
   prompt: EDIT_INSTRUCTIONS # e.g., "Remove the background"
   referenceImages: [SOURCE_IMAGE_URL] # Variable(s) containing image URLs
-  imageModel: google/gemini-2.5-flash-image
+  imageModel: openai/gpt-image-2.5-flare
   output: EDITED_IMAGE
   description: Editing image...
 ```
@@ -210,9 +212,11 @@ Edit image:
 | Field             | Required | Description                                                                                                                                                      |
 | ----------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `prompt`          | Yes      | Variable name containing the image prompt or edit instructions                                                                                                   |
-| `imageModel`      | Yes      | Image model identifier (e.g., `google/gemini-2.5-flash-image`)                                                                                                   |
+| `imageModel`      | Yes      | Image model identifier (e.g., `openai/gpt-image-2.5-flare`)                                                                                                      |
 | `aspectRatio`     | No       | Aspect ratio (default `1:1`); clamped to the model's supported set. See [Aspect Ratios and Resolution](/docs/protocol/agent-config#aspect-ratios-and-resolution) |
 | `resolution`      | No       | Output resolution (`1K`, `2K`, `4K`) - Gemini 3 image models only; ignored elsewhere                                                                             |
+| `quality`         | No       | Rendering quality (`low`, `medium`, `high`, `auto`) - OpenAI image models only; ignored elsewhere. When omitted the model picks (`auto`)                         |
+| `outputFormat`    | No       | Output encoding (`png`, `jpeg`, `webp`) - OpenAI image models only; ignored elsewhere. When omitted the image is a PNG                                           |
 | `size`            | No       | Deprecated alias for `aspectRatio` (`1024x1024`→`1:1`, `1792x1024`→`16:9`, `1024x1792`→`9:16`)                                                                   |
 | `referenceImages` | No       | Variable names containing image URLs for editing/transformation                                                                                                  |
 | `output`          | No       | Variable name to store the generated image URL                                                                                                                   |
@@ -220,6 +224,8 @@ Edit image:
 | `description`     | No       | Description shown in the UI during generation                                                                                                                    |
 
 This block is for deterministic image generation pipelines where the prompt is constructed programmatically (e.g., via prompt engineering in a separate thread). When `referenceImages` are provided, the prompt describes how to modify those images.
+
+On OpenAI image models, `quality: low` with `outputFormat: jpeg` is the fastest and smallest output - a good fit for thumbnails, avatars, and other images shown at small sizes. Leave both unset when detail or transparency matters.
 
 For agentic image generation where the LLM decides when to generate, configure `imageModel` in the [agent config](/docs/protocol/agent-config#image-generation).
 
