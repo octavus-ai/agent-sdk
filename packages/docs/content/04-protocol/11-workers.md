@@ -416,7 +416,7 @@ steps:
     model: anthropic/claude-sonnet-4-5
     system: system
     skills: [qr-code]
-    imageModel: google/gemini-2.5-flash-image
+    imageModel: openai/gpt-image-2.5-flare
     webSearch: true
     maxSteps: 10
 ```
