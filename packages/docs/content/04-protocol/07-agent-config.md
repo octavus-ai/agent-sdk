@@ -497,7 +497,7 @@ Enable the LLM to generate images autonomously:
 agent:
   model: anthropic/claude-sonnet-4-5
   system: system
-  imageModel: google/gemini-2.5-flash-image
+  imageModel: openai/gpt-image-2.5-flare
   agentic: true
 ```
 
@@ -507,7 +507,7 @@ When `imageModel` is configured, the `octavus_generate_image` tool becomes avail
 
 | Provider | Model Types                             | Examples                                           |
 | -------- | --------------------------------------- | -------------------------------------------------- |
-| OpenAI   | Dedicated image models                  | `gpt-image-1`                                      |
+| OpenAI   | Dedicated image models                  | `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`    |
 | Google   | Gemini native (contains "image")        | `gemini-2.5-flash-image`, `gemini-3.1-flash-image` |
 | Google   | Imagen dedicated (starts with "imagen") | `imagen-4.0-generate-001`                          |
 
@@ -523,7 +523,8 @@ Supported aspect ratios by model family:
 | -------------------------------- | ----------------------------------------------------------------------- |
 | Gemini native (`gemini-*-image`) | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` |
 | Imagen (`imagen-*`)              | `1:1`, `3:4`, `4:3`, `9:16`, `16:9`                                     |
-| `gpt-image-*`                    | `1:1`, `3:2`, `2:3`                                                     |
+| `gpt-image-2*`                   | `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` |
+| `gpt-image-1*`                   | `1:1`, `3:2`, `2:3`                                                     |
 
 Resolution is a Gemini 3 image feature. When a model has no resolution axis, the `resolution` field is not offered and any value is ignored (the model produces its default 1K output).
 
@@ -538,7 +539,7 @@ Both the agentic tool and the `generate-image` block support reference images fo
 
 | Provider | Models                           | Reference Image Support |
 | -------- | -------------------------------- | ----------------------- |
-| OpenAI   | `gpt-image-1`                    | Yes                     |
+| OpenAI   | `gpt-image-*`                    | Yes                     |
 | Google   | Gemini native (`gemini-*-image`) | Yes                     |
 | Google   | Imagen (`imagen-*`)              | No                      |
 
@@ -847,7 +848,7 @@ handlers:
       mcpServers: [figma, browser] # Thread-specific MCP servers
       skills: [data-analysis] # Thread-specific skills
       references: [escalation-policy] # Thread-specific references
-      imageModel: google/gemini-2.5-flash-image # Thread-specific image model
+      imageModel: openai/gpt-image-2.5-flare # Thread-specific image model
       webSearch: true # Thread-specific web search
       todoList: true # Thread-specific task list
       viewImages: true # Thread-specific image viewing

@@ -89,7 +89,7 @@ agent:
   tools: [get-user-account]
   mcpServers: [figma] # Enable MCP servers
   skills: [qr-code] # Enable skills
-  imageModel: google/gemini-2.5-flash-image # Enable image generation
+  imageModel: openai/gpt-image-2.5-flare # Enable image generation
   webSearch: true # Enable web search
   todoList: true # Enable structured task tracking
   viewImages: true # View images from URLs
