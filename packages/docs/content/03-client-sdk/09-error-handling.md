@@ -31,7 +31,7 @@ const { error, status } = useOctavusChat({
 });
 ```
 
-`retryable` is the platform's verdict after its own recovery (a configured backup model, same-provider retries) was spent: `true` means a fresh run of the same turn can still succeed (a provider outage, a rate limit), `false` means it would only repeat the failure (an invalid request, a content filter, a model that ended the turn with no response on every attempt). When the agent has a [backup model](/docs/protocol/agent-config#backup-model) and it failed too, `backup` names the backup model and carries its own `errorType`, `message`, and `code` - the error itself stays the primary model's.
+`retryable` is the platform's verdict after its own recovery (a configured backup model, same-provider retries) was spent: `true` means a fresh run of the same turn can still succeed (a provider outage, a rate limit), `false` means it would only repeat the failure (an invalid request, a content filter, a model that ended the turn with no response on every attempt). When the agent has a [backup model](/docs/protocol/agent-config#backup-model) and it failed too, `backup` names the backup model and carries its own `errorType`, `message`, `code`, and `attempts` (how many times the step was tried on it before it was given up) - the error itself stays the primary model's.
 
 ## Error Classification
 

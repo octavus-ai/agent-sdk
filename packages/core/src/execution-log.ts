@@ -393,20 +393,24 @@ export interface ImageAdaptedLogEntry extends ExecutionLogEntryBase {
   type: 'image-adapted';
   /**
    * `declared-cap` = the consumer's `maxImageDimension` downscaled a delivery;
-   * `provider-budget` = the proactive per-request image budget dropped the oldest
-   * images to stay under a provider's image limit (gated on `contextManagement`);
+   * `provider-budget` = a proactive per-request image budget dropped the oldest
+   * images from the view - the count budget (a provider's known limit or the
+   * `contextManagement.imageWindow`, under `contextManagement`) or the inline
+   * byte bound (always on for a delivery path that ships image bytes in the
+   * request);
    * `reactive-recovery` = a provider rejection triggered adaptation (gated on
    * `contextManagement`).
    */
   source: 'declared-cap' | 'provider-budget' | 'reactive-recovery';
   /**
    * `downscaled` = an over-limit image was shrunk; `count-elided` = oldest images
-   * dropped from the view; `delivered-by-reference` = an over-limit image could
-   * not be downscaled (too large to decode, or undecodable), so the model
-   * received a factual note with its dimensions and download URL in place of
-   * the image.
+   * dropped from the view to stay under an image count; `bytes-elided` = oldest
+   * inline images dropped from the view to stay under the inline payload bound;
+   * `delivered-by-reference` = an over-limit image could not be downscaled (too
+   * large to decode, or undecodable), so the model received a factual note with
+   * its dimensions and download URL in place of the image.
    */
-  adaptation: 'downscaled' | 'count-elided' | 'delivered-by-reference';
+  adaptation: 'downscaled' | 'count-elided' | 'bytes-elided' | 'delivered-by-reference';
   /** Original longest-side dimensions of a downscaled or by-reference image. */
   originalWidth?: number;
   originalHeight?: number;
@@ -417,8 +421,10 @@ export interface ImageAdaptedLogEntry extends ExecutionLogEntryBase {
   maxImageDimension?: number;
   /** For by-reference delivery: why the image could not be downscaled. */
   reason?: 'exceeds-decode-budget' | 'undecodable';
-  /** For count-elision: how many older images were dropped from the model view. */
+  /** For count- and bytes-elision: how many older images were dropped from the model view. */
   imagesElided?: number;
+  /** For bytes-elision: the inline image bytes those images would have added to the request. */
+  bytesElided?: number;
   /** For reactive recovery: the provider constraint that triggered it (parsed limit or table fallback). */
   constraint?: string;
   /** For reactive recovery: bounded retry attempts made before the turn succeeded. */

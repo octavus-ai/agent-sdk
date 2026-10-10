@@ -240,6 +240,8 @@ All LLM configuration goes here:
 | `maxOutputTokens`     | Cap output tokens for a single generation in this thread (per step, not a whole-thread budget). Omit to use the provider/SDK default                                                                                                                                          |
 | `loopGuard`           | `true` to abort a generation that degenerates into a repeated string (see [Output Limits and Loop Guard](/docs/protocol/agent-config))                                                                                                                                        |
 
+A worker has no `contextManagement` of its own: when the agent that runs it declares one, the worker inherits its [`imageWindow`](/docs/protocol/context-management#image-window), so a computer-using worker's screenshots are bounded the same way the agent's are.
+
 ## Simple Example
 
 A worker that generates a title from a summary:

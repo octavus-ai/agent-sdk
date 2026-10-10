@@ -97,6 +97,12 @@ export interface BackupFailureInfo {
   code?: string;
   /** Provider details of the backup's failure */
   provider?: ProviderErrorInfo;
+  /**
+   * How many attempts the backup made at the step before its failure was
+   * recorded - the first attempt plus any bounded re-issues after a transient
+   * failure. Absent when the attempt count is not known.
+   */
+  attempts?: number;
 }
 
 /**
