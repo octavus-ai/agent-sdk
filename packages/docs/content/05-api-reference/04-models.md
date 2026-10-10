@@ -45,7 +45,8 @@ GET /api/models
         "reasoningPer1M": null,
         "bandwidthPer1M": "0.50",
         "tiers": []
-      }
+      },
+      "deprecation": null
     },
     {
       "id": "openrouter/deepseek/deepseek-v4.1-flash",
@@ -62,7 +63,8 @@ GET /api/models
         "reasoningPer1M": null,
         "bandwidthPer1M": "0.104",
         "tiers": []
-      }
+      },
+      "deprecation": null
     },
     {
       "id": "openrouter/typesafe/jev-router",
@@ -79,7 +81,8 @@ GET /api/models
         "reasoningPer1M": null,
         "bandwidthPer1M": null,
         "tiers": []
-      }
+      },
+      "deprecation": null
     }
   ]
 }
@@ -100,8 +103,24 @@ GET /api/models
 | `pricing.reasoningPer1M` | string \| null | Reasoning output price per 1M tokens, when priced separately.                                                                                                                                                                           |
 | `pricing.bandwidthPer1M` | string \| null | Platform bandwidth fee per 1M tokens.                                                                                                                                                                                                   |
 | `pricing.tiers`          | array          | Context-length pricing tiers (empty for flat pricing). Each entry has a `minInputTokens` threshold and its own `inputPer1M` / `outputPer1M`.                                                                                            |
+| `deprecation`            | object \| null | Set when the provider has announced the model's shutdown, otherwise `null`. See [Deprecations](#deprecations).                                                                                                                          |
 
 Prices are strings to preserve decimal precision. Models outside the direct providers are routed through OpenRouter and carry the `openrouter/` prefix - copy the `id` exactly as shown. To run a direct-provider model through OpenRouter instead (for example on your own OpenRouter key), use its `openRouterId` exactly as shown too: OpenRouter's spelling can differ from the direct id, as in `openrouter/anthropic/claude-sonnet-4.5` next to `anthropic/claude-sonnet-4-5`.
+
+### Deprecations
+
+A model whose provider has announced its shutdown carries a `deprecation`:
+
+```json
+"deprecation": { "shutdownAt": "2026-10-23", "replacementId": "openai/o4-mini" }
+```
+
+| Field           | Type           | Description                                                                                        |
+| --------------- | -------------- | -------------------------------------------------------------------------------------------------- |
+| `shutdownAt`    | string \| null | The UTC day (`YYYY-MM-DD`) the provider stops serving the model, or `null` when not announced yet. |
+| `replacementId` | string \| null | The model id the provider names as its replacement, when it names one.                             |
+
+A deprecated model stays in the catalog and runs until its provider stops serving it. See [Model Deprecations](/docs/protocol/agent-config#model-deprecations) for what happens on the date.
 
 A request through OpenRouter is billed the exact cost OpenRouter reports for it. For a model that runs on its provider's own endpoint (see [OpenRouter routing](/docs/protocol/agent-config#openrouter-routing)), the rate listed is the most a request costs: an off-peak or cached request costs less. A model on OpenRouter's default routing is billed what the host that served it charged, which can differ from the rate listed. A router is billed the reported cost of the model it picked for each step.
 

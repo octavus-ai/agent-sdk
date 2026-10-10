@@ -84,6 +84,17 @@ A model outside the catalog or those tables, or an unknown provider, is rejected
 - **At validation and deploy** - a protocol that names one (including as an input's `default`) fails validation with code `MODEL_NOT_SUPPORTED`. An OpenRouter model the catalog doesn't list passes with a `MODEL_NOT_IN_CATALOG` warning instead when the project or organization has its own OpenRouter key.
 - **At runtime** - a session whose model resolves to one (for example from a `MODEL` input) fails with a `not_found_error` stream error whose `code` is `MODEL_NOT_SUPPORTED`. The message links to the catalog. An unsupported video, speech, or transcription model fails its tool call or block with the same code.
 
+### Model Deprecations
+
+Providers retire models on dates they announce in advance. When a provider announces a model's shutdown, the [model catalog](https://octavus.ai/pricing/models) records it with the shutdown date and, when the provider names one, the replacement. A deprecation is a notice, not a restriction - it never changes what runs:
+
+- **Before the date**, the model keeps working. Validation (on save, on deploy, in `octavus validate`, and in the MCP `validate_platform_agent` tool) passes a protocol that names it with a `MODEL_DEPRECATED` warning that gives the date and the replacement, and the agent editor and your project's agent list show the same warning without a re-save. The [Models API](/docs/api-reference/models) and the MCP `list_models` tool return it as the model's `deprecation`, and the pricing page shows the date.
+- **From the date**, the provider rejects requests to the model with a `not_found_error`. An agent with a [backup model](#backup-model) fails over to it on every step; an agent without one fails the turn. Once the model is gone from the catalog, a protocol that still names it fails validation with `MODEL_NOT_SUPPORTED`.
+
+A deprecation covers every way of naming the model, including its OpenRouter route (`openrouter/anthropic/...` next to `anthropic/...`). A dated snapshot and its alias (`gpt-4o-2024-08-06` and `gpt-4o`) are separate models with separate deprecations.
+
+Move to another model before the date, and declare a `backupModel` on a different provider so that an early or unannounced shutdown never stops your agent.
+
 ### Examples
 
 ```yaml
@@ -177,7 +188,7 @@ The model value is validated at runtime to ensure it's in the correct `provider/
 
 ## Backup Model
 
-Configure a fallback model that activates automatically when the primary model encounters a transient provider error (rate limits, outages, timeouts):
+Configure a fallback model that activates automatically when the primary model encounters a transient provider error (rate limits, outages, timeouts), or when its provider rejects the model itself (a model it has [shut down](#model-deprecations), or one your account has lost access to):
 
 ```yaml
 agent:
@@ -190,7 +201,7 @@ When a provider error occurs, the system retries once with the backup model. If 
 
 **Key behaviors:**
 
-- Only transient provider errors trigger fallback - authentication and validation errors are not retried
+- Only transient provider errors and a rejection of the model itself trigger fallback - authentication and validation errors are not retried
 - Provider-specific options (like `anthropic:`) are only forwarded to the backup model if it uses the same provider
 - For streaming responses, fallback only occurs if no content has been sent to the client yet - except for a step the primary model voided: a safety refusal (`content-filter`), an empty response (`NO_CONTENT_GENERATED`), or a generation cut off at the output limit (`OUTPUT_TRUNCATED`). Those produced no committed answer, so the partial step is retracted (a `step-discard` event) and the backup model re-runs it
 - A backup that fails hands the request back to the primary model: the primary's own transient retries and every later step of the turn run on the model you configured, not on the backup that just failed. A backup that succeeds stays active for the rest of the turn
