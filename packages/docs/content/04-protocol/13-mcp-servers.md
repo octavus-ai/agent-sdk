@@ -42,14 +42,15 @@ mcpServers:
 
 ### Fields
 
-| Field         | Required | Description                                                                                                                                             |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Yes      | What the MCP server provides                                                                                                                            |
-| `source`      | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                                                              |
-| `display`     | No       | How tool calls appear in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)). |
-| `title`       | No       | UI label shown when `display: title`; applies to every tool in this namespace (hides description and arguments)                                         |
-| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                                                    |
-| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution).                                  |
+| Field              | Required | Description                                                                                                                                                                                                                                                                                                           |
+| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description`      | Yes      | What the MCP server provides                                                                                                                                                                                                                                                                                          |
+| `source`           | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                                                                                                                                                                                                                            |
+| `display`          | No       | How tool calls appear in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)).                                                                                                                                                               |
+| `title`            | No       | UI label shown when `display: title`; applies to every tool in this namespace (hides description and arguments)                                                                                                                                                                                                       |
+| `connection`       | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                                                                                                                                                                                                                  |
+| `execution`        | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution).                                                                                                                                                                                                |
+| `contextRetention` | No       | `toolResults: { retainLast: N }` keeps only the N most recent results of this server's tools in the conversation; older results become `[previous result omitted]` and the images or files they produced leave the model's view with them (see [Context Management](/docs/protocol/context-management#how-it-works)). |
 
 ### Display Modes
 

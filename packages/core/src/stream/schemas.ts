@@ -96,6 +96,7 @@ const backupFailureInfoSchema = z.object({
   message: z.string(),
   code: z.string().optional(),
   provider: providerErrorInfoSchema.optional(),
+  attempts: z.number().int().positive().optional(),
 });
 
 export const errorEventSchema = z.object({
