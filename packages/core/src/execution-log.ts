@@ -111,6 +111,16 @@ export interface StepStatsTrace {
    */
   speed?: 'fast' | 'standard';
   /**
+   * The thinking the request carried: the level declared for the step and
+   * the native setting it ran as on this model. Undefined on media rows.
+   */
+  thinking?: StepThinking;
+  /**
+   * The images the request carried, and how they were delivered. Undefined
+   * when the request carried none, and on media rows.
+   */
+  images?: StepImages;
+  /**
    * The upstream deployment that served this step when the provider is a
    * gateway that reports it (e.g. the OpenRouter host `Xiaomi`). Undefined for
    * direct providers and when the gateway did not name the host.
@@ -130,6 +140,41 @@ export interface StepStatsTrace {
   reportedCost?: StepReportedCost;
   /** Why a router picked the model that served this step, when it says. */
   router?: StepRouterDecision;
+}
+
+/**
+ * The thinking one model step ran with. `declared` is the protocol's level
+ * (`off` when none was declared); `applied` is the native setting in the
+ * provider's own terms, in a short label: an effort (`effort:xhigh`), a token
+ * budget (`budget:16384`), the provider's model-decides mode (`auto`), an
+ * explicit off switch (`disabled`), or nothing (`none`, the model cannot
+ * reason). `disposition` says how the two relate: `exact` (the level ran as
+ * itself; `max` as the model's deepest setting), `substituted` (a fixed level
+ * ran as another named depth), `floored` (`off` ran at the lightest setting
+ * because the model cannot turn reasoning off), or `unsupported` (nothing was
+ * sent). `source` is how certain the translation is: `curated` from vendor
+ * documentation, `gateway` from the gateway's own metadata, `derived` from the
+ * gateway's metadata for a direct-provider model, `inferred` from the
+ * provider's current generation, `unknown` for a gateway model outside the
+ * catalog.
+ */
+export interface StepThinking {
+  declared: 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
+  applied: string;
+  disposition: 'exact' | 'substituted' | 'floored' | 'unsupported';
+  source: 'curated' | 'gateway' | 'derived' | 'inferred' | 'unknown';
+}
+
+/**
+ * The images one model step carried: how many were in the model's view, how
+ * many raw bytes of them the platform inlined into the request body, and
+ * whether they reached the provider as URLs it fetches, as inline bytes, or
+ * both.
+ */
+export interface StepImages {
+  count: number;
+  inlineBytes: number;
+  delivery: 'url' | 'inline' | 'mixed';
 }
 
 /**

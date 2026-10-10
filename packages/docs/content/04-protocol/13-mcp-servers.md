@@ -42,15 +42,14 @@ mcpServers:
 
 ### Fields
 
-| Field              | Required | Description                                                                                                                                                                                                                                                                                                           |
-| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description`      | Yes      | What the MCP server provides                                                                                                                                                                                                                                                                                          |
-| `source`           | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                                                                                                                                                                                                                            |
-| `display`          | No       | How tool calls appear in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)).                                                                                                                                                               |
-| `title`            | No       | UI label shown when `display: title`; applies to every tool in this namespace (hides description and arguments)                                                                                                                                                                                                       |
-| `connection`       | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                                                                                                                                                                                                                  |
-| `execution`        | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution).                                                                                                                                                                                                |
-| `contextRetention` | No       | `toolResults: { retainLast: N }` keeps only the N most recent results of this server's tools in the conversation; older results become `[previous result omitted]` and the images or files they produced leave the model's view with them (see [Context Management](/docs/protocol/context-management#how-it-works)). |
+| Field         | Required | Description                                                                                                                                             |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | Yes      | What the MCP server provides                                                                                                                            |
+| `source`      | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                                                              |
+| `display`     | No       | How tool calls appear in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)). |
+| `title`       | No       | UI label shown when `display: title`; applies to every tool in this namespace (hides description and arguments)                                         |
+| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                                                    |
+| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution).                                  |
 
 ### Display Modes
 
@@ -337,8 +336,6 @@ onDemandMcpServers:
   remote:
     description: Additional connected integrations
     execution: device # on-demand MCPs run on the agent's computer
-    contextRetention:
-      toolResults: { retainLast: 5 }
 ```
 
 On-demand MCP definitions also support the `execution` field. When set, all MCPs matched by that on-demand source inherit the execution mode.
@@ -367,7 +364,7 @@ handlers:
 ### Rules
 
 - A scope's tool list includes every **connected** MCP of any referenced source, whether or not any protocol declares that slug.
-- Undeclared namespaces inherit `description`, `display`, and `contextRetention` from the per-source entry in `onDemandMcpServers`.
+- Undeclared namespaces inherit `description` and `display` from the per-source entry in `onDemandMcpServers`.
 - Scopes decide independently - threads do not inherit `onDemandMcpServers` from their parent, the same rule as `mcpServers:`.
 - Tool namespaces are always the connector's slug (for example `notion__search`, `linear__create_issue`). Source keys are never namespaces.
 

@@ -195,6 +195,8 @@ export type {
   LoggedToolCall,
   ModelRequestTrace,
   StepStatsTrace,
+  StepThinking,
+  StepImages,
   StepReportedCost,
   StepRouterDecision,
   ExecutionLogError,

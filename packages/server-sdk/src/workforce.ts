@@ -174,8 +174,14 @@ const threadResponseSchema = z.object({
   provenance: provenanceSchema.nullish().transform((v) => v ?? null),
 });
 
-/** Thinking/reasoning effort for a run; `auto` lets the model (or a router) decide. */
-export type WorkforceThinkingEffort = 'off' | 'low' | 'medium' | 'high' | 'max' | 'auto';
+/**
+ * Thinking/reasoning effort for a run. A fixed level runs as the model's own
+ * level of that name, or the nearest one it has (`max` is always the model's
+ * deepest setting); `auto` lets the model (or a router) decide; `off` turns
+ * reasoning off where the model allows it, and otherwise runs its lightest
+ * setting.
+ */
+export type WorkforceThinkingEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'auto';
 
 /**
  * Per-run configuration for a Workforce run, applied when starting a new thread
