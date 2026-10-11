@@ -83,14 +83,14 @@ POST /api/v1/workforce/agents/{agentId}/threads
 
 Configure how the agent runs for this thread without changing its dashboard settings - the same shape the [Agent CLI](/docs/workforce-agents/cli) accepts. Set on thread creation only; a thread's run config is fixed once it starts. The server validates and bounds it before the run starts, so an unrunnable model or an undeclared capability is rejected up front.
 
-| Field              | Type                      | Description                                                                                             |
-| ------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `model`            | string                    | Primary model for the run, `provider/model-id` (e.g. `anthropic/claude-sonnet-5`).                      |
-| `backupModel`      | string                    | Backup model, `provider/model-id`.                                                                      |
-| `thinking`         | string                    | Thinking/reasoning effort: `off`, `low`, `medium`, `high`, `max`, or `auto` (the model decides).        |
-| `capabilities`     | Record\<string, boolean\> | Per-capability toggles (slug -> enabled). Unlisted capabilities inherit the agent default.              |
-| `record`           | boolean                   | Record this run's execution view (working process + computer) to a shareable video.                     |
-| `recordVisibility` | string                    | Where a recording is stored: `private` (default) or `public` (permanent URL). Ignored without `record`. |
+| Field              | Type                      | Description                                                                                                                                                     |
+| ------------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model`            | string                    | Primary model for the run, `provider/model-id` (e.g. `anthropic/claude-sonnet-5`).                                                                              |
+| `backupModel`      | string                    | Backup model, `provider/model-id`.                                                                                                                              |
+| `thinking`         | string                    | Thinking/reasoning effort: `off`, `low`, `medium`, `high`, `xhigh`, `max`, or `auto` (the model decides); see [Thinking](/docs/protocol/agent-config#thinking). |
+| `capabilities`     | Record\<string, boolean\> | Per-capability toggles (slug -> enabled). Unlisted capabilities inherit the agent default.                                                                      |
+| `record`           | boolean                   | Record this run's execution view (working process + computer) to a shareable video.                                                                             |
+| `recordVisibility` | string                    | Where a recording is stored: `private` (default) or `public` (permanent URL). Ignored without `record`.                                                         |
 
 Any model from the [model catalog](https://octavus.ai/pricing/models) is allowed, as long as a key resolves for its provider (your project/org key or the platform default), and so is any `openrouter/...` model when your project or org has its own OpenRouter key; any other model is rejected (see [Unsupported Models](/docs/protocol/agent-config#unsupported-models)). Capability toggles are bounded to the capabilities the agent's protocol declares.
 

@@ -52,21 +52,21 @@ The working directory you launch in is the agent's workspace (override with `--w
 
 Run one prompt to completion and exit.
 
-| Flag                                             | Description                                                                                                                           |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `--workdir <dir>`                                | The agent's filesystem/shell root (default: current directory).                                                                       |
-| `--api-key <oct_agt_...>`                        | Override the stored key for this run.                                                                                                 |
-| `--platform-url <url>`                           | Override the platform base URL.                                                                                                       |
-| `--env <name>`                                   | Environment to use (default: `production`; see below).                                                                                |
-| `--chrome-path <path>`                           | Path to Chrome for Testing (else resolved from `PATH`).                                                                               |
-| `--model <provider/model-id>`                    | Model for this run only (else the agent's default).                                                                                   |
-| `--backup-model <provider/model-id>`             | Backup model for this run only.                                                                                                       |
-| `--thinking <off\|low\|medium\|high\|max\|auto>` | Thinking/reasoning effort for this run only. `max` is each provider's maximum; `auto` lets the model decide; `off` disables thinking. |
-| `--capability <slug>=<on\|off>`                  | Toggle one capability for this run (repeatable).                                                                                      |
-| `--config <file>`                                | JSON run config for scripted sweeps (see below).                                                                                      |
-| `--json`                                         | Print one machine-readable JSON result to stdout.                                                                                     |
-| `--force`                                        | Allow running with the workspace at `$HOME` or `/`.                                                                                   |
-| `--verbose`                                      | Print diagnostics to stderr.                                                                                                          |
+| Flag                                                    | Description                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--workdir <dir>`                                       | The agent's filesystem/shell root (default: current directory).                                                                                                                                                                                                                                            |
+| `--api-key <oct_agt_...>`                               | Override the stored key for this run.                                                                                                                                                                                                                                                                      |
+| `--platform-url <url>`                                  | Override the platform base URL.                                                                                                                                                                                                                                                                            |
+| `--env <name>`                                          | Environment to use (default: `production`; see below).                                                                                                                                                                                                                                                     |
+| `--chrome-path <path>`                                  | Path to Chrome for Testing (else resolved from `PATH`).                                                                                                                                                                                                                                                    |
+| `--model <provider/model-id>`                           | Model for this run only (else the agent's default).                                                                                                                                                                                                                                                        |
+| `--backup-model <provider/model-id>`                    | Backup model for this run only.                                                                                                                                                                                                                                                                            |
+| `--thinking <off\|low\|medium\|high\|xhigh\|max\|auto>` | Thinking/reasoning effort for this run only: a level runs as the model's own level of that name or the nearest one it has, `max` is the model's deepest setting, `auto` lets the model decide, `off` turns reasoning off where the model allows it (see [Thinking](/docs/protocol/agent-config#thinking)). |
+| `--capability <slug>=<on\|off>`                         | Toggle one capability for this run (repeatable).                                                                                                                                                                                                                                                           |
+| `--config <file>`                                       | JSON run config for scripted sweeps (see below).                                                                                                                                                                                                                                                           |
+| `--json`                                                | Print one machine-readable JSON result to stdout.                                                                                                                                                                                                                                                          |
+| `--force`                                               | Allow running with the workspace at `$HOME` or `/`.                                                                                                                                                                                                                                                        |
+| `--verbose`                                             | Print diagnostics to stderr.                                                                                                                                                                                                                                                                               |
 
 ### Other commands
 
@@ -82,8 +82,8 @@ Configure how the agent runs for a single invocation without changing its dashbo
 # Choose the model + backup model for this run only.
 octoagent run --model openrouter/moonshotai/kimi-k2.6 --backup-model anthropic/claude-sonnet-5 "..."
 
-# Set the thinking/reasoning effort for this run only (max = the provider's maximum).
-octoagent run --model anthropic/claude-opus-4-8 --thinking max "..."
+# Set the thinking/reasoning effort for this run only (xhigh where the model has it, max = its deepest setting).
+octoagent run --model anthropic/claude-opus-5-5 --thinking xhigh "..."
 
 # Toggle capabilities for this run (repeatable). Unlisted capabilities inherit the agent default.
 octoagent run --capability memory=off --capability handbook=on "..."

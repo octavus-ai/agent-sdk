@@ -10,9 +10,20 @@ description: Execution log telemetry, model request tracing, and debugging tools
 Every session's execution log includes lightweight model telemetry by default - no configuration needed:
 
 - **Model request markers** - a `model-request` entry for every provider call (LLM and media generation) recording when the request happened, plus the provider and model. Without tracing enabled, the entry carries no request payload, so it stays cheap even for high-volume production sessions.
-- **Step stats** - a `step-stats` entry after each LLM step with the token usage breakdown: input tokens, cache reads and writes, output tokens, and reasoning tokens, plus the prompt-cache mode the provider applied and, on an OpenRouter model, what the response reported (below). This is the primary signal for understanding where a session's tokens and cost go, and which deployment ran each step.
+- **Step stats** - a `step-stats` entry after each LLM step with the token usage breakdown: input tokens, cache reads and writes, output tokens, and reasoning tokens, plus the prompt-cache mode the provider applied, the thinking the step ran with, the images its request carried, and, on an OpenRouter model, what the response reported (below). This is the primary signal for understanding where a session's tokens and cost go, and which deployment ran each step.
 
 Both appear in the execution log timeline - via [`getLogs()`](/docs/server-sdk/sessions#getting-execution-logs) and in the dashboard's execution log views. To capture the full request payloads as well, enable model request tracing.
+
+### Thinking and image fields
+
+Every LLM step's `stepStats` records how the declared [thinking level](/docs/protocol/agent-config#thinking) ran on the model, and what images the request carried:
+
+| Field      | Description                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `thinking` | `declared` (the protocol's level, `off` when none), `applied` (the native setting in the provider's terms: `effort:xhigh`, `budget:16384`, `auto` for the provider's model-decides mode, `disabled`, or `none` when the model cannot reason), `disposition` (`exact`, `substituted`, `floored`, `unsupported`), and `source` (how certain the translation is: `curated`, `gateway`, `derived`, `inferred`, `unknown`). Undefined on media steps. |
+| `images`   | `count` (images in the model's view), `inlineBytes` (raw bytes the platform inlined into the request body), and `delivery` (`url` when the provider fetches them, `inline` when they ride as bytes, `mixed`). Undefined when the request carried no images.                                                                                                                                                                                      |
+
+A level that does not run exactly as declared is also recorded once per run and model as a `thinking-adjusted` block operation, so a substitution or an `off` the model cannot honor is visible without reading every step.
 
 ### OpenRouter step fields
 
@@ -31,8 +42,8 @@ const result = await client.agentSessions.getLogs(sessionId);
 if (result.status !== 'expired') {
   for (const entry of result.entries) {
     if (entry.type !== 'step-stats' || !entry.stepStats) continue;
-    const { model, servedModel, reportedCost, router } = entry.stepStats;
-    console.log(model, '->', servedModel, reportedCost?.total, router?.reason);
+    const { model, servedModel, reportedCost, router, thinking } = entry.stepStats;
+    console.log(model, '->', servedModel, reportedCost?.total, router?.reason, thinking?.applied);
   }
 }
 ```

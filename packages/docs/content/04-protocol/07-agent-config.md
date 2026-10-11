@@ -42,7 +42,7 @@ agent:
 | `agentic`             | No       | Allow multiple tool call cycles                                                                                                                                                                                                                            |
 | `maxSteps`            | No       | Maximum agentic steps (default: 10) - literal or variable reference                                                                                                                                                                                        |
 | `temperature`         | No       | Model temperature (0-2), `"off"`, or a variable reference                                                                                                                                                                                                  |
-| `thinking`            | No       | Extended reasoning level (`low`/`medium`/`high`/`max`), `"off"`, or a variable reference                                                                                                                                                                   |
+| `thinking`            | No       | Reasoning level (`low`/`medium`/`high`/`xhigh`/`max`), `auto`, `"off"`, or a variable reference (see [Thinking](#thinking))                                                                                                                                |
 | `speed`               | No       | Inference speed for supported Opus models: `fast`/`standard` (see [Fast Mode](/docs/protocol/fast-mode))                                                                                                                                                   |
 | `cache`               | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                                                                                                                                                                                                |
 | `streaming`           | No       | Delivery cadence for streamed text/reasoning: `{ chunking: off/word/line, delayMs? }` (see [Streaming Cadence](#streaming-cadence))                                                                                                                        |
@@ -61,7 +61,7 @@ Specify models in `provider/model-id` format, using a model from the [model cata
 
 | Provider   | Format                             | Examples                                                                                           |
 | ---------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Anthropic  | `anthropic/{model-id}`             | `claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
+| Anthropic  | `anthropic/{model-id}`             | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-opus-4-8`, `claude-sonnet-4-6` |
 | Google     | `google/{model-id}`                | `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`                                   |
 | OpenAI     | `openai/{model-id}`                | `gpt-5`, `gpt-4o`, `o4-mini`, `o3`, `o3-mini`, `o1`                                                |
 | SpaceXAI   | `x-ai/{model-id}`                  | `grok-4.6`, `grok-4.5`                                                                             |
@@ -126,7 +126,7 @@ agent:
 OpenRouter serves most models from several hosts and, by default, load-balances every request across them. Octavus applies its own routing policy to every OpenRouter request - on platform keys and on your own OpenRouter key alike - so a long agentic session behaves predictably:
 
 - **One host per session.** A session's requests carry a sticky routing key, so the whole session stays on one host (see [Prompt Caching](#prompt-caching) - the key is sent unless `cache: off`).
-- **Reasoning is honored or reported.** When `thinking` is declared, the request is routed only to hosts that support reasoning, so a declared level is never silently ignored. If none of a model's hosts support reasoning, `thinking` is not sent: validation warns (`THINKING_UNSUPPORTED_MODEL`) and the session's execution log records the downgrade as a `block-operation` entry.
+- **Reasoning is honored or reported.** A `thinking` level is sent in the shape the model publishes for reasoning - an effort by name, a token budget, or an on/off switch - and a request that asks for reasoning is routed only to hosts that support it, so a declared level is never silently ignored (see [Thinking](#thinking)). If none of a model's hosts support reasoning, nothing is sent: validation warns (`THINKING_UNSUPPORTED_MODEL`) and the session's execution log records it as a `thinking-adjusted` entry.
 - **One endpoint per provider.** Models from the major providers, open-weight and proprietary alike, run only on the provider's own endpoint, which Octavus has verified for tool calling, reasoning and tool-result vision. A model its provider doesn't serve on OpenRouter itself - an older release, or an open-weight model only other hosts run - runs on OpenRouter's default routing, like a model from any other provider.
 
 **Billing.** On platform keys, a request through OpenRouter is billed the exact cost OpenRouter reports for it: the serving host's rate at that moment (off-peak discounts and long-context tiers included) and any work a router did inside the request. For a model that runs on its provider's own endpoint, the rate the [model catalog](https://octavus.ai/pricing/models) shows is the most a request costs; a model on OpenRouter's default routing is billed what the host that served it charged, which can differ from the rate shown.
@@ -141,7 +141,7 @@ An OpenRouter router - such as `openrouter/openrouter/auto` or `openrouter/types
 
 - **Where a step can land.** A router picks freely among the models it knows, but only on the endpoints Octavus routes the major providers to - never on another host. A request carrying structured output (`responseType`) is kept off the endpoints that refuse it.
 - **Billing.** A router has no price of its own: each step is billed at the cost OpenRouter reports for the model the router picked. The [Models API](/docs/api-reference/models) lists a router with `pricingBasis: "served-model"` and no rates.
-- **Thinking.** A declared `thinking` level is sent as the router's reasoning effort (`max` as its deepest, `xhigh`) and fixes the effort for every step. `thinking: auto`, or no `thinking`, leaves the effort to the router.
+- **Thinking.** A fixed `thinking` level is sent as the router's reasoning effort (`max` as its deepest, `xhigh`) and fixes the effort for every step. `thinking: auto` leaves the effort to the router; `off` (or no `thinking`) turns reasoning off for the picked model.
 - **One conversation per session.** A session, and each named thread in it, is one conversation to the router whatever the `cache` setting, so a tool loop normally stays on one model. The model can change between user turns, and a router can pick again mid-turn when a request needs a capability the current model lacks, such as seeing an image in a tool result.
 - **Latency and cost.** A router can escalate a hard step by consulting a stronger model before answering, which can take minutes and cost far more than the step's visible tokens. Your spend limits apply to the exact cost as with any model.
 - **Data.** The router's provider reads the conversation text to decide which model answers.
@@ -345,57 +345,50 @@ Setting `maxImageDimension` is the recommended way to keep image-heavy sessions 
 
 ### Inline image payload
 
-Some delivery paths ship an image's bytes inside the request body rather than a URL the provider fetches - Gemini reads a tool result's images only as inline data. Those bytes are re-sent on every step of a turn, so the platform always bounds them: once the inline images in view exceed 32 MiB of image data, the oldest are elided down to 16 MiB, each replaced where it was delivered by a short reference carrying its download URL, with the same block-wise pruning and the same pinning of the first user turn's attachments as the [image window](/docs/protocol/context-management#image-window). It needs no configuration, never drops the most recent image, and does nothing for providers that fetch images by URL. Each prune is recorded in the session trace as an `image-adapted` entry.
+Some delivery paths ship an image's bytes inside the request body rather than a URL the provider fetches: Gemini reads a tool result's images only as inline data, and every image sent through OpenRouter is shipped as bytes, since the hosts behind it fetch URLs with downloaders of their own that fail or stall on a long history. Those bytes are re-sent on every step of a turn, so the platform always bounds them: once the inline images in view exceed 32 MiB of image data - or less where the provider documents a smaller request-body ceiling (about 15 MB on OpenRouter) - the oldest are elided down to half that, each replaced where it was delivered by a short reference carrying its download URL, with the same block-wise pruning and the same pinning of the first user turn's attachments as the [image window](/docs/protocol/context-management#image-window). It needs no configuration, never drops the most recent image, and does nothing for providers that fetch images by URL. Each prune is recorded in the session trace as an `image-adapted` entry, and every step's `step-stats` entry records the images its request carried and how (see [Debugging](/docs/server-sdk/debugging)).
 
 `maxImageDimension` is also available per worker on the [`start-thread`](/docs/protocol/workers) block; a worker inherits its parent agent's `contextManagement.imageWindow`.
 
-## Extended Thinking
+## Thinking
 
-Enable extended reasoning for complex tasks:
+One vocabulary controls how much a model reasons, whatever the provider:
 
 ```yaml
 agent:
-  model: anthropic/claude-sonnet-4-5
-  thinking: medium # low | medium | high | max | auto
+  model: anthropic/claude-opus-5-5
+  thinking: high # off | low | medium | high | xhigh | max | auto
 ```
 
-| Level    | Use Case                                                    |
-| -------- | ----------------------------------------------------------- |
-| `low`    | Simple reasoning                                            |
-| `medium` | Moderate complexity                                         |
-| `high`   | Complex analysis                                            |
-| `max`    | Maximum reasoning budget available                          |
-| `auto`   | The model decides how much to reason (a router, the effort) |
+| Level    | Meaning                                                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `off`    | Reasoning off. On a model whose reasoning cannot be turned off, its lightest setting runs, and the session records that it could not be off |
+| `low`    | The model's own `low`                                                                                                                       |
+| `medium` | The model's own `medium`                                                                                                                    |
+| `high`   | The model's own `high`                                                                                                                      |
+| `xhigh`  | The model's own `xhigh` (Claude Opus 4.7 and later, GPT-5.2 and later, Grok 4.6 and later, and most OpenRouter models)                      |
+| `max`    | The model's deepest setting, whatever it is called                                                                                          |
+| `auto`   | Reasoning on, with the depth chosen by the model or provider (a router's own pick)                                                          |
 
-Thinking content streams to the UI and can be displayed to users.
+Omitting `thinking` is the same as `off`. Whenever a model reasons, its reasoning summary is requested, so thinking content streams to the UI and can be displayed to users.
 
-### How levels are applied
+### How a level runs on a model
 
-Each provider translates `thinking` into its own reasoning controls:
+Every provider goes through the same rule, applied to what the model natively supports:
 
-| Provider                                                                   | Level mapping                                                                                           |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Anthropic 4.6+ (`claude-opus-4-7`, `claude-opus-4-6`, `claude-sonnet-4-6`) | Adaptive thinking - the model decides how much to reason, guided by `effort: low / medium / high / max` |
-| Anthropic older (4.5 and earlier)                                          | Fixed token budgets: `low` ~5,000, `medium` ~10,000, `high` ~20,000, `max` ~40,000                      |
-| OpenAI (GPT-5.x, o-series)                                                 | `reasoningEffort: low / medium / high / max` (`max` on GPT-5.6+, `high` on older models)                |
-| Google (Gemini 3.x)                                                        | `thinkingLevel: low / high` (`medium` rounds up to `high`)                                              |
-| Google (Gemini 1.x / 2.x)                                                  | Token budgets: `low` 1,024, `medium` 8,192, `high` 24,576, `max` 65,536                                 |
-| SpaceXAI (Grok)                                                            | `reasoningEffort: low / medium / high / xhigh` (`max` maps to `xhigh` on `grok-4.6`, `high` elsewhere)  |
-| OpenRouter                                                                 | Unified `reasoning.max_tokens` (translated upstream), routed only to hosts that support reasoning       |
-| OpenRouter routers                                                         | `reasoning.effort: low / medium / high / xhigh` (`max` maps to `xhigh`)                                 |
+- A fixed level runs as the model's native level of the same name. When the model has no level of that name, it runs as the nearest one it has, and ties go up: `xhigh` on Claude Opus 4.6 (which has `low` to `high` and `max`) runs as `max`; `medium` on a model with `low`, `high` and `max` runs as `high`. A level above the model's top runs at its top, which is what `max` always means. On the few models that still take a token budget rather than named levels (Claude 4.5 and older, Gemini 2.5), each level is a budget inside the model's range.
+- `off` sends the model's own off switch where it has one: `thinking: disabled` on Claude, effort `none` on the OpenAI models that accept it, a `0` budget on Gemini 2.5 Flash, `enabled: false` on OpenRouter. Where it has none - every Gemini 3 model, Grok, Claude Opus 5.5 and the Fable line, GPT-6 Astra and the o-series, and any OpenRouter model whose reasoning is mandatory - the lightest setting runs instead. `off` never sends nothing, which would run the model's own default (often its deepest level).
+- `auto` keeps reasoning on and hands the depth to the model where the provider has such a mode (Anthropic adaptive thinking without an effort, Gemini dynamic thinking, OpenRouter's `enabled`, a router's own choice), and sends the provider's recommended default explicitly where it has none (`medium` on OpenAI, `high` on xAI), so `auto` never means no reasoning and never changes under a provider's default.
+- A model that does not reason gets no reasoning setting at all, and a declared temperature stays. Otherwise a declared `temperature` is sent only when the model accepts one under the applied setting: Claude 4.7 and later and every Claude 5.x reject sampling parameters outright, OpenAI's reasoning models accept them only at effort `none`, Gemini 3 wants its defaults, Grok accepts them.
 
-`auto` leaves the decision to the model wherever the provider has such a mode, and otherwise to the provider's default:
+How a model maps is known per model: a curated table for the direct providers, the reasoning controls OpenRouter publishes for each of its models, and - for a model newer than either - the provider's current generation, with `off` running the lightest setting so the request is always accepted.
 
-| Provider                          | `thinking: auto`                                                  |
-| --------------------------------- | ----------------------------------------------------------------- |
-| Anthropic 4.6+                    | Adaptive thinking with no `effort` - the model decides            |
-| Anthropic older (4.5 and earlier) | No thinking (these models need a fixed budget)                    |
-| Google (Gemini 3.x)               | Dynamic thinking - no `thinkingLevel`, thoughts still streamed    |
-| Google (Gemini 1.x / 2.x)         | Dynamic thinking budget (`-1`)                                    |
-| OpenAI, SpaceXAI, Octavus         | No effort sent - the model reasons at its default effort          |
-| OpenRouter                        | No `reasoning` sent - the model's default, or a router's own pick |
+### What ran is always visible
 
-`auto` is never reported as a downgrade: leaving the decision to the model is honored whatever the provider sends.
+- Every model step's `step-stats` entry carries `thinking`: the declared level, the native setting it ran as (`effort:xhigh`, `budget:16384`, `auto`, `disabled`, or `none`), how the two relate (`exact`, `substituted`, `floored`, `unsupported`), and how certain the translation is (`curated`, `gateway`, `derived`, `inferred`, `unknown`). See [Debugging](/docs/server-sdk/debugging).
+- A level that does not run exactly as declared - a substitution, an `off` the model cannot honor, a model without reasoning, a declared temperature the applied setting rejects - is recorded once per run and model as a `thinking-adjusted` entry in the execution log.
+- Saving a protocol that pairs a literal model with a literal level warns when the level will not run as declared: `THINKING_LEVEL_SUBSTITUTED`, `THINKING_CANNOT_DISABLE`, or `THINKING_UNSUPPORTED_MODEL`.
+
+Hold a level constant within a thread where you can: Anthropic and OpenAI render it into the prompt, so changing it between requests starts the prompt cache over. A high level also needs room in `maxOutputTokens`, since reasoning counts toward the output cap on every provider.
 
 ## Prompt Caching
 
@@ -755,7 +748,7 @@ input:
     optional: true
   THINKING:
     type: string
-    description: Override thinking effort (low/medium/high/max/auto, or "off")
+    description: Override thinking effort (low/medium/high/xhigh/max/auto, or "off")
     optional: true
   MAX_STEPS:
     type: integer
@@ -784,11 +777,11 @@ const sessionId = await client.agentSessions.create('my-agent', {
 
 The resolver accepts the natural type for each field, plus a string fallback so consumers can pass values from form inputs without coercing first.
 
-| Field         | Suggested input type                       | Value at session creation                                    |
-| ------------- | ------------------------------------------ | ------------------------------------------------------------ |
-| `temperature` | `number` (or `string` for `"off"` support) | A number `0`-`2`, a numeric string, or `"off"`               |
-| `thinking`    | `string`                                   | `"low"`, `"medium"`, `"high"`, `"max"`, `"auto"`, or `"off"` |
-| `maxSteps`    | `integer` (or `string`)                    | A positive integer or a positive integer string              |
+| Field         | Suggested input type                       | Value at session creation                                               |
+| ------------- | ------------------------------------------ | ----------------------------------------------------------------------- |
+| `temperature` | `number` (or `string` for `"off"` support) | A number `0`-`2`, a numeric string, or `"off"`                          |
+| `thinking`    | `string`                                   | `"low"`, `"medium"`, `"high"`, `"xhigh"`, `"max"`, `"auto"`, or `"off"` |
+| `maxSteps`    | `integer` (or `string`)                    | A positive integer or a positive integer string                         |
 
 The protocol's `input:` declaration enforces what the consumer can pass. Pick `type: number` / `type: integer` if you want native numeric overrides; pick `type: string` (or `type: unknown`) if you also need to pass the `"off"` sentinel for `temperature`.
 
@@ -796,10 +789,10 @@ The protocol's `input:` declaration enforces what the consumer can pass. Pick `t
 
 `temperature` and `thinking` accept an explicit `"off"` value to disable the field at session creation. This is different from omitting the variable:
 
-- **Variable not provided** -> the field is unset; the provider uses its default behavior
-- **Variable provided as `"off"`** -> the field is explicitly disabled (no temperature emitted, reasoning disabled)
+- **Variable not provided** -> the field is unset: no temperature is emitted, and thinking is off (the same request as `thinking: off`)
+- **Variable provided as `"off"`** -> the field is explicitly disabled
 
-The distinction matters because `temperature` and `thinking` are mutually exclusive at the provider level - several providers ignore temperature when reasoning is enabled. Use `"off"` to opt one out so the other takes effect.
+The distinction matters for `temperature`: an unset variable and `"off"` both leave it out, while any other value sends it. For `thinking`, `"off"` turns reasoning off on every model that allows it; see [Thinking](#thinking) for what happens on a model that cannot. A declared `temperature` only reaches the model when the model accepts one under the applied thinking setting (most reject it while reasoning); use `"off"` on one to let the other take effect.
 
 ### Validation
 
