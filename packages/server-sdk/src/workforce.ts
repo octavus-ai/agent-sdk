@@ -302,7 +302,7 @@ export interface WorkforceThread {
 }
 
 /** The kind of computer an agent runs on. New kinds may be added. */
-export type WorkforceComputerKind = 'dedicated' | 'e2b' | 'daytona' | 'mac' | 'cli';
+export type WorkforceComputerKind = 'dedicated' | 'e2b' | 'mac' | 'cli';
 
 /** The operating system of an agent's computer. */
 export type WorkforceComputerOs = 'linux' | 'windows' | 'macos';
@@ -329,7 +329,7 @@ export interface WorkforceThreadComputer {
   os: WorkforceComputerOs | null;
   /** The computer's runtime release, the desktop app version, or the Agent CLI version. */
   runtimeVersion: string | null;
-  /** The image a dedicated computer launched from, or the sandbox template of an E2B or Daytona computer. */
+  /** The image a dedicated computer launched from, or the sandbox template of an E2B computer. */
   imageVersion: string | null;
   /** The cloud region the computer runs in. */
   region: string | null;

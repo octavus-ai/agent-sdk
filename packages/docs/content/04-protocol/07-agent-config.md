@@ -184,8 +184,6 @@ This enables:
 
 The model value is validated at runtime to ensure it's in the correct `provider/model-id` format.
 
-> **Note**: When using dynamic models, provider-specific options (like `anthropic:`) may not apply if the model resolves to a different provider.
-
 ## Backup Model
 
 Configure a fallback model that activates automatically when the primary model encounters a transient provider error (rate limits, outages, timeouts), or when its provider rejects the model itself (a model it has [shut down](#model-deprecations), or one your account has lost access to):
@@ -202,7 +200,6 @@ When a provider error occurs, the system retries once with the backup model. If 
 **Key behaviors:**
 
 - Only transient provider errors and a rejection of the model itself trigger fallback - authentication and validation errors are not retried
-- Provider-specific options (like `anthropic:`) are only forwarded to the backup model if it uses the same provider
 - For streaming responses, fallback only occurs if no content has been sent to the client yet - except for a step the primary model voided: a safety refusal (`content-filter`), an empty response (`NO_CONTENT_GENERATED`), or a generation cut off at the output limit (`OUTPUT_TRUNCATED`). Those produced no committed answer, so the partial step is retracted (a `step-discard` event) and the backup model re-runs it
 - A backup that fails hands the request back to the primary model: the primary's own transient retries and every later step of the turn run on the model you configured, not on the backup that just failed. A backup that succeeds stays active for the rest of the turn
 
@@ -644,7 +641,7 @@ agent:
 
 When `webSearch` is enabled, the `octavus_web_search` tool becomes available. The LLM can decide when to search the web based on the conversation. Search results include source URLs that are emitted as citations in the UI.
 
-This is a **provider-agnostic** built-in tool - it works with any LLM provider (Anthropic, Google, OpenAI, etc.). For Anthropic's own web search implementation, see [Provider Options](/docs/protocol/provider-options).
+This is a **provider-agnostic** built-in tool - it works with any LLM provider (Anthropic, Google, OpenAI, etc.).
 
 Use cases:
 
@@ -798,28 +795,6 @@ The distinction matters for `temperature`: an unset variable and `"off"` both le
 
 Variable references are caught at protocol validation time. If `temperature: TEMPERATURE` is declared but `TEMPERATURE` is missing from `input:` or `variables:`, the validator surfaces the error in the dashboard before the agent runs.
 
-## Provider Options
-
-Enable provider-specific features like Anthropic's built-in tools and skills:
-
-```yaml
-agent:
-  model: anthropic/claude-sonnet-4-5
-  anthropic:
-    tools:
-      web-search:
-        display: description
-        description: Searching the web
-    skills:
-      pdf:
-        type: anthropic
-        description: Processing PDF
-```
-
-Provider options are validated against the model - using `anthropic:` with a non-Anthropic model will fail validation.
-
-See [Provider Options](/docs/protocol/provider-options) for full documentation.
-
 ## Thread-Specific Config
 
 Override config for named threads:
@@ -910,16 +885,6 @@ agent:
   agentic: true
   maxSteps: 10
   thinking: medium
-  # Anthropic-specific options
-  anthropic:
-    tools:
-      web-search:
-        display: description
-        description: Searching the web
-    skills:
-      pdf:
-        type: anthropic
-        description: Processing PDF
 
 triggers:
   user-message:

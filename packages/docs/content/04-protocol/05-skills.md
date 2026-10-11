@@ -353,18 +353,16 @@ skills:
     display: stream
 ```
 
-## Comparison: Skills vs Tools vs Provider Options
+## Comparison: Skills vs Tools
 
-> **Note:** Provider tools/skills are deprecated and will be removed in v7. Use Octavus Skills (below) for provider-agnostic code execution. See the [migration guide](/docs/migration/v6-to-v7).
-
-| Feature            | Octavus Skills              | External Tools      | Provider Tools/Skills (deprecated) |
-| ------------------ | --------------------------- | ------------------- | ---------------------------------- |
-| **Execution**      | Sandbox or agent's computer | Your backend        | Provider servers                   |
-| **Provider**       | Any (agnostic)              | N/A                 | Provider-specific                  |
-| **Code Execution** | Yes                         | No                  | Yes (provider tools)               |
-| **File Output**    | Yes                         | No                  | Yes (provider skills)              |
-| **Implementation** | Skill packages              | Your code           | Built-in                           |
-| **Cost**           | Sandbox + LLM API           | Your infrastructure | Included in API                    |
+| Feature            | Octavus Skills              | External Tools      |
+| ------------------ | --------------------------- | ------------------- |
+| **Execution**      | Sandbox or agent's computer | Your backend        |
+| **Provider**       | Any (agnostic)              | N/A                 |
+| **Code Execution** | Yes                         | No                  |
+| **File Output**    | Yes                         | No                  |
+| **Implementation** | Skill packages              | Your code           |
+| **Cost**           | Sandbox + LLM API           | Your infrastructure |
 
 ## Uploading Custom Skills
 
@@ -522,6 +520,5 @@ Device skills run on the agent's computer and share its environment. They do not
 ## Next Steps
 
 - [Agent Config](/docs/protocol/agent-config) - Configuring skills in agent settings
-- [Provider Options](/docs/protocol/provider-options) - Anthropic's built-in skills (deprecated)
 - [Skills Advanced Guide](/docs/protocol/skills-advanced) - Best practices and advanced patterns
 - [Migrating from v6 to v7](/docs/migration/v6-to-v7) - Skill titles and moving off deprecated modes
