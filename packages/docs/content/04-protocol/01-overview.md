@@ -204,6 +204,5 @@ The referenced prompt content is inserted before variable interpolation, so vari
 - [Handlers](/docs/protocol/handlers) - Execution blocks
 - [Agent Config](/docs/protocol/agent-config) - Model and settings
 - [Workers](/docs/protocol/workers) - Worker agent format
-- [Provider Options](/docs/protocol/provider-options) - Provider-specific features
 - [Types](/docs/protocol/types) - Custom type definitions
 - [Migrating from v6 to v7](/docs/migration/v6-to-v7) - Deprecations and how to migrate

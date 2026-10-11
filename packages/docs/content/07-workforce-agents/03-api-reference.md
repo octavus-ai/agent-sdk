@@ -43,7 +43,7 @@ GET /api/v1/workforce/agents/{agentId}
 | `unavailableReason` | string \| null | `paused` (the owner paused the agent), `computer_down` (its computer cannot be reached), or `cli_only` (it runs only from the Agent CLI)              |
 | `currentThreadId`   | string \| null | The thread holding the agent: the running one, else the oldest dispatched or queued one                                                               |
 | `queuedThreads`     | number         | Threads waiting behind the current one                                                                                                                |
-| `computer`          | object         | `kind` (`dedicated`, `e2b`, `daytona`, `mac`, or `cli`), `os` (`linux`, `windows`, or `macos`), and `state` (see below)                               |
+| `computer`          | object         | `kind` (`dedicated`, `e2b`, `mac`, or `cli`), `os` (`linux`, `windows`, or `macos`), and `state` (see below)                                          |
 | `definition`        | object \| null | The pre-built agent the agent was hired from (`slug`) and the version of its definition (`version`); null for an agent not hired from a pre-built one |
 | `capabilities`      | object         | The capabilities the agent's definition declares, each with whether it is enabled                                                                     |
 
@@ -250,7 +250,7 @@ A recorded run's `recording` has its own lifecycle, and it settles shortly after
 | `definition`           | object \| null | The pre-built agent the agent was hired from (`slug`) and the version of its definition (`version`), as of the thread's latest step. Null for an agent not hired from a pre-built one.    |
 | `computer`             | object \| null | The computer, as of the thread's latest step: `kind`, `os`, `runtimeVersion`, `imageVersion`, and `region`. Null when no step reached a computer.                                         |
 
-`computer.kind` is `dedicated`, `e2b`, `daytona`, `mac`, or `cli`. `runtimeVersion` is the computer's runtime release (the desktop app version on a Mac, the Agent CLI version for a CLI run), and `imageVersion` is the image a dedicated computer launched from or the sandbox template of an E2B or Daytona computer.
+`computer.kind` is `dedicated`, `e2b`, `mac`, or `cli`. `runtimeVersion` is the computer's runtime release (the desktop app version on a Mac, the Agent CLI version for a CLI run), and `imageVersion` is the image a dedicated computer launched from or the sandbox template of an E2B computer.
 
 ### Failure types
 
