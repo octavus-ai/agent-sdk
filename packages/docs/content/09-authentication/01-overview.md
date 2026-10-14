@@ -24,18 +24,19 @@ A long-lived project key is only safe to hold in trusted server compute. It gran
 When your code runs somewhere your own end users can see or reach - an in-browser chat, a code sandbox, a per-user container - or on ephemeral compute like a CI runner or serverless function, place a credential there that is bounded in two ways:
 
 - **Short-lived** - it stops working on its own within minutes to hours.
-- **Scoped** - it can only run one specific agent, and optionally only one specific session. It carries no ability to create, edit, or delete agents, manage skills, or reach any other agent or session.
+- **Scoped** - it can only run one specific agent (or, for a federated token you choose to scope to your project, that project's agents), and optionally only one specific session. It carries no ability to create, edit, or delete agents, manage skills, or reach anything outside its scope.
 
 A credential an end user extracts is then useless beyond its narrow scope and short lifetime.
 
 ## Scope
 
-Both short-lived credentials resolve to the same scoped, session-use-only principal:
+Both short-lived credentials resolve to the same session-use-only principal, at one of three scopes:
 
+- **Project-scoped** (federated tokens only) - may create and drive sessions for any agent in the project, including agents added later (for a workload that uses several agents and where the project is the access boundary).
 - **Agent-scoped** - may create and drive sessions for one agent (for a runner that starts its own conversation).
 - **Session-scoped** - may only drive one already-created session (the tightest scope; for when your backend creates the session and hands the runner just that session).
 
-Octavus enforces the scope on every request. A session-scoped token cannot act on a different session, an agent-scoped token cannot target a different agent, and neither can enumerate your project or perform any management operation.
+Octavus enforces the scope on every request. A session-scoped token cannot act on a different session, an agent-scoped token cannot target a different agent, and a project-scoped token cannot reach another project. Agent-scoped and session-scoped tokens cannot enumerate your project, and no short-lived token can perform any management operation.
 
 ## Which to use
 
