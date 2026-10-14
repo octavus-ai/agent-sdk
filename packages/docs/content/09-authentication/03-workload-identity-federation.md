@@ -19,7 +19,7 @@ sequenceDiagram
     Workload->>Octavus: API request with Bearer <JWT>
     Octavus->>Octavus: match provider by iss + aud
     Octavus->>Octavus: verify signature via cached JWKS, check claims + lifetime
-    Octavus-->>Workload: scoped to one agent (and optional session)
+    Octavus-->>Workload: scoped to one agent or the project (and optional session)
 ```
 
 ## Register a provider
@@ -29,11 +29,13 @@ In the dashboard, open your project's **Settings -> Federation** and register a 
 - **Issuer** - your provider's OIDC issuer URL (HTTPS). Octavus discovers its JWKS from the issuer automatically, or you can set an explicit JWKS URL.
 - **Allowed algorithms** - the asymmetric algorithms your provider signs with (e.g. `RS256`, `ES256`).
 - **Claim conditions** - required claim matches, so only your intended workloads are trusted (for example `sub` equals a specific value, or a `repository` claim starts with your org).
-- **Agent scope** - either bind every token to one fixed agent, or read the agent id from a token claim.
+- **Agent scope** - bind every token to one fixed agent, read the agent id from a token claim, or allow any agent in the project. Project scope includes agents added to the project later, so use it when the project itself is the boundary of what the workload may run.
 - **Session scope (optional)** - read a session id from a claim to produce the tightest, single-session credential.
 - **Max token lifetime** - Octavus rejects any token whose lifetime exceeds this (or the platform maximum of 24 hours), so a valid signature can never be long-lived.
 
 On registration Octavus generates a unique **audience** value. Copy it - your tokens must set it as their `aud` claim. It uniquely identifies your registration and prevents a token minted for another party from being replayed against Octavus.
+
+You can register the same issuer more than once, for example to give different workloads different agent scopes. Each registration gets its own audience, and a token matches the registration whose audience it carries.
 
 ## Sign tokens
 
