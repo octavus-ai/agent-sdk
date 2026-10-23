@@ -72,12 +72,12 @@ POST /api/v1/workforce/agents/{agentId}/threads
 }
 ```
 
-| Field     | Type            | Required | Description                                                                                                                                  |
-| --------- | --------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `message` | string          | Yes      | The task or message for the agent                                                                                                            |
-| `files`   | FileReference[] | No       | Hosted file attachments                                                                                                                      |
-| `config`  | RunConfig       | No       | Per-run configuration for this thread (see below). Omitted fields inherit the agent's stored settings.                                       |
-| `ifIdle`  | boolean         | No       | Refuse instead of queuing when the agent already has a run in flight or queued (see [Only run on an idle agent](#only-run-on-an-idle-agent)) |
+| Field     | Type            | Required                        | Description                                                                                                                                  |
+| --------- | --------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message` | string          | Yes, unless `files` is provided | The task or message for the agent. A turn carries a message, at least one file, or both                                                      |
+| `files`   | FileReference[] | No                              | Hosted file attachments                                                                                                                      |
+| `config`  | RunConfig       | No                              | Per-run configuration for this thread (see below). Omitted fields inherit the agent's stored settings.                                       |
+| `ifIdle`  | boolean         | No                              | Refuse instead of queuing when the agent already has a run in flight or queued (see [Only run on an idle agent](#only-run-on-an-idle-agent)) |
 
 #### RunConfig
 
@@ -294,10 +294,10 @@ POST /api/v1/workforce/agents/{agentId}/threads/{threadId}/messages
 }
 ```
 
-| Field     | Type            | Required | Description             |
-| --------- | --------------- | -------- | ----------------------- |
-| `message` | string          | Yes      | The follow-up message   |
-| `files`   | FileReference[] | No       | Hosted file attachments |
+| Field     | Type            | Required                        | Description                                                                 |
+| --------- | --------------- | ------------------------------- | --------------------------------------------------------------------------- |
+| `message` | string          | Yes, unless `files` is provided | The follow-up message. A turn carries a message, at least one file, or both |
+| `files`   | FileReference[] | No                              | Hosted file attachments                                                     |
 
 ### Response
 

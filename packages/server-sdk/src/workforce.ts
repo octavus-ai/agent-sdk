@@ -477,7 +477,11 @@ export class WorkforceApi extends BaseApiClient {
     );
   }
 
-  /** Start a new thread and dispatch the first message. Returns immediately. */
+  /**
+   * Start a new thread and dispatch the first message. Returns immediately.
+   * A turn carries a message, at least one file, or both: with `options.files`
+   * the message may be an empty string.
+   */
   async dispatch(
     agentId: string,
     message: string,
@@ -503,6 +507,7 @@ export class WorkforceApi extends BaseApiClient {
    * Send a follow-up message into an existing thread (sequential continuation).
    * If a run is in flight it queues and runs after; otherwise it dispatches now.
    * A thread's run config is fixed at creation, so `followUp` takes no config.
+   * With `options.files` the message may be an empty string.
    */
   async followUp(
     agentId: string,
@@ -567,7 +572,8 @@ export class WorkforceApi extends BaseApiClient {
    * Dispatch a message and wait for the run to finish - the all-in-one method
    * for automating an agent. Returns the completed thread (the agent's latest
    * turn is the tail of `messages`; a recorded run's recording is given
-   * `recordingTimeoutMs` to settle, as in `waitForCompletion`).
+   * `recordingTimeoutMs` to settle, as in `waitForCompletion`). As in
+   * `dispatch`, the message may be an empty string when `options.files` is set.
    */
   async run(
     agentId: string,

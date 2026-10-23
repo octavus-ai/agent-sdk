@@ -164,7 +164,7 @@ try {
 | `recordingTimeoutMs` | number      | `120000` | After the run finishes, how long to wait for a recorded run's recording to settle; it is returned as-is after that. `0` skips the wait |
 | `signal`             | AbortSignal | -        | Cancel the wait early                                                                                                                  |
 
-`dispatch()`, `followUp()`, and `run()` also accept `files` (an array of `FileReference`) to attach hosted files to the message, and `dispatch()` and `run()` accept `idempotencyKey` and `ifIdle` (see above).
+`dispatch()`, `followUp()`, and `run()` also accept `files` (an array of `FileReference`) to attach hosted files to the message, and `dispatch()` and `run()` accept `idempotencyKey` and `ifIdle` (see above). A turn carries a message, at least one file, or both, so with `files` the message may be an empty string.
 
 ```ts
 const thread = await client.workforce.run(agentId, 'Review this spec', {
