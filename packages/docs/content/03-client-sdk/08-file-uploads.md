@@ -289,6 +289,17 @@ handlers:
 
 The `file` type is a built-in type representing uploaded files. Use `file[]` for arrays of files.
 
+A message may carry only files: pass `USER_MESSAGE: ''` with `FILES`, and the model receives the attachments with no text part. If your prompt wraps the message in a heading, guard it with a [conditional](/docs/protocol/input-resources#conditional-prompt-content) so an empty message does not render one:
+
+```markdown
+{{#if USER_MESSAGE}}
+
+## The user message
+
+{{USER_MESSAGE}}
+{{/if}}
+```
+
 ## Supported File Types
 
 | Type             | Media Types                                                                                                                                                                                                                                                                                                                                                             |
