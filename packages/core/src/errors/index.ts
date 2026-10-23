@@ -25,4 +25,5 @@ export {
   createInternalErrorEvent,
   createApiErrorEvent,
   isTransientTransportError,
+  EXECUTION_NOT_RESUMABLE_CODE,
 } from './helpers';

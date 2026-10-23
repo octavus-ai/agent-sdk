@@ -62,6 +62,7 @@ The stream emits various event types for lifecycle, text, reasoning, and tool in
 // - 'stop': Normal completion
 // - 'tool-calls': Waiting for server tool execution (handled by SDK internally)
 // - 'client-tool-calls': Waiting for client tool execution
+// - 'continue': The execution continues in its next leg (handled by SDK internally)
 // - 'length': Max tokens reached
 // - 'content-filter': Content filtered
 // - 'error': Error occurred
@@ -72,6 +73,8 @@ The stream emits various event types for lifecycle, text, reasoning, and tool in
 ```
 
 A generation the model did not finish is never delivered as a `finish`: a safety refusal or a response cut off at the output token limit surfaces as an `error` event (`provider_error` with code `CONTENT_FILTER` or `OUTPUT_TRUNCATED`) after the configured backup model, if any, has had its attempts - see [maxOutputTokens](/docs/protocol/agent-config#maxoutputtokens).
+
+A long turn runs as a chain of server invocations, each bounded in time. When an invocation reaches its budget the platform saves the turn's progress and ends that leg with `finish: continue`; the SDK immediately resumes the same execution, so `session.execute()` yields one uninterrupted stream from the first event to the final `finish` however long the turn runs. Nothing in the agent definition opts into this, and the model never sees the boundary. The bound is the platform's own: a backend that forwards the stream from inside a serverless function is still subject to that function's time limit, so a route handler that proxies a long turn needs a limit that covers it.
 
 ### Block Events
 

@@ -257,6 +257,10 @@ export async function* executeStream(
     // Captured from the trigger/continue stream; read after the body is fully
     // consumed to decide whether to execute pending tools and continue.
     let pendingToolCalls: PendingToolCall[] | null = null;
+    // The server ended this leg of the execution at its time budget with
+    // nothing to run (`finish: continue`); the same execution is resumed with
+    // an empty continuation once the body is consumed.
+    let resumeLeg = false;
 
     try {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -338,8 +342,11 @@ export async function* executeStream(
       if (!haveResponse) return;
 
       if (!response.ok) {
-        const { message } = await parseApiError(response, config.errorContext ?? 'Request failed');
-        yield createApiErrorEvent(response.status, message);
+        const { message, code } = await parseApiError(
+          response,
+          config.errorContext ?? 'Request failed',
+        );
+        yield createApiErrorEvent(response.status, message, code);
         return;
       }
 
@@ -452,6 +459,13 @@ export async function* executeStream(
                 if (event.finishReason === 'tool-calls' && pendingToolCalls) {
                   continue;
                 }
+                // The execution continues in its next leg: resume it below
+                // instead of surfacing an intermediate finish, so the consumer
+                // sees one stream for the whole execution, as across tool rounds.
+                if (event.finishReason === 'continue') {
+                  resumeLeg = true;
+                  continue;
+                }
                 yield event;
                 continueLoop = false;
                 continue;
@@ -480,6 +494,12 @@ export async function* executeStream(
     if (signal?.aborted) {
       yield { type: 'finish', finishReason: 'stop' };
       return;
+    }
+
+    if (resumeLeg && executionId) {
+      // Resume the yielded execution: a continuation with nothing to deliver.
+      toolResults = [];
+      continue;
     }
 
     if (pendingToolCalls && pendingToolCalls.length > 0) {

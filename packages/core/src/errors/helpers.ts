@@ -152,6 +152,14 @@ function mapStatusCodeToErrorType(statusCode: number): ErrorType {
 }
 
 /**
+ * The platform's error code for a `continue` that names an execution the
+ * session no longer holds in a resumable state - it finished, expired, or was
+ * lost before its first save. Returned with HTTP 409. The caller re-sends the
+ * original trigger to start the turn over.
+ */
+export const EXECUTION_NOT_RESUMABLE_CODE = 'EXECUTION_NOT_RESUMABLE';
+
+/**
  * Create an error event from an API response.
  * Maps HTTP status codes to appropriate error types.
  *
@@ -159,8 +167,13 @@ function mapStatusCodeToErrorType(statusCode: number): ErrorType {
  *
  * @param statusCode - HTTP status code from the response
  * @param message - Error message to display
+ * @param code - The platform's stable error code from the response body, when it sent one
  */
-export function createApiErrorEvent(statusCode: number, message: string): ErrorEvent {
+export function createApiErrorEvent(
+  statusCode: number,
+  message: string,
+  code?: string,
+): ErrorEvent {
   const errorType = mapStatusCodeToErrorType(statusCode);
   // Rate limit and server errors are typically retryable
   const retryable = statusCode === 429 || statusCode >= 500;
@@ -170,5 +183,6 @@ export function createApiErrorEvent(statusCode: number, message: string): ErrorE
     message,
     source: 'platform',
     retryable,
+    code,
   });
 }

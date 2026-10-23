@@ -314,7 +314,7 @@ data: [DONE]
 | Event                   | Description                        |
 | ----------------------- | ---------------------------------- |
 | `start`                 | Stream started                     |
-| `finish`                | Execution complete                 |
+| `finish`                | Stream ended (see `finishReason`)  |
 | `error`                 | Error occurred                     |
 | `block-start`           | Execution block started            |
 | `block-end`             | Execution block completed          |
@@ -371,6 +371,24 @@ When the agent calls external tools, you'll receive a `tool-request` event. Exec
 ```
 
 The Server SDK handles this continuation pattern automatically.
+
+## Execution Legs
+
+A long turn runs as a chain of server invocations, each bounded in time. When an invocation reaches its budget, the platform saves the turn's progress and ends that leg with a `persisted` event followed by `finish` with `finishReason: "continue"`. Nothing is pending: resume the same execution with a continuation that carries the `executionId` from the stream's `start` event and an empty `toolResults` list, exactly as you continue after a `tool-request`.
+
+```json
+{
+  "type": "continue",
+  "executionId": "exec_123",
+  "toolResults": []
+}
+```
+
+The next leg streams from where the previous one stopped, into the same assistant message, and ends with its own `finish` - another `continue`, a `tool-calls` pause, or the final `stop`. The model never sees the boundary. The Server SDK performs the continuation itself, so `session.execute()` yields one stream for the whole turn.
+
+Legs are yielded only to callers that can resume them: send `X-Octavus-Sdk-Version: 5` (or higher) on every request to opt in. The Server SDK sends it. A caller without the header runs each leg until it pauses for tools or finishes on its own.
+
+A continuation for an execution the session no longer holds - it finished, expired, or was lost before its first save - returns `409` with the error code `EXECUTION_NOT_RESUMABLE`. Re-send the original trigger to start the turn over.
 
 ## Upload URLs
 

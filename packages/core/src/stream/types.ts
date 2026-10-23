@@ -262,7 +262,16 @@ export interface StartEvent {
   sessionId?: string;
 }
 
-/** Signals completion of streaming */
+/**
+ * Signals the end of a stream.
+ *
+ * `finishReason: 'continue'` means the execution is not finished: the server
+ * ended this leg of it and resumes the same execution on the next `continue`
+ * request for its `executionId` with an empty `toolResults` list - the same
+ * continuation the `tool-calls` finish uses, with nothing to run first. The
+ * server SDK performs that continuation itself, so its consumers see one
+ * uninterrupted stream.
+ */
 export interface FinishEvent {
   type: 'finish';
   finishReason: FinishReason;
@@ -336,6 +345,8 @@ export type FinishReason =
   | 'stop'
   | 'tool-calls'
   | 'client-tool-calls'
+  /** The execution continues in its next leg; resume it with an empty `continue` (see `FinishEvent`). */
+  | 'continue'
   | 'length'
   | 'content-filter'
   | 'error'
