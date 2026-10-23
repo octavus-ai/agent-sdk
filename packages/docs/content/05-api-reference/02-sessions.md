@@ -351,12 +351,12 @@ curl -N -X POST https://octavus.ai/api/agent-sessions/:sessionId/trigger \
 
 ## Tool Continuation
 
-When the agent calls external tools, you'll receive a `tool-request` event. Execute the tools and send results back:
+When the agent calls external tools, you'll receive a `tool-request` event. Execute the tools and send the results back as a continuation of the same execution, identified by the `executionId` from the stream's `start` event:
 
 ```json
 {
-  "triggerName": "user-message",
-  "input": { "USER_MESSAGE": "..." },
+  "type": "continue",
+  "executionId": "exec_123",
   "toolResults": [
     {
       "toolCallId": "tc_123",

@@ -496,7 +496,11 @@ export async function* executeStream(
       return;
     }
 
-    if (resumeLeg && executionId) {
+    if (resumeLeg) {
+      if (!executionId) {
+        yield createInternalErrorEvent('Missing executionId to resume the execution');
+        return;
+      }
       // Resume the yielded execution: a continuation with nothing to deliver.
       toolResults = [];
       continue;
