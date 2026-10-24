@@ -25,7 +25,7 @@ Then mint an agent API key from the agent's **Settings -> API** tab. The key dri
 curl -fsSL https://octavus.ai/install/agent-cli.sh | sh
 ```
 
-The installer sets up the prerequisites a full computer needs on a standard Linux box (Node 20+, a headless X display via Xvfb, the AT-SPI accessibility bus, Chrome for Testing) so "install and run" just works. A shell + filesystem only agent needs none of the display stack.
+The CLI runs on a supported Node.js line (22, 24, or 26 and later) with that line's latest security fixes; the installer checks for one and names the release to upgrade to if yours is behind (the CLI re-checks at startup), then sets up the prerequisites a full computer needs on a standard Linux box (a headless X display via Xvfb, the AT-SPI accessibility bus, Chrome for Testing) so "install and run" just works. A shell + filesystem only agent needs none of the display stack.
 
 If you already have those prerequisites, install the package directly:
 

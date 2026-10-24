@@ -9,7 +9,7 @@ This guide will walk you through integrating Octavus into your application in un
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 22+ (a supported LTS release with the latest security fixes)
 - An Octavus account with API key
 - A Next.js application (or any Node.js backend)
 
