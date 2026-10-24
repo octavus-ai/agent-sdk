@@ -31,6 +31,11 @@ import type { StreamEvent, ToolResult } from '@octavus/core';
  *   turn's message as interrupted, and starts a new message for the attempt.
  *   Unlike `replay-start`, the events that follow are genuinely new (not a
  *   replay) and render per-event.
+ * - `rewind-turn`: the executor resumed the same execution from its last
+ *   persisted round after a dropped stream, and the resumed leg streams next
+ *   into the same message. The chat drops only what the dropped leg streamed
+ *   after its last persisted marker and keeps the message open; the events
+ *   that follow are new and render per-event.
  *
  * Transports that do not support late join simply never emit these, so the chat
  * stays in normal per-event mode.
@@ -38,7 +43,8 @@ import type { StreamEvent, ToolResult } from '@octavus/core';
 export type ChatControlSignal =
   | { type: 'replay-start'; sinceRound?: number }
   | { type: 'live' }
-  | { type: 'reset-turn' };
+  | { type: 'reset-turn' }
+  | { type: 'rewind-turn' };
 
 /**
  * The values a transport stream yields: protocol `StreamEvent`s plus the

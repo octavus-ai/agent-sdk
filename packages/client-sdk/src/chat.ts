@@ -1293,6 +1293,10 @@ export class OctavusChat {
           this.resetCurrentTurn();
           continue;
         }
+        if (item.type === 'rewind-turn') {
+          this.rewindCurrentTurn();
+          continue;
+        }
 
         if (this._replayResetPending) this.resetForReplay(item);
         this.handleStreamEvent(item, this.streamingState);
@@ -2406,6 +2410,12 @@ export class OctavusChat {
       }
 
       case 'finish': {
+        // The execution continues in its next leg: the server that forwards
+        // this stream resumes it and the message keeps building. Only a stream
+        // forwarded raw ever carries it (the server SDK resumes before it
+        // surfaces).
+        if (event.finishReason === 'continue') return;
+
         // Handle client-tool-calls finish reason
         if (event.finishReason === 'client-tool-calls') {
           // Mark that finish event has been received (for async tools that complete later)
@@ -2682,6 +2692,21 @@ export class OctavusChat {
   }
 
   /**
+   * The same execution resumes from its last persisted round: the transport
+   * signals `rewind-turn` when the executor continued the execution after a
+   * dropped stream. Drop what the dropped leg streamed after the last
+   * `persisted` marker and keep the message open; the resumed leg streams the
+   * rest into it. Paints immediately (when not batching) so the stale partial
+   * clears at once, and the events that follow render per-event.
+   */
+  private rewindCurrentTurn(): void {
+    const state = this.streamingState;
+    if (!state) return;
+    this.rewindToCheckpoint(state);
+    if (!this._batching) this.notifyListeners();
+  }
+
+  /**
    * Drop the current model step's partial output and stay live: the runtime
    * rolled the step back to re-issue it (a transient provider failure
    * interrupted the stream before anything from the step had executed).
@@ -2877,6 +2902,10 @@ export class OctavusChat {
         }
         if (item.type === 'reset-turn') {
           this.resetCurrentTurn();
+          continue;
+        }
+        if (item.type === 'rewind-turn') {
+          this.rewindCurrentTurn();
           continue;
         }
         if (this._replayResetPending) this.resetForReplay(item);

@@ -30,20 +30,21 @@ For workloads that run in ephemeral or user-reachable environments (CI runners, 
 
 ## Wire-Format Versioning
 
-The Server SDK advertises the wire shape it understands via the `X-Octavus-Sdk-Version` header (set automatically). The platform currently serves the same shape to every request, so direct API users don't need to send it - the header exists so a future wire-incompatible change can be negotiated per client.
+The Server SDK advertises the wire shape it understands via the `X-Octavus-Sdk-Version` header (set automatically). The platform serves each caller the shape it advertised: what a newer version adds to a stream is sent only to callers that declared they handle it, and a request without the header gets the baseline. Direct API users send the header to opt into what a version carries.
 
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "X-Octavus-Sdk-Version: 4" \
+  -H "X-Octavus-Sdk-Version: 5" \
   https://octavus.ai/api/agent-sessions/SESSION_ID
 ```
 
-| Header value | Wire shape                                                                                                             |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| (missing)    | Current (v4) - the platform serves the current shape when no version is advertised.                                    |
-| `4`          | Current (v4) - matches `@octavus/server-sdk@^4` and later. Includes `step-start` parts in `UIMessage` / `ChatMessage`. |
+| Header value | Wire shape                                                                                                                                                                                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (missing)    | Baseline (v4) - the platform serves the v4 shape when no version is advertised.                                                                                                                                                           |
+| `4`          | `step-start` parts in `UIMessage` / `ChatMessage`. A trigger or continuation runs until the execution pauses for tools or finishes.                                                                                                       |
+| `5`          | Everything in v4, plus execution legs: a stream may end with `finish` and `finishReason: "continue"`, which the caller resumes with an empty continuation (see [Sessions - Execution Legs](/docs/api-reference/sessions#execution-legs)). |
 
-The header value is the wire-format major the client can parse, not the SDK release version. A future wire-incompatible change bumps it again, and the platform will downgrade the shape for clients still on `4`.
+The header value is the wire-format major the client can parse, not the SDK release version. A wire-incompatible change bumps it, and the platform keeps serving the previous shape to clients that still advertise the previous value.
 
 ## API Key Permissions
 

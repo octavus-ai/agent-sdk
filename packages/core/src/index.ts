@@ -29,6 +29,7 @@ export {
   createInternalErrorEvent,
   createApiErrorEvent,
   isTransientTransportError,
+  EXECUTION_NOT_RESUMABLE_CODE,
 } from './errors/helpers';
 
 export { generateId, isAbortError, normalizeToolInputSchema } from './utils';

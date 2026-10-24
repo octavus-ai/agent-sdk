@@ -150,6 +150,7 @@ interface OctavusClientConfig {
   apiKey?: string; // Your API key
   traceModelRequests?: boolean; // Enable model request tracing (default: false)
   maxRetries?: number; // Retries for transient network failures during streaming (default: 2, set to 0 to disable)
+  headers?: Record<string, string>; // Extra headers sent on every request (the SDK's own take precedence)
 }
 
 class OctavusClient {

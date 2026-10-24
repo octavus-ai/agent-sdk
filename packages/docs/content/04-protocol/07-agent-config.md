@@ -291,9 +291,11 @@ agent:
 4. LLM decides if more tools needed
 5. Repeat until LLM responds or maxSteps reached
 
+`maxSteps` counts the steps of one uninterrupted stretch of the loop. The count restarts when the loop resumes after a pause - a tool the client or a device executes, or a platform [execution leg](/docs/api-reference/sessions#execution-legs) boundary, which the platform draws only after many minutes of steps - so a run that pauses can take more steps in total than `maxSteps`. Within a stretch it is the bound on a runaway loop.
+
 ## Output Limits and Loop Guard
 
-Two optional safeguards bound the cost of a single LLM generation. Both apply **per generation** (one agentic step), not across the whole run - `maxSteps` is what bounds how many steps a run can take.
+Two optional safeguards bound the cost of a single LLM generation. Both apply **per generation** (one agentic step), not across the whole run - `maxSteps` is what bounds how many steps a stretch of the loop can take.
 
 ```yaml
 agent:
@@ -307,7 +309,7 @@ agent:
 
 Caps the output tokens of a single generation, passed straight through to the provider's `max_tokens`. When omitted, the provider/SDK default applies - it varies by model and can be very large. Setting an explicit value gives you a predictable, model-independent ceiling on the cost of any one generation.
 
-This is a **per-step** cap, not a budget for the whole run. A long agentic run makes many generations, each capped independently; use `maxSteps` to bound the number of steps.
+This is a **per-step** cap, not a budget for the whole run. A long agentic run makes many generations, each capped independently; use `maxSteps` to bound the number of steps in a stretch.
 
 It is a safety ceiling, not a way to shape answer length. A generation that hits the cap (`finishReason: 'length'`) is incomplete - a cut-off answer, a partial tool call, or reasoning that consumed the whole budget - so the step fails as a `provider_error` with code `OUTPUT_TRUNCATED` rather than delivering the truncated output as a finished turn. A configured [backup model](#backup-model) takes the step first; the error is not retried on the same model. The same holds for a step that ends with no response at all (no text and no tool call, for example a reasoning-only generation): it fails with code `NO_CONTENT_GENERATED`, which is retried a bounded number of times on the model that produced it - the primary, or the backup once it has taken over - and falls back to the backup, instead of completing the turn with an empty message. An empty response that survives those retries is returned as non-retryable: the same context produced the same empty step on every attempt, so re-running the turn would only repeat it.
 
