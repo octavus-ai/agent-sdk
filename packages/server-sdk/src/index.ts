@@ -116,6 +116,7 @@ export {
   createInternalErrorEvent,
   createApiErrorEvent,
   isTransientTransportError,
+  EXECUTION_NOT_RESUMABLE_CODE,
   // Utilities
   generateId,
   isAbortError,

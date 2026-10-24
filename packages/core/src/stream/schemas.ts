@@ -21,6 +21,7 @@ export const finishReasonSchema = z.enum([
   'stop',
   'tool-calls',
   'client-tool-calls',
+  'continue',
   'length',
   'content-filter',
   'error',

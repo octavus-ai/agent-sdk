@@ -19,10 +19,12 @@ export type ApiKeyProvider = string | (() => string | Promise<string>);
  *
  * Sent on every request as `X-Octavus-Sdk-Version` so the platform serves a
  * shape we understand. Decoupled from this SDK's semver major: bump it only
- * when a change to `UIMessage` / `ChatMessage` is not safely parsable by an
- * older SDK (e.g. a new `MessagePart` variant), not on every SDK major.
+ * when a change to the stream or to `UIMessage` / `ChatMessage` is not safely
+ * handled by an older SDK (a new `MessagePart` variant, a new finish reason the
+ * SDK must act on), not on every SDK major. Version 5 understands an
+ * execution leg that ends with `finish: continue` and resumes it.
  */
-const SDK_WIRE_VERSION = '4';
+const SDK_WIRE_VERSION = '5';
 
 export interface OctavusClientConfig {
   baseUrl: string;
@@ -47,6 +49,11 @@ export interface OctavusClientConfig {
    * Set to 0 to disable. Default: 60000.
    */
   streamIdleTimeoutMs?: number;
+  /**
+   * Extra headers sent on every request. The SDK's own headers
+   * (`Authorization`, `Content-Type`, `X-Octavus-*`) take precedence.
+   */
+  headers?: Record<string, string>;
 }
 
 /** Client for interacting with the Octavus platform API */
@@ -62,11 +69,13 @@ export class OctavusClient {
   readonly baseUrl: string;
   private readonly apiKey?: ApiKeyProvider;
   private readonly traceModelRequests: boolean;
+  private readonly extraHeaders: Record<string, string>;
 
   constructor(config: OctavusClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.apiKey = config.apiKey;
     this.traceModelRequests = config.traceModelRequests ?? false;
+    this.extraHeaders = { ...config.headers };
 
     const apiConfig: ApiClientConfig = {
       baseUrl: this.baseUrl,
@@ -95,6 +104,7 @@ export class OctavusClient {
 
   async getHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
+      ...this.extraHeaders,
       'Content-Type': 'application/json',
       'X-Octavus-Sdk-Version': SDK_WIRE_VERSION,
     };
