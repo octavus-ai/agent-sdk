@@ -35,6 +35,15 @@ export interface TriggerRequest {
    * turn metadata, not as a protocol input variable.
    */
   sender?: UIMessageSender;
+  /**
+   * The id the runtime gives the user message this turn's handler adds (the
+   * first visible main-thread user message), so a message you render
+   * optimistically keeps one identity from send to `getMessages()`. Applied
+   * when no message in the session has it yet; otherwise the runtime mints an
+   * id as usual, so a re-issued turn whose earlier attempt already persisted
+   * the message never overwrites it. Turn metadata, not a protocol input.
+   */
+  userMessageId?: string;
 }
 
 /** Continue execution after client-side tool handling */
@@ -284,6 +293,7 @@ export class AgentSession {
           input: request.input,
           rollbackAfterMessageId: request.rollbackAfterMessageId,
           sender: request.sender,
+          userMessageId: request.userMessageId,
         },
         options?.signal,
       );
@@ -391,6 +401,7 @@ export class AgentSession {
       toolResults?: ToolResult[];
       rollbackAfterMessageId?: string | null;
       sender?: UIMessageSender;
+      userMessageId?: string;
     },
     signal?: AbortSignal,
   ): AsyncGenerator<StreamEvent> {
@@ -434,6 +445,7 @@ export class AgentSession {
       input?: Record<string, unknown>;
       rollbackAfterMessageId?: string | null;
       sender?: UIMessageSender;
+      userMessageId?: string;
     },
     executionId?: string,
     toolResults?: ToolResult[],
@@ -445,6 +457,7 @@ export class AgentSession {
       if (payload.triggerName !== undefined) trigger.triggerName = payload.triggerName;
       if (payload.input !== undefined) trigger.input = payload.input;
       if (payload.sender !== undefined) trigger.sender = payload.sender;
+      if (payload.userMessageId !== undefined) trigger.userMessageId = payload.userMessageId;
       if (dynamicToolSchemas !== undefined) trigger.dynamicToolSchemas = dynamicToolSchemas;
 
       const body: Record<string, unknown> = { agentId: this.deferredStart.agentId, trigger };
@@ -459,6 +472,7 @@ export class AgentSession {
     if (payload.rollbackAfterMessageId !== undefined)
       body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
     if (payload.sender !== undefined) body.sender = payload.sender;
+    if (payload.userMessageId !== undefined) body.userMessageId = payload.userMessageId;
     if (executionId !== undefined) body.executionId = executionId;
     if (toolResults !== undefined) body.toolResults = toolResults;
     if (dynamicToolSchemas !== undefined) body.dynamicToolSchemas = dynamicToolSchemas;
