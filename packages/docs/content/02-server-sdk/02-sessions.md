@@ -255,6 +255,7 @@ interface TriggerRequest {
   input?: Record<string, unknown>;
   rollbackAfterMessageId?: string | null; // For retry: truncate messages after this ID
   sender?: UIMessageSender; // Author of this turn, for multi-user attribution
+  userMessageId?: string; // The id the runtime gives this turn's user message
 }
 
 // Continue after client-side tool handling
@@ -317,6 +318,27 @@ export async function POST(request: Request) {
 ```
 
 The runtime stamps the sender onto the user message it creates, so it comes back on `UIMessage.sender` from `getMessages()` and survives restore. `sender` is turn metadata - it is never added to your protocol's trigger `input`, and agent-initiated turns (no `sender`) stay unattributed. For instant optimistic display in the browser, also pass it on the client `send()` (see [Client SDK Messages](/docs/client-sdk/messages)).
+
+### Keying the User Message
+
+If you render the user's message before the turn runs (an optimistic bubble, a message stored in your own database), set `userMessageId` on the trigger and the runtime persists the turn's user message under that id. The message you rendered and the message `getMessages()` returns are then one message, with one id - no reconciliation by position or timestamp when the conversation is restored:
+
+```typescript
+const userMessageId = crypto.randomUUID(); // minted where the message is first shown
+
+const events = session.execute(
+  {
+    type: 'trigger',
+    triggerName: 'user-message',
+    input: { USER_MESSAGE: text },
+    sender: { id: user.id, name: user.name },
+    userMessageId,
+  },
+  { signal: request.signal },
+);
+```
+
+The id goes to the first visible user message the handler adds to the main thread. It is applied only when no message in the session has it yet; otherwise the runtime mints an id as usual, so re-issuing a turn whose earlier attempt already persisted the message never overwrites history (a retry that rolls back with `rollbackAfterMessageId` frees the id and reuses it). Like `sender`, `userMessageId` is turn metadata, not a protocol input.
 
 ### Stop Support
 
