@@ -574,17 +574,17 @@ Set `videoModel` to enable the agentic `octavus_generate_video` tool, exactly li
 agent:
   model: anthropic/claude-sonnet-5
   system: system
-  videoModel: google/veo-3.1-fast-generate-preview
+  videoModel: google/gemini-omni-1.1-flash
   agentic: true
 ```
 
-The tool generates a short clip (a few seconds) from a text prompt, and optionally from a starting image (image-to-video). It supports `aspectRatio` (landscape `16:9` or portrait `9:16`), an optional `durationSeconds`, and an optional native-audio track. The clip is stored in Octavus storage and delivered into the conversation as a playable file, exactly like a generated image.
+The tool generates a short clip (3 to 10 seconds, 720p) from a text prompt, and optionally from reference images: the first image is the starting frame (image-to-video), any further image is a subject or style reference. It supports `aspectRatio` (landscape `16:9` or portrait `9:16`) and an optional `durationSeconds`. Every clip comes with a soundtrack the model composes from the prompt, so describe the sound you want (dialogue, music, ambience); pass `generateAudio: false` for a silent clip. The clip is stored in Octavus storage and delivered into the conversation as a playable file, exactly like a generated image.
 
-Video generation is Google-only today (Veo). Generation runs a slow provider job (tens of seconds to a couple of minutes) inside the turn, so the tool call stays pending until the clip is ready. Cancelling the run abandons it without delivering a partial clip.
+Video generation is Google-only today (Gemini Omni Flash). Generation runs a slow provider job (tens of seconds to a couple of minutes) inside the turn, so the tool call stays pending until the clip is ready. Cancelling the run abandons it without delivering a partial clip. Usage is token-metered: the clip is video output tokens (a fixed count per second of video), billed at the model's rate from the [model catalog](https://octavus.ai/pricing/models).
 
-| Provider | Models                                                                                                                                                                                        |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Google   | `veo-3.1-generate`, `veo-3.1-generate-preview`, `veo-3.1-fast-generate-preview`, `veo-3.1-lite-generate-preview`, `veo-3.0-generate-001`, `veo-3.0-fast-generate-001`, `veo-2.0-generate-001` |
+| Provider | Models                  |
+| -------- | ----------------------- |
+| Google   | `gemini-omni-1.1-flash` |
 
 Use the `generate-video` block (see [Handlers](/docs/protocol/handlers)) for deterministic, pipeline-style generation, the same way `generate-image` mirrors `imageModel`.
 
