@@ -229,6 +229,48 @@ On OpenAI image models, `quality: low` with `outputFormat: jpeg` is the fastest 
 
 For agentic image generation where the LLM decides when to generate, configure `imageModel` in the [agent config](/docs/protocol/agent-config#image-generation).
 
+### generate-video
+
+Generate a short video clip from a prompt variable:
+
+```yaml
+Generate clip:
+  block: generate-video
+  prompt: CLIP_PROMPT # Variable containing the prompt
+  videoModel: google/gemini-omni-1.1-flash # Required video model
+  aspectRatio: 16:9 # 16:9 (default) or 9:16
+  durationSeconds: 6 # Clip length in seconds (3-10)
+  output: CLIP_URL # Store the clip URL in a variable
+  description: Generating your clip... # Shown in UI
+```
+
+Animate a starting frame (image-to-video):
+
+```yaml
+Animate photo:
+  block: generate-video
+  prompt: MOTION_PROMPT # e.g., "The camera slowly pushes in as the leaves move"
+  referenceImages: [PHOTO_URL] # First image is the starting frame
+  videoModel: google/gemini-omni-1.1-flash
+  output: ANIMATED_CLIP
+```
+
+| Field             | Required | Description                                                                                                              |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `prompt`          | Yes      | Variable name containing the clip prompt: scene, subject, motion, camera, mood, and the sound you want                   |
+| `videoModel`      | Yes      | Video model identifier (e.g., `google/gemini-omni-1.1-flash`)                                                            |
+| `aspectRatio`     | No       | `16:9` (default) or `9:16`; clamped to the model's supported set                                                         |
+| `durationSeconds` | No       | Clip length in seconds; clamped to the model's window (3-10 s). When omitted the model's longest clip is generated       |
+| `generateAudio`   | No       | Whether the clip has an audio track. Unset lets the model compose one from the prompt; `false` asks for a silent clip    |
+| `referenceImages` | No       | Variable names containing image URLs: the first is the starting frame, any further image is a subject or style reference |
+| `output`          | No       | Variable name to store the generated clip URL                                                                            |
+| `thread`          | No       | Thread to associate the output file with                                                                                 |
+| `description`     | No       | Description shown in the UI during generation                                                                            |
+
+Generation runs a slow provider job inside the step (tens of seconds to a couple of minutes), and usage is token-metered per second of clip - see [Generating video](/docs/protocol/agent-config#generating-video) for the model table and pricing.
+
+For agentic video generation where the LLM decides when to generate, configure `videoModel` in the [agent config](/docs/protocol/agent-config#generating-video).
+
 ### generate-speech
 
 Generate spoken audio from a text variable:
