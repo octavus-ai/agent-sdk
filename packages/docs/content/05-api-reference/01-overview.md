@@ -98,7 +98,13 @@ All responses are JSON. Success responses return the data directly (not wrapped 
 | 401  | Unauthorized - Missing or invalid API key |
 | 403  | Forbidden - Insufficient permissions      |
 | 404  | Not Found                                 |
+| 429  | Too Many Requests - Honor `Retry-After`   |
 | 500  | Internal Server Error                     |
+| 503  | Service Unavailable - Honor `Retry-After` |
+
+## Service Status
+
+Current status, active incidents, planned maintenance, and incident history are on the [Octavus status page](https://www.octavus-status.com), where you can also subscribe to updates. It is hosted separately from the API, so it stays reachable during an outage.
 
 ## Endpoints Overview
 
