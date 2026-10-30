@@ -207,6 +207,7 @@ export type {
   MessageLogEntry,
   ToolCallLogEntry,
   ToolResultLogEntry,
+  ScriptToolCallLogEntry,
   LlmToolRequestLogEntry,
   LlmResponseLogEntry,
   ReasoningLogEntry,
