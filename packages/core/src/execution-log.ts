@@ -321,7 +321,7 @@ export interface ToolResultLogEntry extends ExecutionLogEntryBase {
  * A tool call made on the agent's behalf by code rather than by the model - a
  * script holding a script access token invoked one of the agent's MCP tools
  * directly. The result never enters the model's context, so the entry records
- * the call's shape and outcome (and the arguments, redacted and size-capped),
+ * the call's shape and outcome (and the arguments, size-capped),
  * not the result itself.
  */
 export interface ScriptToolCallLogEntry extends ExecutionLogEntryBase {
