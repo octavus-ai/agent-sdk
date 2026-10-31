@@ -234,6 +234,7 @@ export type ExecutionLogEntryType =
   | 'message'
   | 'tool-call'
   | 'tool-result'
+  | 'script-tool-call'
   | 'llm-tool-request'
   | 'llm-response'
   | 'reasoning'
@@ -314,6 +315,27 @@ export interface ToolResultLogEntry extends ExecutionLogEntryBase {
   toolResult?: unknown;
   /** See {@link ToolCallLogEntry.delegatedSessionId}. */
   delegatedSessionId?: string;
+}
+
+/**
+ * A tool call made on the agent's behalf by code rather than by the model - a
+ * script holding a script access token invoked one of the agent's MCP tools
+ * directly. The result never enters the model's context, so the entry records
+ * the call's shape and outcome (and the arguments, size-capped),
+ * not the result itself.
+ */
+export interface ScriptToolCallLogEntry extends ExecutionLogEntryBase {
+  type: 'script-tool-call';
+  toolName: string;
+  toolArguments?: Record<string, unknown>;
+  /** The script access token the call was authorized with. */
+  tokenId: string;
+  outcome: 'ok' | 'error';
+  durationMs: number;
+  /** Serialized size of the result handed to the script, when the call succeeded. */
+  resultBytes?: number;
+  /** The error message returned to the script, when the call failed. */
+  error?: string;
 }
 
 export interface LlmToolRequestLogEntry extends ExecutionLogEntryBase {
@@ -495,6 +517,7 @@ export type ExecutionLogEntry =
   | MessageLogEntry
   | ToolCallLogEntry
   | ToolResultLogEntry
+  | ScriptToolCallLogEntry
   | LlmToolRequestLogEntry
   | LlmResponseLogEntry
   | ReasoningLogEntry
