@@ -560,11 +560,11 @@ export const usageEventSchema = z.looseObject({
 // =============================================================================
 
 /**
- * Every stream event this version of the contract knows. The parser
- * (`safeParseStreamEvent`) dispatches on `type`, so an event of an unknown type
- * is kept as an `UnknownStreamEvent` instead of failing this union.
+ * Every stream event this version of the contract knows, listed once: the
+ * union below types the wire, and the parser's dispatch table is read from the
+ * same list, so an event added here is known to both.
  */
-export const streamEventSchema = z.discriminatedUnion('type', [
+const knownStreamEventSchemas = [
   // Lifecycle events
   startEventSchema,
   finishEventSchema,
@@ -605,44 +605,39 @@ export const streamEventSchema = z.discriminatedUnion('type', [
   workerInputReadyEventSchema,
   // Usage events
   usageEventSchema,
-]);
+] as const;
+
+/**
+ * Every stream event this version of the contract knows. The parser
+ * (`safeParseStreamEvent`) dispatches on `type`, so an event of an unknown type
+ * is kept as an `UnknownStreamEvent` instead of failing this union.
+ */
+export const streamEventSchema = z.discriminatedUnion('type', knownStreamEventSchemas);
 
 /** An event whose `type` this version of the contract does not know. */
 export const unknownStreamEventSchema = z.looseObject({ type: z.string() });
 
-const streamEventSchemaByType: Record<string, z.ZodType> = {
-  start: startEventSchema,
-  finish: finishEventSchema,
-  error: errorEventSchema,
-  'text-start': textStartEventSchema,
-  'text-delta': textDeltaEventSchema,
-  'text-end': textEndEventSchema,
-  'reasoning-start': reasoningStartEventSchema,
-  'reasoning-delta': reasoningDeltaEventSchema,
-  'reasoning-end': reasoningEndEventSchema,
-  'tool-input-start': toolInputStartEventSchema,
-  'tool-input-delta': toolInputDeltaEventSchema,
-  'tool-input-end': toolInputEndEventSchema,
-  'tool-input-available': toolInputAvailableEventSchema,
-  'tool-output-available': toolOutputAvailableEventSchema,
-  'tool-output-error': toolOutputErrorEventSchema,
-  source: sourceEventSchema,
-  'todo-update': todoUpdateEventSchema,
-  'block-start': blockStartEventSchema,
-  'block-end': blockEndEventSchema,
-  'step-start': stepStartEventSchema,
-  'step-discard': stepDiscardEventSchema,
-  persisted: persistedEventSchema,
-  'tool-request': toolRequestEventSchema,
-  'client-tool-request': clientToolRequestEventSchema,
-  'file-available': fileAvailableEventSchema,
-  'worker-start': workerStartEventSchema,
-  'worker-result': workerResultEventSchema,
-  'worker-input-start': workerInputStartEventSchema,
-  'worker-input-delta': workerInputDeltaEventSchema,
-  'worker-input-ready': workerInputReadyEventSchema,
-  usage: usageEventSchema,
-};
+/**
+ * The `type` values a known event schema answers to: its `type` literal, or
+ * those of its members when it is itself a union (`source`).
+ */
+function eventTypesOf(schema: z.ZodType): string[] {
+  if (schema instanceof z.ZodDiscriminatedUnion) {
+    return (schema.options as z.ZodType[]).flatMap(eventTypesOf);
+  }
+  if (schema instanceof z.ZodObject && schema.shape.type instanceof z.ZodLiteral) {
+    return [...schema.shape.type.values].filter(
+      (value): value is string => typeof value === 'string',
+    );
+  }
+  throw new Error('A stream event schema declares a literal `type`');
+}
+
+const streamEventSchemaByType: ReadonlyMap<string, z.ZodType> = new Map(
+  knownStreamEventSchemas.flatMap((schema) =>
+    eventTypesOf(schema).map((type): [string, z.ZodType] => [type, schema]),
+  ),
+);
 
 /** An event whose `type` this version of the contract does not know. */
 export type UnknownStreamEvent = Wire<z.infer<typeof unknownStreamEventSchema>>;
@@ -665,7 +660,7 @@ export function safeParseStreamEvent(data: unknown): StreamEventParseResult {
   if (!envelope.success) {
     return { kind: 'invalid', error: envelope.error };
   }
-  const schema = streamEventSchemaByType[envelope.data.type];
+  const schema = streamEventSchemaByType.get(envelope.data.type);
   if (!schema) {
     return { kind: 'unknown', event: envelope.data };
   }

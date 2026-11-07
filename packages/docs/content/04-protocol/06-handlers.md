@@ -315,7 +315,7 @@ For agentic transcription where the LLM decides when to transcribe, configure `t
 
 ## Display Modes
 
-Every block has a `display` property with one of three modes. The label a visible block shows is its `title`; without one, the client derives a label from the block's name. A block's `description` is never shown.
+Every block has a `display` property with one of three modes. The label a visible block shows is its `title`; a `tool-call` or `run-worker` block without one shows the title of the tool or worker it runs, and without that the client derives a label from the tool's name, the worker's slug, or the block's name. A block's `description` is never shown.
 
 | Mode     | Default For                                                                  | Behavior                                                                        |
 | -------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
