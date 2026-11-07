@@ -145,6 +145,7 @@ function shrinkResult(
   } else {
     target.error = combined;
   }
+  target.truncated = true;
   return {
     toolCallId: target.toolCallId,
     toolName: toolNameFor?.(target.toolCallId),

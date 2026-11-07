@@ -31,7 +31,7 @@ Removing a field, renaming one, changing a field's type or meaning, changing an 
 
 - Every object schema keeps the fields it does not know (`safeParseStreamEvent`, `safeParseUIMessage`, `safeParseUIMessages`).
 - An event of an unknown `type` parses as `{ kind: 'unknown', event }`; only a malformed known event or a non-event is `{ kind: 'invalid' }`. The client SDK ignores unknown events, the server SDK forwards them.
-- A part of an unknown `type` is kept in `parts`. The TypeScript unions name the known shapes, so switch on `type` with a `default` branch.
+- A part of an unknown `type` is kept in `parts`. The TypeScript unions (`StreamEvent`, `UIMessagePart`) name the known shapes only, so a value of a type added later reaches your code outside the union: switch on `type` with a `default` branch that ignores the value, and never make that switch exhaustive - an `assertNever` in `default` throws the first time the platform adds a type.
 - An enum value the package does not know reads as its fallback and is reported once per value (`setUnknownWireValueReporter` routes the report into your telemetry, or silences it).
 - `UIMessage.createdAt` is an ISO 8601 string on the wire and in the types; nothing is coerced.
 

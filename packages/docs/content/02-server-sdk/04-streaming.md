@@ -291,7 +291,7 @@ session.execute({
 });
 ```
 
-A result for a call the execution did not request is refused with `400 UNKNOWN_TOOL_CALL`; a second result for the same call is ignored (the first one stands). A `continue` that leaves some calls open does not run the agent: it is answered with another `tool-request` for the remaining calls.
+A result for a call the execution did not request is refused with `400 UNKNOWN_TOOL_CALL`; a second result for the same call is ignored (the first one stands), and so is a result re-sent for a call the execution already applied. A `continue` that leaves some calls open does not run the agent: it is answered with another `tool-request` for the remaining calls.
 
 See [Client Tools](/docs/client-sdk/client-tools) for full client-side implementation.
 

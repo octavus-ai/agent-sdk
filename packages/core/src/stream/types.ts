@@ -411,23 +411,6 @@ export type ClientToolRequestEvent = Wire<z.infer<typeof clientToolRequestEventS
 export type ToolResult = Wire<z.infer<typeof toolResultSchema>>;
 
 /**
- * A file generated during execution.
- * Used for skill outputs, image generation, code execution artifacts, etc.
- */
-export interface GeneratedFile {
-  /** Unique file ID */
-  id: string;
-  /** MIME type (e.g., 'image/png', 'application/pdf') */
-  mediaType: string;
-  /** URL for download/display */
-  url: string;
-  /** Original filename (for display/download) */
-  filename?: string;
-  /** Size in bytes */
-  size?: number;
-}
-
-/**
  * File generated and available for download/display.
  * Emitted when a tool or skill produces a file output, in every display mode.
  */
@@ -488,7 +471,8 @@ export type UsageEvent = Wire<z.infer<typeof usageEventSchema>>;
 /**
  * Every stream event this version of the contract knows. A stream can carry
  * events of types added later, which the parser keeps as `UnknownStreamEvent`
- * and the server SDK forwards: switch on `type` with a `default` branch.
+ * and the server SDK forwards: switch on `type` with a `default` branch that
+ * ignores the value, never an exhaustiveness check.
  */
 export type StreamEvent = Wire<z.infer<typeof streamEventSchema>>;
 
@@ -560,7 +544,10 @@ export type UIWorkerPart = Omit<Wire<z.infer<typeof uiWorkerPartObjectSchema>>, 
 };
 
 /**
- * Union of all UI message part types this version of the contract knows.
+ * Union of all UI message part types this version of the contract knows. A
+ * message can carry parts of types added later (see `UIUnknownPart`): switch
+ * on `type` with a `default` branch that ignores the value, never an
+ * exhaustiveness check.
  */
 export type UIMessagePart =
   | UITextPart

@@ -10,8 +10,6 @@ export type { ApiResponseErrorOptions } from './octavus-error';
 
 export {
   OctavusError,
-  errorTypeForStatus,
-  isRetryableStatus,
   isRateLimitError,
   isQuotaExceededError,
   isAuthenticationError,

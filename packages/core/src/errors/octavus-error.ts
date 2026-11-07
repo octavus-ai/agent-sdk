@@ -41,7 +41,7 @@ const apiErrorBodySchema = z.looseObject({
  * application's own passthrough), where a 503 or 504 is the upstream being
  * overloaded or slow rather than a platform fault.
  */
-export function errorTypeForStatus(status: number): ErrorType {
+function errorTypeForStatus(status: number): ErrorType {
   switch (status) {
     case 400:
     case 422:
@@ -75,7 +75,7 @@ export function errorTypeForStatus(status: number): ErrorType {
  * route answered, which a retry usually clears; the platform's own answers
  * carry their `retryable` in the body.
  */
-export function isRetryableStatus(status: number): boolean {
+function retryableForStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
@@ -240,7 +240,7 @@ export class OctavusError extends Error {
         errorType: errorTypeForStatus(status),
         message: typeof body === 'string' && body.trim() ? body : fallbackMessage,
         source: 'platform',
-        retryable: isRetryableStatus(status),
+        retryable: retryableForStatus(status),
         status,
         requestId: headerRequestId,
       });
@@ -251,7 +251,7 @@ export class OctavusError extends Error {
       errorType: type ?? errorTypeForStatus(status),
       message: error ?? message ?? fallbackMessage,
       source: 'platform',
-      retryable: retryable ?? isRetryableStatus(status),
+      retryable: retryable ?? retryableForStatus(status),
       retryAfter,
       code,
       status,

@@ -69,7 +69,7 @@ export {
   type WorkforceAgentUnavailableReason,
   type WorkforceComputerState,
 } from '@/workforce.js';
-export { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
+export { WorkerError, type WorkerErrorOptions } from '@/worker-error.js';
 export { createInlineMcpServer, defineInlineMcpTool } from '@/inline-mcp.js';
 export { normalizeToolResultMedia } from '@/normalize-media.js';
 export { normalizeToolResultOutputFiles } from '@/normalize-output-files.js';
@@ -145,7 +145,6 @@ export type {
   ToolRequestEvent,
   ClientToolRequestEvent,
   ToolResult,
-  GeneratedFile,
   FileAvailableEvent,
   TodoItemStatus,
   TodoItem,
@@ -234,8 +233,6 @@ export type {
 export {
   // Errors
   OctavusError,
-  errorTypeForStatus,
-  isRetryableStatus,
   isRateLimitError,
   isQuotaExceededError,
   isAuthenticationError,

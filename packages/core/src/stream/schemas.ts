@@ -34,16 +34,8 @@ export interface UnknownWireValue {
 
 export type UnknownWireValueReporter = (unknown: UnknownWireValue) => void;
 
-const reportedWireValues = new Set<string>();
-
-/**
- * The default reporter: warns once per field and value, so a typo in an emitter
- * or a value from a newer server surfaces in the console without flooding it.
- */
+/** The default reporter: the console, so a typo in an emitter or a value from a newer server is visible. */
 const defaultUnknownWireValueReporter: UnknownWireValueReporter = (unknown) => {
-  const key = `${unknown.field}:${String(unknown.value)}`;
-  if (reportedWireValues.has(key)) return;
-  reportedWireValues.add(key);
   // eslint-disable-next-line no-console -- the one place an unknown wire value is made visible
   console.warn(
     `[octavus] Unknown ${unknown.field} value ${JSON.stringify(unknown.value)}; reading it as ${JSON.stringify(unknown.fallback)}.`,
@@ -51,13 +43,25 @@ const defaultUnknownWireValueReporter: UnknownWireValueReporter = (unknown) => {
 };
 
 let unknownWireValueReporter: UnknownWireValueReporter | null = defaultUnknownWireValueReporter;
+const reportedWireValues = new Set<string>();
 
 /**
  * Replace how unknown enum values are reported (pass `null` to silence them).
- * Call it once at startup to route them into your own telemetry.
+ * Each field and value is reported once per reporter, so the report never
+ * floods its output. Call it once at startup to route the reports into your
+ * own telemetry.
  */
 export function setUnknownWireValueReporter(reporter: UnknownWireValueReporter | null): void {
   unknownWireValueReporter = reporter;
+  reportedWireValues.clear();
+}
+
+function reportUnknownWireValue(unknown: UnknownWireValue): void {
+  if (!unknownWireValueReporter) return;
+  const key = `${unknown.field}:${String(unknown.value)}`;
+  if (reportedWireValues.has(key)) return;
+  reportedWireValues.add(key);
+  unknownWireValueReporter(unknown);
 }
 
 /**
@@ -74,7 +78,7 @@ function tolerantEnum<const T extends readonly [string, ...string[]]>(
   const known: ReadonlySet<string> = new Set(values);
   return z.string().transform((value): T[number] => {
     if (known.has(value)) return value as T[number];
-    unknownWireValueReporter?.({ field, value, fallback });
+    reportUnknownWireValue({ field, value, fallback });
     return fallback;
   });
 }
@@ -102,14 +106,21 @@ export type Wire<T> = T extends readonly (infer U)[]
 // =============================================================================
 
 /**
- * What a client sees of an entity's execution:
+ * The display modes: what a client sees of an entity's execution.
  * - `hidden` - nothing; the client never knows it ran.
  * - `title` - the label (the authored `title`, else a label derived from the
  *   entity's identity) and errors only. Arguments, results, worker input and
  *   output, and nested activity stay out of the client's reach.
  * - `stream` - everything, live.
  */
-export const displayModeSchema = tolerantEnum('display', ['hidden', 'title', 'stream'], 'title');
+export const DISPLAY_MODES = ['hidden', 'title', 'stream'] as const;
+
+/**
+ * Reads a display mode from the wire; a value this version does not know
+ * reads as `title`. Validate authored input against `DISPLAY_MODES` instead,
+ * where an unknown value should be refused rather than read as a fallback.
+ */
+export const displayModeSchema = tolerantEnum('display', DISPLAY_MODES, 'title');
 
 export const finishReasonSchema = tolerantEnum(
   'finishReason',
@@ -465,6 +476,12 @@ export const toolResultSchema = z.looseObject({
   error: z.string().optional(),
   /** Files produced by the tool (e.g., screenshots, generated images). */
   files: z.array(fileReferenceSchema).optional(),
+  /**
+   * True when the executor reduced the result to a preview because it was too
+   * large to send. The platform refuses a reduced result for a call whose
+   * result a `tool-call` block captures into a variable.
+   */
+  truncated: z.boolean().optional(),
 });
 
 export const toolRequestEventSchema = z.looseObject({
@@ -618,24 +635,26 @@ export const streamEventSchema = z.discriminatedUnion('type', knownStreamEventSc
 export const unknownStreamEventSchema = z.looseObject({ type: z.string() });
 
 /**
- * The `type` values a known event schema answers to: its `type` literal, or
- * those of its members when it is itself a union (`source`).
+ * The `type` values an event or part schema answers to: its `type` literal,
+ * or those of its members when it is itself a union (`source`).
  */
-function eventTypesOf(schema: z.ZodType): string[] {
+function literalTypesOf(schema: z.ZodType): string[] {
   if (schema instanceof z.ZodDiscriminatedUnion) {
-    return (schema.options as z.ZodType[]).flatMap(eventTypesOf);
+    return (schema.options as z.ZodType[]).flatMap(literalTypesOf);
   }
-  if (schema instanceof z.ZodObject && schema.shape.type instanceof z.ZodLiteral) {
-    return [...schema.shape.type.values].filter(
-      (value): value is string => typeof value === 'string',
-    );
+  if (schema instanceof z.ZodObject) {
+    const type: unknown = schema.shape.type;
+    if (type instanceof z.ZodLiteral) return literalTypesOf(type);
   }
-  throw new Error('A stream event schema declares a literal `type`');
+  if (schema instanceof z.ZodLiteral) {
+    return [...schema.values].filter((value): value is string => typeof value === 'string');
+  }
+  throw new Error('A stream event or part schema declares a literal `type`');
 }
 
 const streamEventSchemaByType: ReadonlyMap<string, z.ZodType> = new Map(
   knownStreamEventSchemas.flatMap((schema) =>
-    eventTypesOf(schema).map((type): [string, z.ZodType] => [type, schema]),
+    literalTypesOf(schema).map((type): [string, z.ZodType] => [type, schema]),
   ),
 );
 
@@ -816,17 +835,28 @@ export const uiStepStartPartSchema = z.looseObject({
   type: z.literal('step-start'),
 });
 
-const KNOWN_UI_PART_TYPES = new Set([
-  'text',
-  'reasoning',
-  'tool-call',
-  'operation',
-  'source',
-  'file',
-  'object',
-  'worker',
-  'todo',
-  'step-start',
+/** The parts a worker card may nest: every part but another worker. */
+const nestedUiPartSchemas = [
+  uiTextPartSchema,
+  uiReasoningPartSchema,
+  uiToolCallPartSchema,
+  uiOperationPartSchema,
+  uiSourcePartSchema,
+  uiFilePartSchema,
+  uiObjectPartSchema,
+  uiTodoPartSchema,
+  uiStepStartPartSchema,
+] as const;
+
+const uiWorkerPartTypeSchema = z.literal('worker');
+
+/**
+ * Every part `type` this version of the contract knows, read from the schemas
+ * that define them, so a part added to the unions below is known here too.
+ */
+const knownUiPartTypes: ReadonlySet<string> = new Set([
+  ...nestedUiPartSchemas.flatMap(literalTypesOf),
+  ...literalTypesOf(uiWorkerPartTypeSchema),
 ]);
 
 /**
@@ -836,30 +866,19 @@ const KNOWN_UI_PART_TYPES = new Set([
  * unknown part: it fails the message.
  */
 export const uiUnknownPartSchema = z.looseObject({
-  type: z.string().refine((type) => !KNOWN_UI_PART_TYPES.has(type)),
+  type: z.string().refine((type) => !knownUiPartTypes.has(type)),
 });
 
-// Base parts schema (without worker, for non-recursive use). A discriminated
-// union validates only the member the `type` names, so an unknown enum value
-// is reported once, by the schema that owns it.
-const baseUiMessagePartSchema = z.union([
-  z.discriminatedUnion('type', [
-    uiTextPartSchema,
-    uiReasoningPartSchema,
-    uiToolCallPartSchema,
-    uiOperationPartSchema,
-    uiSourcePartSchema,
-    uiFilePartSchema,
-    uiObjectPartSchema,
-    uiTodoPartSchema,
-    uiStepStartPartSchema,
-  ]),
+// The parts nested in a worker card. A discriminated union validates only the
+// member the `type` names, so an unknown enum value is reported once, by the
+// schema that owns it.
+const nestedUiMessagePartSchema = z.union([
+  z.discriminatedUnion('type', nestedUiPartSchemas),
   uiUnknownPartSchema,
 ]);
 
-// Worker part schema with nested parts (uses base schema to avoid infinite recursion)
 export const uiWorkerPartObjectSchema = z.looseObject({
-  type: z.literal('worker'),
+  type: uiWorkerPartTypeSchema,
   workerId: z.string(),
   workerSlug: z.string(),
   /** The worker's authored title, when it has one. See `getPartLabel`. */
@@ -867,8 +886,7 @@ export const uiWorkerPartObjectSchema = z.looseObject({
   display: displayModeSchema.optional(),
   /** Worker input values; present only when the display mode is `stream`. */
   input: z.record(z.string(), z.unknown()).optional(),
-  // Worker parts can contain base parts (text, reasoning, tools, etc.) but not nested workers
-  parts: z.array(baseUiMessagePartSchema),
+  parts: z.array(nestedUiMessagePartSchema),
   /** Worker output value; present only when the display mode is `stream`. */
   output: z.unknown().optional(),
   error: z.string().optional(),
@@ -887,18 +905,7 @@ export const uiWorkerPartSchema = uiWorkerPartObjectSchema as unknown as z.ZodTy
  * contract does not know (see `uiUnknownPartSchema`).
  */
 const uiMessagePartUnionSchema = z.union([
-  z.discriminatedUnion('type', [
-    uiTextPartSchema,
-    uiReasoningPartSchema,
-    uiToolCallPartSchema,
-    uiOperationPartSchema,
-    uiSourcePartSchema,
-    uiFilePartSchema,
-    uiObjectPartSchema,
-    uiWorkerPartObjectSchema,
-    uiTodoPartSchema,
-    uiStepStartPartSchema,
-  ]),
+  z.discriminatedUnion('type', [...nestedUiPartSchemas, uiWorkerPartObjectSchema]),
   uiUnknownPartSchema,
 ]);
 

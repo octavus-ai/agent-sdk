@@ -388,7 +388,7 @@ When the agent calls external tools, you'll receive a `tool-request` event. Exec
 }
 ```
 
-A result for a call the execution did not request is refused with `400` and the code `UNKNOWN_TOOL_CALL`. A second result for a call that already has one is ignored. A continuation that answers only some of the open calls does not run the agent: it is answered with a `tool-request` for the calls still open, so several executors can each submit what they ran.
+A result for a call the execution did not request is refused with `400` and the code `UNKNOWN_TOOL_CALL`. A second result for a call that already has one is ignored, and so is a result re-sent for a call the execution already applied, so a continuation retried after a dropped connection is safe. A continuation that answers only some of the open calls does not run the agent: it is answered with a `tool-request` for the calls still open, so several executors can each submit what they ran.
 
 The Server SDK handles this continuation pattern automatically.
 

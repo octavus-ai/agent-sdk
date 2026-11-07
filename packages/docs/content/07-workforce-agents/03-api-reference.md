@@ -127,7 +127,7 @@ An agent runs one task at a time, so a new thread normally waits behind a run al
   "code": "AGENT_BUSY",
   "type": "conflict_error",
   "retryable": false,
-  "requestId": "iad1::abc123-1700000000000-0123456789ab",
+  "requestId": "req_8f2c41d07a9b4e6c",
   "currentThreadId": "cm5xyz123abc456def"
 }
 ```

@@ -10,8 +10,6 @@ export type {
 export type { ApiResponseErrorOptions } from './errors/octavus-error';
 export {
   OctavusError,
-  errorTypeForStatus,
-  isRetryableStatus,
   isRateLimitError,
   isQuotaExceededError,
   isAuthenticationError,
@@ -38,6 +36,7 @@ export {
   type UnknownWireValueReporter,
   type Wire,
   // Shared values
+  DISPLAY_MODES,
   displayModeSchema,
   finishReasonSchema,
   errorTypeSchema,
@@ -168,7 +167,6 @@ export type {
   ClientToolRequestEvent,
   ToolResult,
   // File Events (skill execution)
-  GeneratedFile,
   FileAvailableEvent,
   // Todo Events
   TodoItemStatus,

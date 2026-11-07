@@ -89,7 +89,7 @@ Every error, on every endpoint, is one flat body:
   "code": "NOT_FOUND",
   "type": "not_found_error",
   "retryable": false,
-  "requestId": "iad1::abc123-1700000000000-0123456789ab"
+  "requestId": "req_8f2c41d07a9b4e6c"
 }
 ```
 
@@ -99,7 +99,7 @@ Every error, on every endpoint, is one flat body:
 | `code`       | The stable machine-readable code (`NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_PROTOCOL`, `UNKNOWN_TOOL_CALL`, `AGENT_BUSY`, ...)              |
 | `type`       | The classification, the same vocabulary as a stream `error` event's `errorType` (`validation_error`, `not_found_error`, `rate_limit_error`) |
 | `retryable`  | Whether the same request can succeed if retried                                                                                             |
-| `requestId`  | The request's ID; quote it when contacting support                                                                                          |
+| `requestId`  | The request's ID, an opaque string; quote it when contacting support                                                                        |
 | `issues`     | Present on a validation failure (`400`) or an invalid agent definition (`422`): the structured issues                                       |
 | `retryAfter` | Present on a `429` or `503`: seconds to wait, also sent as the `Retry-After` header                                                         |
 
