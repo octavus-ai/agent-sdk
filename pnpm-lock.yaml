@@ -53,6 +53,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@octavus/server-sdk':
+        specifier: workspace:^
+        version: link:../server-sdk
       commander:
         specifier: ^13.1.0
         version: 13.1.0

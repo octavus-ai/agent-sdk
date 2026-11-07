@@ -2,6 +2,7 @@ export {
   OctavusChat,
   type OctavusChatOptions,
   type ChatStatus,
+  type ExecutionStart,
   type UserMessageInput,
   type ClientToolContext,
   type ClientToolHandler,

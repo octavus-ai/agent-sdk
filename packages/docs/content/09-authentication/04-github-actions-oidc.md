@@ -56,10 +56,10 @@ import { OctavusClient } from '@octavus/server-sdk';
 // GitHub exposes an endpoint to mint an OIDC token for a given audience.
 const token = await core.getIDToken(process.env.OCTAVUS_AUDIENCE);
 
-const client = new OctavusClient({ baseUrl: 'https://octavus.ai', apiKey: token });
+const client = new OctavusClient({ apiKey: token });
 
 // The first execute() creates the session and runs the trigger in one request.
-const session = client.agentSessions.start({ agentId: process.env.OCTAVUS_AGENT_ID });
+const session = client.sessions.start({ agentId: process.env.OCTAVUS_AGENT_ID });
 
 const events = session.execute({
   type: 'trigger',

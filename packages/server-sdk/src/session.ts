@@ -397,13 +397,18 @@ export class AgentSession {
       {
         config: this.config,
         getToolHandlers: () => this.toolHandlers,
-        // The first leg of a deferred start posts to the create-and-trigger
-        // endpoint; every later leg (and every attached session) uses the
-        // per-session endpoint. Resolved on each POST.
-        url: () =>
-          this.sessionId
-            ? `${this.config.baseUrl}/api/agent-sessions/${this.sessionId}/trigger`
-            : `${this.config.baseUrl}/api/agent-sessions/start`,
+        // Resolved on each POST: a continuation (a tool round, or the resume
+        // of a yielded leg) posts to the execution it continues; a trigger to
+        // the session; the first leg of a deferred start to the
+        // create-and-trigger endpoint, before a session exists.
+        url: ({ executionId }) => {
+          if (executionId && this.sessionId) {
+            return `${this.config.baseUrl}/api/v1/sessions/${this.sessionId}/executions/${executionId}/continue`;
+          }
+          return this.sessionId
+            ? `${this.config.baseUrl}/api/v1/sessions/${this.sessionId}/trigger`
+            : `${this.config.baseUrl}/api/v1/sessions/start`;
+        },
         buildBody: ({ executionId, toolResults }) =>
           this.buildRequestBody(payload, executionId, toolResults),
         onResponse: this.deferredStart
@@ -422,9 +427,10 @@ export class AgentSession {
   }
 
   /**
-   * Build the request body for a leg. For the first leg of a deferred start (no
-   * session id yet, not a continuation) this is the nested create-and-trigger
-   * body; otherwise it is the per-session trigger/continue body.
+   * Build the request body for a leg: the continuation body (the results, or
+   * none to resume a yielded leg) when the leg continues an execution; the
+   * nested create-and-trigger body for the first leg of a deferred start; the
+   * trigger body otherwise. The execution id travels in the URL.
    */
   private buildRequestBody(
     payload: {
@@ -439,7 +445,13 @@ export class AgentSession {
   ): Record<string, unknown> {
     const dynamicToolSchemas = this.collectDynamicSchemas();
 
-    if (this.deferredStart && this.sessionId === undefined && executionId === undefined) {
+    if (executionId !== undefined) {
+      const body: Record<string, unknown> = { toolResults: toolResults ?? [] };
+      if (dynamicToolSchemas !== undefined) body.dynamicToolSchemas = dynamicToolSchemas;
+      return body;
+    }
+
+    if (this.deferredStart && this.sessionId === undefined) {
       const trigger: Record<string, unknown> = {};
       if (payload.triggerName !== undefined) trigger.triggerName = payload.triggerName;
       if (payload.input !== undefined) trigger.input = payload.input;
@@ -460,8 +472,6 @@ export class AgentSession {
       body.rollbackAfterMessageId = payload.rollbackAfterMessageId;
     if (payload.sender !== undefined) body.sender = payload.sender;
     if (payload.userMessageId !== undefined) body.userMessageId = payload.userMessageId;
-    if (executionId !== undefined) body.executionId = executionId;
-    if (toolResults !== undefined) body.toolResults = toolResults;
     if (dynamicToolSchemas !== undefined) body.dynamicToolSchemas = dynamicToolSchemas;
     return body;
   }

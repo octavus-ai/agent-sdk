@@ -1,7 +1,8 @@
 import type { ApiClientConfig } from '@/base-api-client.js';
 import { AgentsApi } from '@/agents.js';
-import { AgentSessionsApi } from '@/agent-sessions.js';
+import { SessionsApi } from '@/sessions.js';
 import { FilesApi } from '@/files.js';
+import { SkillsApi } from '@/skills.js';
 import { WorkersApi } from '@/workers.js';
 import { WorkforceApi } from '@/workforce.js';
 import { TokensApi } from '@/tokens.js';
@@ -14,20 +15,12 @@ import { TokensApi } from '@/tokens.js';
  */
 export type ApiKeyProvider = string | (() => string | Promise<string>);
 
-/**
- * Wire-format major version this SDK can parse.
- *
- * Sent on every request as `X-Octavus-Sdk-Version` so the platform serves a
- * shape we understand. Decoupled from this SDK's semver major: bump it only
- * when a change to the stream or to `UIMessage` / `ChatMessage` is not safely
- * handled by an older SDK (a new `MessagePart` variant, a new finish reason the
- * SDK must act on), not on every SDK major. Version 5 understands an
- * execution leg that ends with `finish: continue` and resumes it.
- */
-const SDK_WIRE_VERSION = '5';
+/** The platform the client talks to when no `baseUrl` is given. */
+export const DEFAULT_BASE_URL = 'https://octavus.ai';
 
 export interface OctavusClientConfig {
-  baseUrl: string;
+  /** The platform's URL. Defaults to production (`https://octavus.ai`). */
+  baseUrl?: string;
   /**
    * The API credential: a long-lived key, a minted ephemeral token, or a
    * provider callback that returns the current token per request (e.g. a
@@ -59,9 +52,11 @@ export interface OctavusClientConfig {
 /** Client for interacting with the Octavus platform API */
 export class OctavusClient {
   readonly agents: AgentsApi;
-  readonly agentSessions: AgentSessionsApi;
+  readonly sessions: SessionsApi;
   readonly files: FilesApi;
   readonly workers: WorkersApi;
+  /** Skills API - upload skill bundles and set their secrets with an organization key. */
+  readonly skills: SkillsApi;
   /** Workforce Agents API - drive an OctoAgent with a per-agent key (oct_agt_*). */
   readonly workforce: WorkforceApi;
   /** Mint short-lived, scoped ephemeral tokens from a trusted key. */
@@ -71,8 +66,8 @@ export class OctavusClient {
   private readonly traceModelRequests: boolean;
   private readonly extraHeaders: Record<string, string>;
 
-  constructor(config: OctavusClientConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, '');
+  constructor(config: OctavusClientConfig = {}) {
+    this.baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
     this.apiKey = config.apiKey;
     this.traceModelRequests = config.traceModelRequests ?? false;
     this.extraHeaders = { ...config.headers };
@@ -85,9 +80,10 @@ export class OctavusClient {
     };
 
     this.agents = new AgentsApi(apiConfig);
-    this.agentSessions = new AgentSessionsApi(apiConfig);
+    this.sessions = new SessionsApi(apiConfig);
     this.files = new FilesApi(apiConfig);
     this.workers = new WorkersApi(apiConfig);
+    this.skills = new SkillsApi(apiConfig);
     this.workforce = new WorkforceApi(apiConfig);
     this.tokens = new TokensApi(apiConfig);
   }
@@ -106,7 +102,6 @@ export class OctavusClient {
     const headers: Record<string, string> = {
       ...this.extraHeaders,
       'Content-Type': 'application/json',
-      'X-Octavus-Sdk-Version': SDK_WIRE_VERSION,
     };
 
     const apiKey = typeof this.apiKey === 'function' ? await this.apiKey() : this.apiKey;

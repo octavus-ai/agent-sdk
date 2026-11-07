@@ -4,8 +4,9 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig, ConfigError } from '@/config.js';
-import { CliApi, ApiError } from '@/api.js';
+import { loadConfig } from '@/config.js';
+import { createClient, findAgentBySlug } from '@/client.js';
+import { exitCode, reportError } from '@/errors.js';
 import * as output from '@/output.js';
 
 interface ArchiveOptions {
@@ -23,62 +24,39 @@ export function registerArchiveCommand(program: Command): void {
       try {
         await runArchive(slug, options);
       } catch (err) {
-        handleError(err, options);
-        process.exit(err instanceof ConfigError ? 2 : 1);
+        reportError(err, options);
+        process.exit(exitCode(err));
       }
     });
 }
 
 async function runArchive(slug: string, options: ArchiveOptions): Promise<void> {
-  const config = loadConfig();
-  const api = new CliApi(config);
+  const client = createClient(loadConfig());
 
   if (!options.quiet && !options.json) {
     output.info(`Archiving ${output.bold(slug)}...`);
   }
 
-  const result = await api.archiveAgent(slug);
+  const agent = await findAgentBySlug(client, slug);
+  if (!agent) {
+    if (options.json) {
+      output.json({ error: `Agent not found: ${slug}`, code: 'NOT_FOUND' });
+    } else {
+      output.error(`Agent not found: ${slug}`);
+    }
+    process.exit(1);
+  }
+
+  const archived = await client.agents.archive(agent.id);
 
   if (options.json) {
     output.json({
       slug,
-      agentId: result.agentId,
+      agentId: archived.id,
       archived: true,
     });
   } else {
     output.success(`Archived: ${output.bold(slug)}`);
-    output.keyValue('Agent ID', result.agentId);
-  }
-}
-
-function getErrorCode(err: unknown): string {
-  if (err instanceof ConfigError) return 'CONFIG_ERROR';
-  if (err instanceof ApiError) return 'API_ERROR';
-  return 'UNKNOWN';
-}
-
-function handleError(err: unknown, options: ArchiveOptions): void {
-  if (options.json === true) {
-    output.json({
-      error: err instanceof Error ? err.message : 'Unknown error',
-      code: getErrorCode(err),
-    });
-    return;
-  }
-
-  if (err instanceof ConfigError) {
-    output.error(err.message);
-  } else if (err instanceof ApiError) {
-    output.error(`API error: ${err.message}`);
-    if (err.status !== 0) {
-      output.dim(`  Status: ${err.status}`);
-    }
-    if (err.requestId !== undefined) {
-      output.dim(`  Request ID: ${err.requestId}`);
-    }
-  } else if (err instanceof Error) {
-    output.error(err.message);
-  } else {
-    output.error('An unknown error occurred');
+    output.keyValue('Agent ID', archived.id);
   }
 }

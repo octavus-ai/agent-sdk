@@ -165,7 +165,7 @@ A namespace-level `title` (set on `mcpServers.<ns>` in the protocol) labels _eve
 Pass inline MCP servers via `mcpServers` on `attach()`. They merge with `tools` and survive across `setDynamicTools()` calls:
 
 ```typescript
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'get-user-account': async (args) => db.users.findById(args.userId as string),
   },
@@ -207,7 +207,7 @@ function buildGithubMcp(token: string) {
 
 export async function POST(request: Request) {
   const user = await authenticate(request);
-  const session = client.agentSessions.attach(sessionId, {
+  const session = client.sessions.attach(sessionId, {
     mcpServers: [buildGithubMcp(user.githubToken)],
   });
 

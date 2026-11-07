@@ -41,6 +41,7 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
+    "@octavus/server-sdk": "workspace:^",
     "commander": "^13.1.0",
     "dotenv": "^16.6.1",
     "jszip": "^3.10.1",

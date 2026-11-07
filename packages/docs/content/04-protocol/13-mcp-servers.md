@@ -288,7 +288,7 @@ const github = createInlineMcpServer('github', {
   /* tools... */
 });
 
-session = client.agentSessions.attach(sessionId, {
+session = client.sessions.attach(sessionId, {
   mcpServers: [github],
 });
 ```

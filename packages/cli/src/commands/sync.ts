@@ -4,9 +4,11 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig, ConfigError } from '@/config.js';
-import { readAgentDefinition, AgentFileError } from '@/agent-files.js';
-import { CliApi, ApiError } from '@/api.js';
+import type { OctavusClient } from '@octavus/server-sdk';
+import { loadConfig } from '@/config.js';
+import { readAgentDefinition, type AgentDefinition } from '@/agent-files.js';
+import { createClient, findAgentBySlug } from '@/client.js';
+import { exitCode, reportError } from '@/errors.js';
 import * as output from '@/output.js';
 
 interface SyncOptions {
@@ -24,17 +26,15 @@ export function registerSyncCommand(program: Command): void {
       try {
         await runSync(agentPath, options);
       } catch (err) {
-        handleError(err, options);
-        process.exit(err instanceof ConfigError ? 2 : 1);
+        reportError(err, options);
+        process.exit(exitCode(err));
       }
     });
 }
 
 async function runSync(agentPath: string, options: SyncOptions): Promise<void> {
-  const config = loadConfig();
-  const api = new CliApi(config);
+  const client = createClient(loadConfig());
 
-  // Read agent files
   if (!options.quiet && !options.json) {
     output.info(`Reading agent from ${output.cyan(agentPath)}...`);
   }
@@ -45,10 +45,8 @@ async function runSync(agentPath: string, options: SyncOptions): Promise<void> {
     output.info(`Syncing ${output.bold(definition.settings.slug)}...`);
   }
 
-  // Sync to platform
-  const result = await api.syncAgent(definition);
+  const result = await syncAgent(client, definition);
 
-  // Output results
   if (options.json) {
     output.json({
       slug: definition.settings.slug,
@@ -62,40 +60,29 @@ async function runSync(agentPath: string, options: SyncOptions): Promise<void> {
   }
 }
 
-function getErrorCode(err: unknown): string {
-  if (err instanceof ConfigError) return 'CONFIG_ERROR';
-  if (err instanceof AgentFileError) return 'FILE_ERROR';
-  if (err instanceof ApiError) return 'API_ERROR';
-  return 'UNKNOWN';
-}
+/**
+ * Create the agent, or update the one with its slug. Both validate the whole
+ * definition on the platform, so a sync never deploys an agent the editor
+ * would refuse.
+ */
+async function syncAgent(
+  client: OctavusClient,
+  definition: AgentDefinition,
+): Promise<{ agentId: string; created: boolean }> {
+  const existing = await findAgentBySlug(client, definition.settings.slug);
 
-function handleError(err: unknown, options: SyncOptions): void {
-  if (options.json === true) {
-    output.json({
-      error: err instanceof Error ? err.message : 'Unknown error',
-      code: getErrorCode(err),
+  if (existing) {
+    // The slug is the agent's identity and travels in the lookup, not the update.
+    const { slug: _slug, ...settings } = definition.settings;
+    const updated = await client.agents.update(existing.id, {
+      settings,
+      protocol: definition.protocol,
+      prompts: definition.prompts,
+      references: definition.references,
     });
-    return;
+    return { agentId: updated.id, created: false };
   }
 
-  if (err instanceof ConfigError) {
-    output.error(err.message);
-  } else if (err instanceof AgentFileError) {
-    output.error(err.message);
-    if (err.filePath !== undefined) {
-      output.dim(`  File: ${err.filePath}`);
-    }
-  } else if (err instanceof ApiError) {
-    output.error(`API error: ${err.message}`);
-    if (err.status !== 0) {
-      output.dim(`  Status: ${err.status}`);
-    }
-    if (err.requestId !== undefined) {
-      output.dim(`  Request ID: ${err.requestId}`);
-    }
-  } else if (err instanceof Error) {
-    output.error(err.message);
-  } else {
-    output.error('An unknown error occurred');
-  }
+  const created = await client.agents.create(definition);
+  return { agentId: created.id, created: true };
 }

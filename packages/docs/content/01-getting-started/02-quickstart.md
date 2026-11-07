@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   const { input } = await request.json();
 
   // Create a new session using the agent ID
-  const sessionId = await octavus.agentSessions.create(SUPPORT_AGENT_ID, input);
+  const { id: sessionId } = await octavus.sessions.create(SUPPORT_AGENT_ID, input);
 
   return NextResponse.json({ sessionId });
 }
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
   const { sessionId, ...payload } = body;
 
   // Attach to session with tool handlers
-  const session = octavus.agentSessions.attach(sessionId, {
+  const session = octavus.sessions.attach(sessionId, {
     tools: {
       // Define tool handlers that run on your server
       'get-user-account': async (args) => {

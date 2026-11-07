@@ -7,6 +7,10 @@ description: What the platform may change without notice, what it never changes,
 
 The Octavus API and the SDK packages share one contract: the stream events, the stored `UIMessage` parts, the request and response bodies, and the error body. This page is the rule for how that contract moves.
 
+## The path is the version
+
+Every endpoint lives under `/api/v1`, and the prefix is the only version a request carries: no header negotiates a shape, and every caller of `v1` is served the same wire. Within `v1` the contract only ever grows, as the next section lists. A change that would break a client - a removed or renamed field, a changed meaning - is a new prefix (`/api/v2`), and `v1` keeps being served as it was for as long as it is supported.
+
 ## What is additive
 
 The platform adds to the wire without a version change, and a reader must tolerate every one of these:
@@ -19,11 +23,11 @@ The platform adds to the wire without a version change, and a reader must tolera
 | An enum value        | A new `finishReason`, `errorType`, `display`, or part status | Falls back to a documented default (`other`, `unknown_error`) |
 | An error code        | A new `code` in the error body                               | Acts on the `type` and `retryable`, shows the `error` message |
 
-These never need a new header value, a new SDK major, or a migration.
+These never need a new path prefix, a new SDK major, or a migration.
 
 ## What is not additive
 
-Removing a field, renaming one, changing a field's type or meaning, changing an enum value's meaning, or changing what a display mode reveals is a breaking change. It ships behind the wire-format header ([`X-Octavus-Sdk-Version`](/docs/api-reference/overview#wire-format-versioning)) or an SDK major, and the previous shape keeps being served to clients that still speak it.
+Removing a field, renaming one, changing a field's type or meaning, changing an enum value's meaning, or changing what a display mode reveals is a breaking change. It ships under a new path prefix and an SDK major, and the previous prefix keeps serving the previous shape to the clients that still speak it.
 
 ## How the SDK reads the wire
 

@@ -112,12 +112,13 @@ export interface StreamExecutionConfig {
   /** Tool handlers for server-side execution. Resolved on each continuation loop. */
   getToolHandlers: () => ToolHandlers;
   /**
-   * Full URL to make the request to. May be a function so it can change between
-   * legs of the same execution - e.g. a deferred session posts its first leg to
-   * the create-and-trigger endpoint and later legs to the per-session endpoint
-   * once the id is known. Resolved on every POST.
+   * The URL of a leg: a continuation (a tool round, or the resume of a yielded
+   * leg) carries the execution it continues, a first leg none. Resolved on
+   * every POST, so a deferred session can post its first leg to the
+   * create-and-trigger endpoint and later legs to the session once its id is
+   * known.
    */
-  url: string | (() => string);
+  url: (leg: { executionId?: string }) => string;
   /** Build the request body for this execution */
   buildBody: (state: {
     executionId?: string;
@@ -322,8 +323,7 @@ export async function* executeStream(
 
         let keepController = false;
         try {
-          const url = typeof config.url === 'function' ? config.url() : config.url;
-          response = await fetch(url, {
+          response = await fetch(config.url({ executionId }), {
             method: 'POST',
             headers: await config.config.getHeaders(),
             body: JSON.stringify(body),

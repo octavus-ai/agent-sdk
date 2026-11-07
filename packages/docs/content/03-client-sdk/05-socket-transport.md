@@ -154,10 +154,10 @@ function createSocketHandler() {
       if (msg.type === 'trigger' || msg.type === 'continue' || msg.type === 'stop') {
         // Create session lazily on first trigger
         if (!session && msg.type === 'trigger') {
-          const sessionId = await client.agentSessions.create('your-agent-id', {
+          const { id: sessionId } = await client.sessions.create('your-agent-id', {
             COMPANY_NAME: 'Acme Corp',
           });
-          session = client.agentSessions.attach(sessionId, {
+          session = client.sessions.attach(sessionId, {
             tools: {
               // Server-side tool handlers only
               // Tools without handlers are forwarded to the client
@@ -245,7 +245,7 @@ sockServer.on('connection', (conn) => {
 
     // Handle session initialization
     if (msg.type === 'init') {
-      session = client.agentSessions.attach(msg.sessionId, {
+      session = client.sessions.attach(msg.sessionId, {
         tools: {
           // Server-side tool handlers
         },

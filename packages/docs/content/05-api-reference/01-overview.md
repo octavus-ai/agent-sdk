@@ -10,8 +10,10 @@ The Octavus API is a RESTful API that enables programmatic access to agent manag
 ## Base URL
 
 ```
-https://octavus.ai
+https://octavus.ai/api/v1
 ```
+
+Every endpoint lives under `/api/v1`. The path is the version: `v1` is extended additively, and a change that would break a client ships under a new prefix (see [Versioning](/docs/api-reference/versioning)).
 
 ## Authentication
 
@@ -19,7 +21,7 @@ Most API requests require authentication using a Bearer token:
 
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  https://octavus.ai/api/agents
+  https://octavus.ai/api/v1/agents
 ```
 
 The public [Models](/docs/api-reference/models) catalog is the exception - it needs no authentication.
@@ -28,35 +30,16 @@ API keys can be created in the Octavus Platform under your project's **API Keys*
 
 For workloads that run in ephemeral or user-reachable environments (CI runners, serverless functions, per-user sandboxes), prefer a **short-lived, scoped credential** over a long-lived key - either an Octavus-minted ephemeral token or a federated workload-identity token you sign yourself. See [Authentication](/docs/authentication/overview).
 
-## Wire-Format Versioning
-
-The Server SDK advertises the wire shape it understands via the `X-Octavus-Sdk-Version` header (set automatically). The platform serves each caller the shape it advertised: what a newer version adds to a stream is sent only to callers that declared they handle it, and a request without the header gets the baseline. Direct API users send the header to opt into what a version carries.
-
-```bash
-curl -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "X-Octavus-Sdk-Version: 5" \
-  https://octavus.ai/api/agent-sessions/SESSION_ID
-```
-
-| Header value | Wire shape                                                                                                                                                                                                                                |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| (missing)    | Baseline (v4) - the platform serves the v4 shape when no version is advertised.                                                                                                                                                           |
-| `4`          | `step-start` parts in `UIMessage` / `ChatMessage`. A trigger or continuation runs until the execution pauses for tools or finishes.                                                                                                       |
-| `5`          | Everything in v4, plus execution legs: a stream may end with `finish` and `finishReason: "continue"`, which the caller resumes with an empty continuation (see [Sessions - Execution Legs](/docs/api-reference/sessions#execution-legs)). |
-
-The header value is the wire-format major the client can parse, not the SDK release version. A wire-incompatible change bumps it, and the platform keeps serving the previous shape to clients that still advertise the previous value.
-
-Everything else the platform adds - a new field, event type, part type, or enum value - is additive and arrives without a header change; a reader keeps what it does not know and ignores what it cannot place. See [Versioning](/docs/api-reference/versioning) for the rules.
-
 ## API Key Permissions
 
 API keys have these permission scopes:
 
-| Permission      | Description                                              | Used By    |
-| --------------- | -------------------------------------------------------- | ---------- |
-| **Sessions**    | Create and manage sessions, trigger agents, upload files | Server SDK |
-| **Agents**      | Create, update, and validate agent definitions           | CLI        |
-| **Mint Tokens** | Mint short-lived, scoped ephemeral credentials           | Server SDK |
+| Permission      | Description                                                           | Used By    |
+| --------------- | --------------------------------------------------------------------- | ---------- |
+| **Sessions**    | Create and manage sessions, trigger agents, run workers, upload files | Server SDK |
+| **Agents**      | Create, update, and validate agent definitions                        | CLI        |
+| **Skills**      | Upload skill bundles and set their secrets (organization keys)        | CLI        |
+| **Mint Tokens** | Mint short-lived, scoped ephemeral credentials                        | Server SDK |
 
 Both the Sessions and Agents permissions allow reading agent definitions (needed by CLI for sync and Server SDK for sessions).
 
@@ -69,13 +52,16 @@ This limits the blast radius if a key is compromised.
 
 ## Response Format
 
-All responses are JSON. Success responses return the data directly (not wrapped in a `data` field).
+All responses are JSON. A request that creates or changes a resource returns the resource (a session, an agent, a skill); a list returns `{ "<plural>": [...] }`. Nothing is wrapped in a `data` field.
 
 ### Success Response
 
 ```json
 {
-  "sessionId": "sess_abc123"
+  "id": "sess_abc123",
+  "agentId": "cm5xvz7k80001abcd",
+  "status": "active",
+  "createdAt": "2024-01-15T10:30:00.000Z"
 }
 ```
 
@@ -133,37 +119,60 @@ Current status, active incidents, planned maintenance, and incident history are 
 
 ## Endpoints Overview
 
-### Agents
-
-| Method | Endpoint          | Description     |
-| ------ | ----------------- | --------------- |
-| GET    | `/api/agents`     | List all agents |
-| GET    | `/api/agents/:id` | Get agent by ID |
-| POST   | `/api/agents`     | Create agent    |
-| PATCH  | `/api/agents/:id` | Update agent    |
-
 ### Sessions
 
-| Method | Endpoint                          | Description           |
-| ------ | --------------------------------- | --------------------- |
-| POST   | `/api/agent-sessions`             | Create session        |
-| GET    | `/api/agent-sessions/:id`         | Get session           |
-| POST   | `/api/agent-sessions/:id/trigger` | Execute trigger (SSE) |
+| Method | Endpoint                                                | Description                                      |
+| ------ | ------------------------------------------------------- | ------------------------------------------------ |
+| POST   | `/api/v1/sessions`                                      | Create a session                                 |
+| POST   | `/api/v1/sessions/start`                                | Create a session and run its first trigger (SSE) |
+| GET    | `/api/v1/sessions/:id`                                  | Get a session (`active` or `expired`)            |
+| DELETE | `/api/v1/sessions/:id`                                  | Clear a session's state                          |
+| GET    | `/api/v1/sessions/:id/messages`                         | The conversation as UI messages                  |
+| POST   | `/api/v1/sessions/:id/trigger`                          | Run a trigger (SSE)                              |
+| POST   | `/api/v1/sessions/:id/executions/:executionId/continue` | Continue a paused execution (SSE)                |
+| POST   | `/api/v1/sessions/:id/restore`                          | Restore an expired session from stored messages  |
+| GET    | `/api/v1/sessions/:id/logs`                             | The execution log                                |
+| POST   | `/api/v1/sessions/:id/uploads`                          | Presigned upload URLs for files                  |
+| POST   | `/api/v1/sessions/:id/files/view-url`                   | A view URL for a file the session produced       |
+
+### Agents
+
+| Method | Endpoint                                              | Description                              |
+| ------ | ----------------------------------------------------- | ---------------------------------------- |
+| GET    | `/api/v1/agents`                                      | List agents (`?slug=` finds one)         |
+| GET    | `/api/v1/agents/:id`                                  | Get an agent's definition                |
+| POST   | `/api/v1/agents`                                      | Create an agent                          |
+| PATCH  | `/api/v1/agents/:id`                                  | Update an agent                          |
+| DELETE | `/api/v1/agents/:id`                                  | Archive an agent                         |
+| POST   | `/api/v1/agents/validate`                             | Validate a definition without saving     |
+| POST   | `/api/v1/agents/:id/executions`                       | Run a worker agent (SSE)                 |
+| POST   | `/api/v1/agents/:id/executions/:executionId/continue` | Continue a paused worker execution (SSE) |
+
+### Skills
+
+| Method | Endpoint                     | Description                                        |
+| ------ | ---------------------------- | -------------------------------------------------- |
+| POST   | `/api/v1/skills`             | Upload a skill bundle (create or update the skill) |
+| PUT    | `/api/v1/skills/:id/secrets` | Set a skill's secrets                              |
 
 ### Tokens
 
-| Method | Endpoint             | Description                                |
-| ------ | -------------------- | ------------------------------------------ |
-| POST   | `/api/tokens`        | Mint a short-lived, scoped ephemeral token |
-| POST   | `/api/tokens/revoke` | Revoke a minted token before it expires    |
+| Method | Endpoint                | Description                                |
+| ------ | ----------------------- | ------------------------------------------ |
+| POST   | `/api/v1/tokens`        | Mint a short-lived, scoped ephemeral token |
+| POST   | `/api/v1/tokens/revoke` | Revoke a minted token before it expires    |
 
 See [Authentication](/docs/authentication/overview) for scoping, lifetimes, and federation.
 
 ### Models
 
-| Method | Endpoint      | Description                                       |
-| ------ | ------------- | ------------------------------------------------- |
-| GET    | `/api/models` | List usable models with pricing (public, no auth) |
+| Method | Endpoint         | Description                                       |
+| ------ | ---------------- | ------------------------------------------------- |
+| GET    | `/api/v1/models` | List usable models with pricing (public, no auth) |
+
+### Workforce
+
+The [Workforce API](/docs/workforce-agents/api-reference) (`/api/v1/workforce/...`) drives an Octavus Agent with a per-agent key.
 
 ## Streaming
 
@@ -173,13 +182,13 @@ The trigger endpoint returns Server-Sent Events (SSE):
 curl -N -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"triggerName": "user-message", "input": {"USER_MESSAGE": "Hello"}}' \
-  https://octavus.ai/api/agent-sessions/SESSION_ID/trigger
+  https://octavus.ai/api/v1/sessions/SESSION_ID/trigger
 ```
 
 Response format:
 
 ```
-data: {"type":"start","messageId":"..."}
+data: {"type":"start","executionId":"...","sessionId":"...","messageId":"..."}
 
 data: {"type":"block-start","blockId":"...","blockName":"Respond","blockType":"next-message","display":"stream"}
 

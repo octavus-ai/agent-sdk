@@ -29,12 +29,12 @@ const client = new OctavusClient({
 });
 
 // Create a session
-const { sessionId } = await client.agentSessions.create('your-agent-id', {
+const { id: sessionId } = await client.sessions.create('your-agent-id', {
   COMPANY_NAME: 'Acme Inc',
 });
 
 // Attach to session and trigger
-const session = client.session(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'get-user-account': async ({ userId }) => {
       return { name: 'John Doe', email: 'john@example.com' };

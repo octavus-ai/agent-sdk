@@ -18,7 +18,6 @@ import { OctavusClient } from '@octavus/server-sdk';
 
 // On your backend, holding the trusted minting key.
 const control = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   apiKey: process.env.OCTAVUS_API_KEY,
 });
 
@@ -29,7 +28,7 @@ const { token, expiresAt } = await control.tokens.mint({
 });
 
 // Session-scoped (tightest): create the session yourself, then mint for just it.
-const sessionId = await control.agentSessions.create('agt_123');
+const { id: sessionId } = await control.sessions.create('agt_123');
 const scoped = await control.tokens.mint({ agentId: 'agt_123', sessionId });
 ```
 
@@ -40,10 +39,10 @@ The response is `{ token, jti, expiresAt }`. `token` is an `oct_et_...` string; 
 Give the token to the workload and use it exactly like a key:
 
 ```typescript
-const runner = new OctavusClient({ baseUrl: 'https://octavus.ai', apiKey: token });
+const runner = new OctavusClient({ apiKey: token });
 
 // Works only for the scoped agent/session, and only until it expires.
-await runner.agentSessions.start(/* ... */);
+await runner.sessions.start(/* ... */);
 ```
 
 Or call the API directly:
@@ -52,7 +51,7 @@ Or call the API directly:
 curl -N -H "Authorization: Bearer oct_et_..." \
   -H "Content-Type: application/json" \
   -d '{"triggerName":"user-message","input":{"USER_MESSAGE":"Hello"}}' \
-  https://octavus.ai/api/agent-sessions/SESSION_ID/trigger
+  https://octavus.ai/api/v1/sessions/SESSION_ID/trigger
 ```
 
 ## Lifetime and scope rules

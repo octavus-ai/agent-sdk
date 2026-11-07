@@ -4,9 +4,11 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig, ConfigError } from '@/config.js';
-import { readAgentDefinition, AgentFileError } from '@/agent-files.js';
-import { CliApi, ApiError, type ValidationIssue } from '@/api.js';
+import type { ValidationIssue } from '@octavus/server-sdk';
+import { loadConfig } from '@/config.js';
+import { readAgentDefinition } from '@/agent-files.js';
+import { createClient } from '@/client.js';
+import { exitCode, reportError } from '@/errors.js';
 import * as output from '@/output.js';
 
 interface ValidateOptions {
@@ -24,17 +26,15 @@ export function registerValidateCommand(program: Command): void {
       try {
         await runValidate(agentPath, options);
       } catch (err) {
-        handleError(err, options);
-        process.exit(err instanceof ConfigError ? 2 : 1);
+        reportError(err, options);
+        process.exit(exitCode(err));
       }
     });
 }
 
 async function runValidate(agentPath: string, options: ValidateOptions): Promise<void> {
-  const config = loadConfig();
-  const api = new CliApi(config);
+  const client = createClient(loadConfig());
 
-  // Read agent files
   if (!options.quiet && !options.json) {
     output.info(`Reading agent from ${output.cyan(agentPath)}...`);
   }
@@ -45,17 +45,13 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
     output.info(`Validating ${output.bold(definition.settings.slug)}...`);
   }
 
-  // Validate via API
-  const result = await api.validateAgent(definition);
+  const result = await client.agents.validate(definition);
 
-  // Output results
   if (options.json) {
     output.json({
       slug: definition.settings.slug,
       valid: result.valid,
-      errors: result.errors,
-      warnings: result.warnings,
-      ...(result.issues ? { issues: result.issues } : {}),
+      issues: result.issues,
     });
   } else {
     if (result.valid) {
@@ -64,22 +60,9 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
       output.error(`Agent ${output.bold(definition.settings.slug)} has validation errors`);
     }
 
-    // `issues` is absent on platforms that predate it; fall back to the
-    // error/warning buckets.
-    if (result.issues) {
-      renderIssues(result.issues, 'error');
-      renderIssues(result.issues, 'warning');
-      renderIssues(result.issues, 'info');
-    } else {
-      for (const err of result.errors) {
-        const location = err.path ? ` (${output.gray(err.path)})` : '';
-        output.error(`  ${err.message}${location}`);
-      }
-      for (const warn of result.warnings) {
-        const location = warn.path ? ` (${output.gray(warn.path)})` : '';
-        output.warning(`  ${warn.message}${location}`);
-      }
-    }
+    renderIssues(result.issues, 'error');
+    renderIssues(result.issues, 'warning');
+    renderIssues(result.issues, 'info');
   }
 
   // Only errors fail the command; warnings and info never block.
@@ -103,43 +86,5 @@ function renderIssues(issues: ValidationIssue[], severity: ValidationIssue['seve
     for (const suggestion of issue.suggestions ?? []) {
       output.dim(`    ${suggestion}`);
     }
-  }
-}
-
-function getErrorCode(err: unknown): string {
-  if (err instanceof ConfigError) return 'CONFIG_ERROR';
-  if (err instanceof AgentFileError) return 'FILE_ERROR';
-  if (err instanceof ApiError) return 'API_ERROR';
-  return 'UNKNOWN';
-}
-
-function handleError(err: unknown, options: ValidateOptions): void {
-  if (options.json === true) {
-    output.json({
-      error: err instanceof Error ? err.message : 'Unknown error',
-      code: getErrorCode(err),
-    });
-    return;
-  }
-
-  if (err instanceof ConfigError) {
-    output.error(err.message);
-  } else if (err instanceof AgentFileError) {
-    output.error(err.message);
-    if (err.filePath !== undefined) {
-      output.dim(`  File: ${err.filePath}`);
-    }
-  } else if (err instanceof ApiError) {
-    output.error(`API error: ${err.message}`);
-    if (err.status !== 0) {
-      output.dim(`  Status: ${err.status}`);
-    }
-    if (err.requestId !== undefined) {
-      output.dim(`  Request ID: ${err.requestId}`);
-    }
-  } else if (err instanceof Error) {
-    output.error(err.message);
-  } else {
-    output.error('An unknown error occurred');
   }
 }
