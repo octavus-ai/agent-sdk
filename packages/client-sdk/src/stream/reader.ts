@@ -52,10 +52,11 @@ export async function* parseSSEStream(
         if (line.startsWith('data: ') && line !== 'data: [DONE]') {
           try {
             const parsed = safeParseStreamEvent(JSON.parse(line.slice(6)));
-            if (parsed.success) {
-              yield parsed.data;
+            // An event of a type this SDK does not know is ignored, like a
+            // malformed one: the chat has nothing to render for it.
+            if (parsed.kind === 'event') {
+              yield parsed.event;
             }
-            // Skip malformed events silently
           } catch {
             // Skip malformed JSON - no logging in production
           }

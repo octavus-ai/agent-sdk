@@ -136,14 +136,14 @@ Use the first shape when your transport replays only what streamed after the sta
 Tool calls progress through multiple states:
 
 ```tsx
-import type { UIToolCallPart } from '@octavus/react';
+import { getPartLabel, type UIToolCallPart } from '@octavus/react';
 
 function ToolCallPart({ part }: { part: UIToolCallPart }) {
   return (
     <div className="border rounded p-3">
       <div className="flex items-center gap-2">
         <span className="text-lg">🔧</span>
-        <span className="font-medium">{part.displayName || part.toolName}</span>
+        <span className="font-medium">{getPartLabel(part)}</span>
         <StatusBadge status={part.status} />
       </div>
 

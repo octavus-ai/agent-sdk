@@ -141,7 +141,7 @@ Omitting `output` preserves the previous behavior - the handler return type is u
 
 ## Per-Tool Titles
 
-A namespace-level `title` (set on `mcpServers.<ns>` in the protocol) labels _every_ tool in the namespace. When a bundle has several distinct tools, give each its own UI label with a per-tool `title`, shown when the tool renders in `title` display mode:
+A namespace-level `title` (set on `mcpServers.<ns>` in the protocol) labels _every_ tool in the namespace. When a bundle has several distinct tools, give each its own UI label with a per-tool `title`, the label of the tool's card in every visible display mode:
 
 ```typescript
 'get-pr-overview': defineInlineMcpTool({
@@ -158,7 +158,7 @@ A namespace-level `title` (set on `mcpServers.<ns>` in the protocol) labels _eve
 
 - `title` is user-facing (the execution-card label); `description` stays model-facing (it tells the model when to call the tool).
 - The optional `display` field sets this tool's display mode (`hidden`, `title`, or `stream`), overriding the namespace default for the tool.
-- Label precedence for an inline MCP tool: the per-tool `title` wins, then the namespace-level `mcpServers.<ns>.title`, then the `namespace__tool` slug. Because inline namespaces aren't in the built-in tool-display registry, a per-tool `title` is the cleanest way to give each tool a distinct label.
+- Label precedence for an inline MCP tool: the per-tool `title` wins, then the namespace-level `mcpServers.<ns>.title`, then a label the client derives from the `namespace__tool` name (`getPartLabel()`). A per-tool `title` is the cleanest way to give each tool a distinct label.
 
 ## Attaching to a Session
 

@@ -1,11 +1,11 @@
 ---
-title: Input & Resources
-description: Defining agent inputs and persistent resources.
+title: Input & Variables
+description: Defining agent inputs and the variables handlers work with.
 ---
 
-# Input & Resources
+# Input & Variables
 
-Inputs are provided when creating a session. Resources are persistent state the agent can read and write.
+Inputs are provided when creating a session. Variables are the state handlers read and write while the session runs.
 
 ## Input Variables
 
@@ -140,83 +140,11 @@ Boolean algebra (`and` / `or`), numeric comparisons, loops, and arithmetic are i
 - **Equality.** The value's string form is compared to the literal exactly and case-sensitively, so a boolean or number input compares naturally (`STATUS == "true"`, `COUNT == "0"`). Quoted string literals are the only literal form.
 - **Missing input.** A condition over an input that was not provided simply omits the span - it never errors mid-run.
 
-A condition may reference only declared inputs (or variables/resources), resolved through the same `input` mapping as any `{{VARIABLE}}` - so list the condition's variable in the [agent config](/docs/protocol/agent-config#system-prompt) or block `input` just like a variable you interpolate. Definition validation catches an unbalanced block, a malformed condition, an undeclared condition variable, and (for an `enum` input) a literal outside the declared set.
-
-## Resources
-
-> **Deprecated:** Resources are deprecated and superseded by [tools](/docs/protocol/tools), and will be **removed in v7** (along with the `set-resource` block and the `resource-update` / `onResourceUpdate` event). Persist state with a consumer-defined tool (or MCP tool) that writes the value in your own application instead - that keeps state ownership in your app with no separate resource concept to maintain. Resources still work for now, but protocol validation emits a non-blocking deprecation warning. See the [migration guide](/docs/migration/v6-to-v7) for the full before/after.
-
-Resources are persistent state that:
-
-- Survive across triggers
-- Can be read and written by the agent
-- Are synced to the consumer's application
-
-```yaml
-resources:
-  # String resource with default
-  CONVERSATION_SUMMARY:
-    type: string
-    description: Running summary of the conversation
-    default: ''
-
-  # Resource with unknown type (for complex data)
-  USER_CONTEXT:
-    type: unknown
-    description: Cached user information
-    default: {}
-
-  # Read-only resource (agent can read but not write)
-  SYSTEM_CONFIG:
-    type: unknown
-    description: System configuration
-    readonly: true
-    default:
-      maxRetries: 3
-      timeout: 30000
-```
-
-### Resource Definition
-
-| Field         | Required | Description                                                                                              |
-| ------------- | -------- | -------------------------------------------------------------------------------------------------------- |
-| `type`        | Yes      | Data type: `string`, `number`, `integer`, `boolean`, `unknown`, or a [custom type](/docs/protocol/types) |
-| `description` | No       | Describes the resource purpose                                                                           |
-| `default`     | No       | Initial value                                                                                            |
-| `readonly`    | No       | If true, agent cannot write to it                                                                        |
-
-### Writing Resources
-
-Use the `set-resource` block in handlers:
-
-```yaml
-handlers:
-  request-human:
-    # ... generate summary ...
-
-    Save summary:
-      block: set-resource
-      resource: CONVERSATION_SUMMARY
-      value: SUMMARY # Variable containing the value
-```
-
-### Resource Events
-
-When a resource is updated, the client SDK receives a `resource-update` event:
-
-```typescript
-useOctavusChat({
-  onResourceUpdate: (name, value) => {
-    if (name === 'CONVERSATION_SUMMARY') {
-      console.log('Summary updated:', value);
-    }
-  },
-});
-```
+A condition may reference only declared inputs (or variables), resolved through the same `input` mapping as any `{{VARIABLE}}` - so list the condition's variable in the [agent config](/docs/protocol/agent-config#system-prompt) or block `input` just like a variable you interpolate. Definition validation catches an unbalanced block, a malformed condition, an undeclared condition variable, and (for an `enum` input) a literal outside the declared set.
 
 ## Variables
 
-Variables are internal state managed by block outputs. They persist across triggers but are not synced to the consumer (unlike resources).
+Variables are internal state managed by block outputs. They persist across triggers and are never sent to the consumer.
 
 ```yaml
 variables:
@@ -265,8 +193,39 @@ handlers:
 
 ## Scoping
 
-| Type        | Scope   | Persistence              | Synced to Consumer  |
-| ----------- | ------- | ------------------------ | ------------------- |
-| `input`     | Session | Immutable                | Yes (at creation)   |
-| `resources` | Session | Persists across triggers | Yes (via callbacks) |
-| `variables` | Session | Persists across triggers | No (internal only)  |
+| Type        | Scope   | Persistence              | Visible to the consumer |
+| ----------- | ------- | ------------------------ | ----------------------- |
+| `input`     | Session | Immutable                | Yes (at creation)       |
+| `variables` | Session | Persists across triggers | No (internal only)      |
+
+## Persisting state in your application
+
+A value the agent produces that your application must keep - a running summary, a generated title, a classification - is persisted through a [tool](/docs/protocol/tools) your application implements. A deterministic handler passes the value into a `tool-call` block, and your tool handler writes it wherever you store state:
+
+```yaml
+tools:
+  save-conversation-summary:
+    description: Persist the running summary of this conversation.
+    display: hidden
+    parameters:
+      summary:
+        type: string
+
+variables:
+  SUMMARY:
+    type: string
+
+handlers:
+  wrap-up:
+    Generate summary:
+      block: next-message
+      output: SUMMARY
+
+    Save summary:
+      block: tool-call
+      tool: save-conversation-summary
+      input:
+        summary: SUMMARY
+```
+
+The tool's parameters are the shape of the state, and the handler owns where it goes. See [Tools](/docs/protocol/tools) and the server SDK's [tool handlers](/docs/server-sdk/tools).

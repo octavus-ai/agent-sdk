@@ -183,8 +183,8 @@ export function createSocketTransport(options: SocketTransportOptions): SocketTr
         options.onMessage?.(data);
 
         const result = safeParseStreamEvent(data);
-        if (result.success) {
-          const event = result.data;
+        if (result.kind === 'event') {
+          const event = result.event;
           enqueueEvent(event);
 
           if (event.type === 'finish' || event.type === 'error') {

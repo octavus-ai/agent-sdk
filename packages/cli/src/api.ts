@@ -7,17 +7,28 @@ import { z } from 'zod';
 import type { CliConfig } from '@/config.js';
 import type { AgentDefinition } from '@/agent-files.js';
 
-/** API error response */
+/**
+ * A failed platform response: its message and stable `code`, and the
+ * `requestId` to quote to support.
+ */
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
     public readonly code?: string,
+    public readonly requestId?: string,
   ) {
     super(message);
     this.name = 'ApiError';
   }
 }
+
+/** The body every non-2xx platform response carries. */
+const errorBodySchema = z.looseObject({
+  error: z.string().optional(),
+  code: z.string().optional(),
+  requestId: z.string().optional(),
+});
 
 /** Agent summary from list endpoint */
 export interface Agent {
@@ -314,15 +325,23 @@ export class CliApi {
     const isJson = contentType?.includes('application/json');
 
     if (!response.ok) {
+      const requestId = response.headers.get('request-id') ?? undefined;
       if (isJson) {
-        const errorData = (await response.json()) as { error?: string; code?: string };
+        const errorData = errorBodySchema.safeParse(await response.json());
+        const body = errorData.success ? errorData.data : {};
         throw new ApiError(
-          errorData.error ?? `Request failed with status ${response.status}`,
+          body.error ?? `Request failed with status ${response.status}`,
           response.status,
-          errorData.code,
+          body.code,
+          body.requestId ?? requestId,
         );
       }
-      throw new ApiError(`Request failed with status ${response.status}`, response.status);
+      throw new ApiError(
+        `Request failed with status ${response.status}`,
+        response.status,
+        undefined,
+        requestId,
+      );
     }
 
     if (!isJson) {

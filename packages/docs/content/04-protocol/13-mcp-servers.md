@@ -42,26 +42,24 @@ mcpServers:
 
 ### Fields
 
-| Field         | Required | Description                                                                                                                                             |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Yes      | What the MCP server provides                                                                                                                            |
-| `source`      | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                                                              |
-| `display`     | No       | How tool calls appear in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)). |
-| `title`       | No       | UI label shown when `display: title`; applies to every tool in this namespace (hides description and arguments)                                         |
-| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                                                    |
-| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution).                                  |
+| Field         | Required | Description                                                                                                                                    |
+| ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | Yes      | What the MCP server provides                                                                                                                   |
+| `source`      | Yes      | `remote`, `device`, or `consumer` (see source types above)                                                                                     |
+| `display`     | No       | What the client sees of the server's tool calls: `hidden`, `title` (the default), or `stream`                                                  |
+| `title`       | No       | The label of every tool card in this namespace, in every visible mode. A title the server advertises for a tool takes precedence for that tool |
+| `connection`  | No       | When to connect: `eager` or `lazy` (default: `lazy`). `remote` only.                                                                           |
+| `execution`   | No       | Where the MCP process runs: `sandbox` (default) or `device`. `remote` only. See [Device Execution](#device-execution).                         |
 
 ### Display Modes
 
-Display modes control visibility of all tool calls from the MCP server, using the same modes as [regular tools](/docs/protocol/tools#display-modes). The supported modes are `hidden`, `title`, and `stream`.
+Display modes control visibility of all tool calls from the MCP server, using the same three modes as [regular tools](/docs/protocol/tools#display-modes). A tool card's label is the title the server advertises for that tool (an MCP tool `title`, or its `annotations.title`), else the namespace `title` set here, else a label the client derives from the tool name.
 
-> **Deprecated:** `name` and `description` are deprecated and will be removed in v7. Use `title` (a per-namespace label applied to every tool in the server) or `stream`. See the [migration guide](/docs/migration/v6-to-v7).
-
-| Mode     | Behavior                                                                         |
-| -------- | -------------------------------------------------------------------------------- |
-| `hidden` | Tool calls run silently                                                          |
-| `title`  | Shows the server's `title` (or the namespaced tool name) plus the tool name only |
-| `stream` | Full visibility - arguments stream and the result is shown                       |
+| Mode     | Behavior                                                   |
+| -------- | ---------------------------------------------------------- |
+| `hidden` | Tool calls run silently                                    |
+| `title`  | Labeled cards; arguments and results stay on the server    |
+| `stream` | Full visibility - arguments stream and the result is shown |
 
 ## Making MCP Servers Available
 

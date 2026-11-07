@@ -359,10 +359,10 @@ const chat = useOctavusChat({
 
 When the LLM calls multiple tools in one turn:
 
-1. Server tools execute first on the server
-2. Server results are included in the `client-tool-request` event
+1. Server tools execute first on the server, and the Server SDK submits their results
+2. The platform records them and asks again for the calls still open; those reach the client as the `client-tool-request` event
 3. Client tools execute (automatic immediately, interactive waits)
-4. All results are sent together to continue
+4. The client's results are sent together to continue - only the `toolCallId` and `result` (or `error`) of each; the platform routes them by the calls it issued
 
 ## HTTP Transport
 
@@ -414,7 +414,7 @@ The socket transport sends a `continue` message with tool results:
 // Trigger (start new conversation turn)
 { type: 'trigger', triggerName: string, input?: object }
 
-// Continue (after client tool handling)
+// Continue (after client tool handling; a ToolResult is { toolCallId, result?, error?, files? })
 { type: 'continue', executionId: string, toolResults: ToolResult[] }
 
 // Stop (cancel current operation)

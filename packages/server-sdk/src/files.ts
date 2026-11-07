@@ -79,7 +79,7 @@ export class FilesApi extends BaseApiClient {
    * @param files - Array of file metadata (filename, mediaType, size)
    * @returns Upload info with presigned URLs for each file
    *
-   * @throws ApiError if session doesn't exist or validation fails
+   * @throws OctavusError if session doesn't exist or validation fails
    *
    * @example
    * ```typescript

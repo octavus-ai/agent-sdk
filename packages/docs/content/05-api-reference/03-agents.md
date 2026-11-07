@@ -140,7 +140,7 @@ The same shape as [Create Agent](#create-agent) (`settings`, `protocol`, `prompt
 | `warnings` | array   | Warning-severity diagnostics (`message`, `path`, `severity`).                                                                   |
 | `issues`   | array   | Every diagnostic at its true severity (`error` / `warning` / `info`) with a machine-readable `code` and optional `suggestions`. |
 
-`errors` and `warnings` are retained for backward compatibility. Prefer `issues`: it additionally surfaces `info` recommendations and each diagnostic's `code`, so you can render every severity distinctly or filter programmatically (for example, deprecations by `code: "DEPRECATED_FIELD"`).
+`errors` and `warnings` are retained for backward compatibility. Prefer `issues`: it additionally surfaces `info` recommendations and each diagnostic's `code`, so you can render every severity distinctly or filter programmatically (for example, the retired display values by `code: "DISPLAY_MODE_REMOVED"`, or removed protocol fields by `code: "REMOVED_FIELD"`).
 
 ### Example
 

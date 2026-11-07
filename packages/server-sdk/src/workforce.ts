@@ -402,7 +402,7 @@ export interface WorkforceDispatchOptions {
    * retry with the same key and request returns the thread the first request
    * created instead of starting another, so a dispatch whose response was lost can
    * be retried safely; the same key with a different request fails with an
-   * `ApiError` coded `IDEMPOTENCY_KEY_REUSED`, and a retry that arrives while the
+   * `OctavusError` coded `IDEMPOTENCY_KEY_REUSED`, and a retry that arrives while the
    * first request is still being processed with one coded
    * `IDEMPOTENCY_KEY_IN_PROGRESS` (retry shortly). Use a value unique to the task,
    * such as a job id.
@@ -410,7 +410,7 @@ export interface WorkforceDispatchOptions {
   idempotencyKey?: string;
   /**
    * Refuse instead of queuing when the agent already has a run in flight or
-   * queued: the dispatch fails with an `ApiError` coded `AGENT_BUSY` whose
+   * queued: the dispatch fails with an `OctavusError` coded `AGENT_BUSY` whose
    * `details.currentThreadId` names the thread holding the agent, and nothing is
    * created.
    */

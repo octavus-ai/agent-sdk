@@ -34,26 +34,24 @@ tools:
 
 ### Tool Fields
 
-| Field         | Required | Description                                                                                                                                   |
-| ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Yes      | What the tool does (shown to LLM and optionally user)                                                                                         |
-| `display`     | No       | How to show in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)). |
-| `title`       | No       | UI label shown when `display: title` (hides the description and arguments)                                                                    |
-| `parameters`  | No       | Input parameters the tool accepts                                                                                                             |
+| Field         | Required | Description                                                                                                   |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `description` | Yes      | What the tool does, written for the model. Never shown to the user                                            |
+| `display`     | No       | What the client sees: `hidden`, `title` (the default), or `stream`                                            |
+| `title`       | No       | The label of the tool's card in every visible mode. Without one the client derives a label from the tool name |
+| `parameters`  | No       | Input parameters the tool accepts                                                                             |
 
 ### Display Modes
 
-Controls what the client sees about tool execution. The supported modes are `hidden`, `title`, and `stream`.
+Controls what the client sees about a tool call. There are three modes, and `title` is the default.
 
-> **Deprecated:** `name` and `description` are deprecated and will be removed in v7 (when the default indicator also becomes `title`). Use `title` for a clean label or `stream` for full visibility. The current default is still `description`, so set `display` explicitly to get label-only behavior. See the [migration guide](/docs/migration/v6-to-v7).
+| Mode     | Behavior                                                                                                                                                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hidden` | Nothing reaches the client. The tool executes silently and the user has no awareness it was called. Use for internal plumbing tools (title setting, context management).                                                           |
+| `title`  | A labeled card: the tool's `title` (or a label derived from its name), its status, and its error if it fails. Arguments and result stay on the server, live and after a refresh. The `description` is only ever sent to the model. |
+| `stream` | Full visibility. Arguments stream progressively as the model generates them, and the result is shown after execution. Arguments and result are kept in the stored conversation, so they survive a refresh and a restore.           |
 
-| Mode          | Behavior                                                                                                                                                                                                                                                         |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hidden`      | No UI events emitted. The tool executes silently and the user has no awareness it was called. Use for internal plumbing tools (title setting, context management).                                                                                               |
-| `name`        | _Deprecated (removed in v7)._ Showed the raw tool name only. Use `title` or `stream`.                                                                                                                                                                            |
-| `description` | _Deprecated (removed in v7)._ Showed the description as the label. Use `title` or `stream`.                                                                                                                                                                      |
-| `stream`      | Full visibility. Arguments stream progressively as the LLM generates them, and the result is shown after execution. The result is preserved after page refresh.                                                                                                  |
-| `title`       | Shows the tool's `title` plus the tool name only. The description, arguments, and result are hidden in the UI; the `description` is still sent to the LLM. Use for server-side tools that should appear as a labeled step without exposing their inputs/outputs. |
+What each mode reveals is the same on the live stream and in the stored messages, so a conversation reads the same during the run and after a reload. The client SDK exposes the rule as `displayReveals(display)` and the label as `getPartLabel(part)`.
 
 **When to use `stream`:**
 
@@ -71,14 +69,13 @@ Controls what the client sees about tool execution. The supported modes are `hid
 **When to use `title`:**
 
 - Server-side tools that should appear in the UI as a clean, labeled step (e.g. "Looking up your account") without exposing their arguments or result
-- Tools whose `description` is written for the LLM and shouldn't be shown verbatim to the user
-- This is the recommended mode for server-executed tools that should be visible: give them a human-readable `title` for the UI and keep `description` focused on instructing the model
+- Server-executed tools that should be visible: give them a human-readable `title` for the UI and keep `description` focused on instructing the model
 
-`title` is the preferred choice for server-side tools that should surface in the UI - or `stream` for client tools where the user benefits from seeing the arguments and result. `name` and `description` are deprecated and will be removed in v7; see the [migration guide](/docs/migration/v6-to-v7) to move off them.
+`title` is the default and the usual choice for server-side tools that should surface in the UI; `stream` is for tools where the user benefits from seeing the arguments and result.
 
 **Refresh and restore behavior:**
 
-`stream` is the only mode that preserves the tool result after a page refresh. For all other modes, the result is available during the live session but stripped on refresh. On session restore (when the session expires and is rebuilt from stored `UIMessage[]`), `stream` tools retain their original result while other modes receive a placeholder.
+A `stream` tool's arguments and result are part of the stored conversation and come back on refresh and on restore. A `title` tool's card comes back with its label and status, and never its arguments or result. On a restore from stored `UIMessage[]`, a tool call stored without its result is given a placeholder so the model sees a complete history.
 
 ## Parameters
 

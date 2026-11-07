@@ -125,7 +125,7 @@ const { threadId } = await client.workforce.dispatch(agentId, 'Reconcile the Mar
 });
 ```
 
-Reusing a key with a different request fails with an `ApiError` whose `code` is `IDEMPOTENCY_KEY_REUSED`. A retry that arrives while the first request is still being processed can fail with `IDEMPOTENCY_KEY_IN_PROGRESS`; retry after a moment to get the thread. `run()` accepts `idempotencyKey` too.
+Reusing a key with a different request fails with an `OctavusError` whose `code` is `IDEMPOTENCY_KEY_REUSED`. A retry that arrives while the first request is still being processed can fail with `IDEMPOTENCY_KEY_IN_PROGRESS`; retry after a moment to get the thread. `run()` accepts `idempotencyKey` too.
 
 ## Only run on an idle agent
 
@@ -142,16 +142,18 @@ console.log(agent.computer.state); // 'running' | 'starting' | 'paused' | 'down'
 An agent runs one task at a time, so a dispatch normally queues behind a run already in flight. With `ifIdle: true` the dispatch refuses instead, and nothing is created:
 
 ```ts
-import { ApiError } from '@octavus/server-sdk';
+import { OctavusError } from '@octavus/server-sdk';
 
 try {
   await client.workforce.dispatch(agentId, 'Run the nightly audit', { ifIdle: true });
 } catch (error) {
-  if (error instanceof ApiError && error.code === 'AGENT_BUSY') {
+  if (OctavusError.isInstance(error) && error.code === 'AGENT_BUSY') {
     console.log('Busy with thread', error.details?.currentThreadId);
   }
 }
 ```
+
+Every failed call throws an `OctavusError` with the HTTP `status`, the platform's `code`, and the `requestId` to quote to support; see [Error handling](/docs/client-sdk/error-handling).
 
 ## Options
 

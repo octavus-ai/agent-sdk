@@ -1,68 +1,32 @@
-import { z } from 'zod';
-
-const ApiErrorResponseSchema = z.looseObject({
-  error: z.string().optional(),
-  message: z.string().optional(),
-  code: z.string().optional(),
-});
+import { OctavusError } from '@octavus/core';
 
 /**
- * Error thrown when API request fails
+ * The error a failed platform response describes: the platform's error body
+ * when it sent one (its message, code, classification, request ID, and any
+ * data to act on), else the status and the response text.
  */
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public code?: string,
-    /**
-     * Any other fields of the error response, for errors that carry data to act
-     * on (for example the `currentThreadId` of an `AGENT_BUSY` error).
-     */
-    public details?: Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
-
-interface ParsedApiError {
-  message: string;
-  code?: string;
-  details?: Record<string, unknown>;
-}
-
-/**
- * Parse error from API response using Zod
- */
-export async function parseApiError(
+export async function readApiError(
   response: Response,
   defaultMessage: string,
-): Promise<ParsedApiError> {
-  const fallbackMessage = `${defaultMessage}: ${response.statusText}`;
-
+): Promise<OctavusError> {
+  const text = await response.text().catch(() => '');
+  let body: unknown = text;
   try {
-    const json: unknown = await response.json();
-    const parsed = ApiErrorResponseSchema.safeParse(json);
-
-    if (parsed.success) {
-      const { error, message, code, ...details } = parsed.data;
-      return {
-        message: error ?? message ?? fallbackMessage,
-        code,
-        ...(Object.keys(details).length > 0 ? { details } : {}),
-      };
-    }
+    body = JSON.parse(text);
   } catch {
-    // Use default message
+    // Not JSON: the text itself is the best message available.
   }
-
-  return { message: fallbackMessage };
+  return OctavusError.fromApiResponse(
+    response.status,
+    body,
+    `${defaultMessage}: ${response.statusText}`,
+    { requestId: response.headers.get('Request-Id') },
+  );
 }
 
 /**
- * Parse error from API response and throw ApiError
+ * Read the error a failed platform response describes and throw it.
  */
 export async function throwApiError(response: Response, defaultMessage: string): Promise<never> {
-  const { message, code, details } = await parseApiError(response, defaultMessage);
-  throw new ApiError(message, response.status, code, details);
+  throw await readApiError(response, defaultMessage);
 }

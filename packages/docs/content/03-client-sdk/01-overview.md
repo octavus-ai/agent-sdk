@@ -160,7 +160,8 @@ message.parts.map((part) => {
     case 'text': // Text content
     case 'reasoning': // Extended reasoning/thinking
     case 'tool-call': // Tool execution
-    case 'operation': // Internal operations (set-resource, etc.)
+    case 'operation': // A block's operation card (serialize-thread, generate-image, ...)
+    default: // A part type added later: render nothing
   }
 });
 ```
@@ -226,7 +227,6 @@ interface OctavusChatOptions {
   onError?: (error: OctavusError) => void; // Structured error with type, source, retryable
   onFinish?: () => void;
   onStop?: () => void; // Called when user stops generation
-  onResourceUpdate?: (name: string, value: unknown) => void;
 }
 
 interface UseOctavusChatReturn {

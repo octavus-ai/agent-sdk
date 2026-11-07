@@ -131,8 +131,7 @@ skills:
 ### Guidelines
 
 - **`hidden`**: Background work that doesn't need user awareness
-- **`description`**: User-facing operations (default)
-- **`name`**: Quick operations where name is sufficient
+- **`title`**: User-facing operations shown as labeled steps (default)
 - **`stream`**: Long-running operations where progress matters
 
 ## System Prompt Integration

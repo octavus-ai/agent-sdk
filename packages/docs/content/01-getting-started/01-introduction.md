@@ -42,7 +42,7 @@ An **Agent** is the main entity in Octavus - a self-contained unit that defines 
 A **Session** represents a conversation with an agent. Sessions:
 
 - Store conversation history
-- Track resources and variables
+- Track the agent's variables
 - Enable stateful interactions across multiple messages
 
 ### Triggers

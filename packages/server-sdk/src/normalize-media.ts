@@ -47,8 +47,6 @@ export async function normalizeToolResultMedia(
   sessionId: string,
 ): Promise<void> {
   for (const toolResult of toolResults) {
-    if (toolResult.outputVariable) continue;
-
     const location = findInlineMediaParts(toolResult.result);
     if (!location) continue;
 

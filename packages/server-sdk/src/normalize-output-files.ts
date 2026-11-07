@@ -103,7 +103,6 @@ export async function normalizeToolResultOutputFiles(
   sessionId: string,
 ): Promise<void> {
   for (const toolResult of toolResults) {
-    if (toolResult.outputVariable) continue;
     const result = toolResult.result;
     if (!isObject(result)) continue;
     const rawOutputFiles = result.outputFiles;

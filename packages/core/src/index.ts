@@ -1,6 +1,4 @@
-export { AppError, NotFoundError, ValidationError, ConflictError, ForbiddenError } from './errors';
-
-// Structured error types for streaming
+// Errors
 export type {
   ErrorType,
   ErrorSource,
@@ -9,9 +7,11 @@ export type {
   BackupFailureInfo,
   OctavusErrorOptions,
 } from './errors/types';
-
+export type { ApiResponseErrorOptions } from './errors/octavus-error';
 export {
   OctavusError,
+  errorTypeForStatus,
+  isRetryableStatus,
   isRateLimitError,
   isQuotaExceededError,
   isAuthenticationError,
@@ -19,39 +19,100 @@ export {
   isToolError,
   isRetryableError,
   isValidationError,
+  isNotFoundError,
 } from './errors/octavus-error';
-
-// Error event helpers
-export type { CreateErrorEventOptions } from './errors/helpers';
 export {
-  createErrorEvent,
-  errorToStreamEvent,
-  createInternalErrorEvent,
-  createApiErrorEvent,
   isTransientTransportError,
   EXECUTION_NOT_RESUMABLE_CODE,
-} from './errors/helpers';
+  UNKNOWN_TOOL_CALL_CODE,
+} from './errors/transport';
 
 export { generateId, isAbortError, normalizeToolInputSchema } from './utils';
 export { MAIN_THREAD, resolveThread, isMainThread, threadForPart, isOtherThread } from './thread';
 
-export { isFileReference, isFileReferenceArray } from './stream/schemas';
-
+// Wire schemas (the single definition of every shape) and parse helpers
 export {
-  chatMessageSchema,
-  toolResultSchema,
-  fileReferenceSchema,
-  uiMessageSchema,
-  uiMessageSenderSchema,
-  uiMessagePartSchema,
-  uiWorkerPartSchema,
-  uiWorkerStatusSchema,
+  // Tolerance
+  setUnknownWireValueReporter,
+  type UnknownWireValue,
+  type UnknownWireValueReporter,
+  type Wire,
+  // Shared values
+  displayModeSchema,
+  finishReasonSchema,
+  errorTypeSchema,
+  errorSourceSchema,
   todoItemStatusSchema,
   todoItemSchema,
-  todoInfoSchema,
+  fileReferenceSchema,
+  uiMessageSenderSchema,
+  // Events
+  startEventSchema,
+  finishEventSchema,
+  errorEventSchema,
+  textStartEventSchema,
+  textDeltaEventSchema,
+  textEndEventSchema,
+  reasoningStartEventSchema,
+  reasoningDeltaEventSchema,
+  reasoningEndEventSchema,
+  toolInputStartEventSchema,
+  toolInputDeltaEventSchema,
+  toolInputEndEventSchema,
+  toolInputAvailableEventSchema,
+  toolOutputAvailableEventSchema,
+  toolOutputErrorEventSchema,
+  sourceUrlEventSchema,
+  sourceDocumentEventSchema,
+  sourceEventSchema,
   todoUpdateEventSchema,
+  blockStartEventSchema,
+  blockEndEventSchema,
+  stepStartEventSchema,
+  stepDiscardEventSchema,
+  persistedEventSchema,
+  pendingToolCallSchema,
+  toolResultSchema,
+  toolRequestEventSchema,
+  clientToolRequestEventSchema,
+  fileAvailableEventSchema,
+  workerStartEventSchema,
+  workerResultEventSchema,
+  workerInputStartEventSchema,
+  workerInputDeltaEventSchema,
+  workerInputReadyEventSchema,
+  usageEventSchema,
+  streamEventSchema,
+  unknownStreamEventSchema,
+  safeParseStreamEvent,
+  // UI messages
+  uiMessageStatusSchema,
+  uiPartStatusSchema,
+  uiToolCallStatusSchema,
+  uiOperationStatusSchema,
+  uiObjectStatusSchema,
+  uiWorkerStatusSchema,
+  uiTextPartSchema,
+  uiReasoningPartSchema,
+  uiToolCallPartSchema,
+  uiOperationPartSchema,
+  uiSourceUrlPartSchema,
+  uiSourceDocumentPartSchema,
+  uiSourcePartSchema,
+  uiFilePartSchema,
+  uiObjectPartSchema,
   uiTodoItemSchema,
   uiTodoPartSchema,
+  uiStepStartPartSchema,
+  uiUnknownPartSchema,
+  uiWorkerPartSchema,
+  uiMessagePartSchema,
+  uiMessageSchema,
+  safeParseUIMessage,
+  safeParseUIMessages,
+  // Guards
+  isFileReference,
+  isFileReferenceArray,
 } from './stream/schemas';
 
 export { isDeviceProvider, isDynamicMcpProvider } from './stream/types';
@@ -71,12 +132,7 @@ export type {
   DeviceProvider,
   DynamicStdioEntry,
   DynamicMcpProvider,
-  ResourceUpdateHandler,
   FileReference,
-  MessageRole,
-  ToolCallStatus,
-  ToolCallInfo,
-  ProviderMetadata,
   FinishReason,
   // Lifecycle Events
   StartEvent,
@@ -107,7 +163,6 @@ export type {
   StepStartEvent,
   StepDiscardEvent,
   PersistedEvent,
-  ResourceUpdateEvent,
   PendingToolCall,
   ToolRequestEvent,
   ClientToolRequestEvent,
@@ -131,18 +186,8 @@ export type {
   WorkerExecutionTokens,
   // Union
   StreamEvent,
-  // Internal Message Types
-  MessagePartType,
-  SourceUrlInfo,
-  SourceDocumentInfo,
-  SourceInfo,
-  FileInfo,
-  ObjectInfo,
-  OperationInfo,
-  TodoInfo,
-  WorkerPartInfo,
-  MessagePart,
-  ChatMessage,
+  UnknownStreamEvent,
+  StreamEventParseResult,
   // UI Message Types (for client SDK and consumer apps)
   UIMessageStatus,
   UIPartStatus,
@@ -163,12 +208,24 @@ export type {
   UIWorkerStatus,
   UIWorkerPart,
   UIStepStartPart,
+  UIUnknownPart,
   UIMessagePart,
   UIMessage,
   UIMessageSender,
 } from './stream/types';
 
-export { safeParseStreamEvent, safeParseUIMessage, safeParseUIMessages } from './stream/schemas';
+// Display
+export { displayReveals, type DisplayReveal } from './stream/display';
+
+// Labels
+export {
+  getPartLabel,
+  getPartIdentity,
+  formatIdentityLabel,
+  type PartIdentity,
+  type PartLabelResolver,
+  type LabeledPart,
+} from './stream/labels';
 
 // Internal tools
 export {

@@ -515,7 +515,7 @@ The server sends Octavus `StreamEvent` objects as JSON. See [Streaming Events](/
 { type: 'error', errorType: 'internal_error', message: 'Something went wrong', source: 'platform', retryable: false }
 
 // Client tool request (tools without server handlers)
-{ type: 'client-tool-request', executionId: '...', toolCalls: [...], serverToolResults: [...] }
+{ type: 'client-tool-request', executionId: '...', toolCalls: [...] }
 { type: 'finish', finishReason: 'client-tool-calls', executionId: '...' }
 ```
 

@@ -37,17 +37,17 @@ const TRUNCATED_RESULT_PREVIEW_CHARS = 16 * 1024;
 /** Describes one tool result the guard reduced, for logging / telemetry. */
 export interface ToolResultTruncation {
   toolCallId: string;
+  /** The tool's name, when the caller could name the call. */
   toolName?: string;
   /** UTF-8 byte length of the original serialized content. */
   originalBytes: number;
-  /** UTF-8 byte length of the retained preview (or replacement error). */
+  /** UTF-8 byte length of the retained preview. */
   keptBytes: number;
-  /**
-   * True when the oversized result was an `outputVariable` capture that was
-   * replaced with an error instead of truncated to a preview - a partial
-   * capture would silently corrupt the stored variable.
-   */
-  variableCapture: boolean;
+}
+
+export interface EnforceToolResultsSizeOptions {
+  /** Names a reduced result's tool for the truncation report. */
+  toolNameFor?: (toolCallId: string) => string | undefined;
 }
 
 export interface EnforceToolResultsSizeResult {
@@ -121,34 +121,18 @@ function largestContentIndex(results: ToolResult[]): number {
 }
 
 /**
- * Reduce a single oversized tool result to a small preview (or, for an
- * `outputVariable` capture, an error). Returns null when the result is already
- * within the preview size and cannot help shrink the payload.
+ * Reduce a single oversized tool result to a small preview. Returns null when
+ * the result is already within the preview size and cannot help shrink the
+ * payload.
  */
-function shrinkResult(target: ToolResult): ToolResultTruncation | null {
+function shrinkResult(
+  target: ToolResult,
+  toolNameFor: EnforceToolResultsSizeOptions['toolNameFor'],
+): ToolResultTruncation | null {
   const hasResult = target.result !== undefined;
   const raw = hasResult ? serializeContent(target.result) : (target.error ?? '');
   const originalBytes = utf8ByteLength(raw);
   if (originalBytes <= TRUNCATED_RESULT_MIN_BYTES) return null;
-
-  // A captured variable can't be partially truncated without silently
-  // corrupting it, so surface the failure as an error the agent can act on.
-  if (hasResult && target.outputVariable) {
-    const message =
-      `Result omitted: it was ${formatBytes(originalBytes)}, too large to capture into ` +
-      `variable "${target.outputVariable}" and send back. Reduce the output - add filters or a ` +
-      `limit, request fewer fields, paginate, or write it to a file and return a reference ` +
-      `instead of inline data.`;
-    target.result = undefined;
-    target.error = message;
-    return {
-      toolCallId: target.toolCallId,
-      toolName: target.toolName,
-      originalBytes,
-      keptBytes: utf8ByteLength(message),
-      variableCapture: true,
-    };
-  }
 
   const note =
     `[Octavus: this tool result was too large to send (${formatBytes(originalBytes)}), so only ` +
@@ -163,10 +147,9 @@ function shrinkResult(target: ToolResult): ToolResultTruncation | null {
   }
   return {
     toolCallId: target.toolCallId,
-    toolName: target.toolName,
+    toolName: toolNameFor?.(target.toolCallId),
     originalBytes,
     keptBytes: utf8ByteLength(combined),
-    variableCapture: false,
   };
 }
 
@@ -184,6 +167,7 @@ function shrinkResult(target: ToolResult): ToolResultTruncation | null {
 export function enforceToolResultsSize(
   results: ToolResult[] | undefined,
   maxBytes: number,
+  options: EnforceToolResultsSizeOptions = {},
 ): EnforceToolResultsSizeResult {
   if (!results || results.length === 0) {
     return { results, truncations: [], overflow: false };
@@ -204,7 +188,7 @@ export function enforceToolResultsSize(
     remainingPasses -= 1;
     const index = largestContentIndex(working);
     if (index < 0) break;
-    const truncation = shrinkResult(working[index]!);
+    const truncation = shrinkResult(working[index]!, options.toolNameFor);
     if (!truncation) break; // largest remaining entry is already at preview size
     truncations.push(truncation);
   }

@@ -134,6 +134,9 @@ function handleError(err: unknown, options: ValidateOptions): void {
     if (err.status !== 0) {
       output.dim(`  Status: ${err.status}`);
     }
+    if (err.requestId !== undefined) {
+      output.dim(`  Request ID: ${err.requestId}`);
+    }
   } else if (err instanceof Error) {
     output.error(err.message);
   } else {

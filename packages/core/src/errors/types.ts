@@ -1,82 +1,43 @@
 /**
- * Error types for Octavus streaming errors.
- * These types categorize errors to enable appropriate UI handling.
+ * Error classification types, inferred from the wire schemas so an error event
+ * and an `OctavusError` describe an error the same way.
  */
-export type ErrorType =
-  // Authentication & Authorization
-  | 'authentication_error' // 401 - Invalid API key
-  | 'permission_error' // 403 - No access to resource
-
-  // Request Issues
-  | 'validation_error' // 400 - Invalid request/input
-  | 'not_found_error' // 404 - Resource not found
-
-  // Rate Limiting
-  | 'rate_limit_error' // 429 - Rate limit exceeded (transient, retryable)
-  | 'quota_exceeded_error' // 402 - Plan/usage allowance exhausted (terminal, not retried)
-
-  // Provider Issues
-  | 'provider_error' // 5xx - Provider-side failure
-  | 'provider_overloaded' // 529/503 - Provider overloaded
-  | 'provider_timeout' // 504 - Provider timeout
-  | 'unsupported_error' // Feature not supported by the model/provider
-
-  // Agent/Platform Issues
-  | 'execution_error' // Agent execution failed
-  | 'tool_error' // Tool execution failed
-  | 'protocol_error' // Protocol parsing/validation failed
-
-  // Catch-all
-  | 'internal_error' // Unexpected platform error
-  | 'unknown_error'; // Unclassified error
+import type { z } from 'zod';
+import type {
+  Wire,
+  errorTypeSchema,
+  errorSourceSchema,
+  providerErrorInfoSchema,
+  toolErrorInfoSchema,
+  backupFailureInfoSchema,
+} from '@/stream/schemas';
 
 /**
- * Error source - where the error originated.
+ * Error type classification:
+ * - `authentication_error` (401), `permission_error` (403)
+ * - `validation_error` (400, 422), `not_found_error` (404), `conflict_error` (409)
+ * - `rate_limit_error` (429, transient), `quota_exceeded_error` (402, a plan or
+ *   usage allowance exhausted - terminal, never retried)
+ * - `provider_error`, `provider_overloaded`, `provider_timeout`,
+ *   `unsupported_error` (the model or provider cannot do what was asked)
+ * - `execution_error`, `tool_error`, `protocol_error`
+ * - `internal_error`, `unknown_error`
  */
-export type ErrorSource =
-  | 'platform' // Octavus platform error
-  | 'provider' // LLM provider error (OpenAI, Anthropic, Google)
-  | 'tool' // Tool execution error
-  | 'client'; // Client-side error (transport, parsing)
+export type ErrorType = z.infer<typeof errorTypeSchema>;
+
+/** Where the error originated: the platform, an LLM provider, a tool, or the client. */
+export type ErrorSource = z.infer<typeof errorSourceSchema>;
 
 /**
- * Provider information for provider errors.
+ * Provider information for provider errors: the provider and model, its HTTP
+ * status and error type, its request ID for support, a truncated raw response
+ * body when it carries detail beyond the normalized message, and the upstream
+ * deployment a gateway reported.
  */
-export interface ProviderErrorInfo {
-  /** Provider name (e.g., 'openai', 'anthropic', 'google') */
-  name: string;
-  /** Model that caused the error */
-  model?: string;
-  /** HTTP status code from provider */
-  statusCode?: number;
-  /** Provider's error type string */
-  errorType?: string;
-  /** Provider's request ID for support */
-  requestId?: string;
-  /**
-   * Truncated raw provider response body, when it carries detail beyond the
-   * normalized message. Kept for diagnosability - some providers return an
-   * opaque top-level message (e.g. Gemini's "Request contains an invalid
-   * argument") while the body holds field-level violations.
-   */
-  details?: string;
-  /**
-   * The upstream deployment that served or rejected the request when the
-   * provider is a gateway that reports it (e.g. the OpenRouter host `DeepInfra`).
-   * Absent for direct providers and when the gateway did not name the host.
-   */
-  upstream?: string;
-}
+export type ProviderErrorInfo = Wire<z.infer<typeof providerErrorInfoSchema>>;
 
-/**
- * Tool information for tool errors.
- */
-export interface ToolErrorInfo {
-  /** Tool name */
-  name: string;
-  /** Tool call ID */
-  callId?: string;
-}
+/** Tool information for tool errors. */
+export type ToolErrorInfo = Wire<z.infer<typeof toolErrorInfoSchema>>;
 
 /**
  * How the configured backup model failed when it was tried after the primary
@@ -86,24 +47,7 @@ export interface ToolErrorInfo {
  * backup whose provider account is out of credits looks like a plain primary
  * failure without it.
  */
-export interface BackupFailureInfo {
-  /** The backup model that was attempted, `provider/model-id`. */
-  model: string;
-  /** Error type classification of the backup's failure */
-  errorType: ErrorType;
-  /** Human-readable message of the backup's failure */
-  message: string;
-  /** Machine-readable error code of the backup's failure */
-  code?: string;
-  /** Provider details of the backup's failure */
-  provider?: ProviderErrorInfo;
-  /**
-   * How many attempts the backup made at the step before its failure was
-   * recorded - the first attempt plus any bounded re-issues after a transient
-   * failure. Absent when the attempt count is not known.
-   */
-  attempts?: number;
-}
+export type BackupFailureInfo = Wire<z.infer<typeof backupFailureInfoSchema>>;
 
 /**
  * Options for creating an OctavusError.
@@ -115,6 +59,17 @@ export interface OctavusErrorOptions {
   retryable?: boolean;
   retryAfter?: number;
   code?: string;
+  /** HTTP status of the response that carried the error, for a REST failure. */
+  status?: number;
+  /** The platform's request ID, to quote to support. */
+  requestId?: string;
+  /** Structured validation issues, when the platform returned them. */
+  issues?: unknown[];
+  /**
+   * Any other fields of the error response body, for errors that carry data to
+   * act on (for example the `currentThreadId` of an `AGENT_BUSY` error).
+   */
+  details?: Record<string, unknown>;
   provider?: ProviderErrorInfo;
   tool?: ToolErrorInfo;
   backup?: BackupFailureInfo;
