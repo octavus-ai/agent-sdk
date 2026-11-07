@@ -192,8 +192,9 @@ Cadence is resolved with the standard `block > thread > agent` precedence, the s
 Tool call lifecycle:
 
 ```typescript
-// Tool input started
-{ type: 'tool-input-start', toolCallId: '...', toolName: 'get-user-account', title: 'Looking up account' }
+// Tool input started (`title` is the authored title, when the tool has one;
+// `display` is the tool's display mode)
+{ type: 'tool-input-start', toolCallId: '...', toolName: 'get-user-account', title: 'Looking up account', display: 'title' }
 
 // Tool input/arguments streaming
 { type: 'tool-input-delta', toolCallId: '...', inputTextDelta: '{"userId":"user-123"}' }
@@ -211,28 +212,17 @@ Tool call lifecycle:
 { type: 'tool-output-error', toolCallId: '...', error: 'User not found' }
 ```
 
-### Resource Events
-
-> **Deprecated:** Resources (and `resource-update` events) are superseded by [tools](/docs/protocol/tools). Persist state with a consumer-defined tool instead. Still emitted for now.
-
-Resource updates:
-
-```typescript
-{ type: 'resource-update', name: 'CONVERSATION_SUMMARY', value: 'User asked about...' }
-```
-
 ## Display Modes
 
-Each block/tool specifies how it should appear to users:
+Each block, tool, skill, MCP server, and worker has a display mode that decides what its events carry:
 
-| Mode          | Description                         |
-| ------------- | ----------------------------------- |
-| `hidden`      | Not shown to user (background work) |
-| `name`        | Shows block/tool name               |
-| `description` | Shows description text              |
-| `stream`      | Streams content to chat             |
+| Mode     | Description                                                                               |
+| -------- | ----------------------------------------------------------------------------------------- |
+| `hidden` | Nothing is emitted (background work)                                                      |
+| `title`  | The lifecycle events are emitted with the authored `title`; arguments and results are not |
+| `stream` | Everything is emitted: arguments as they stream, the result, a worker's nested activity   |
 
-**Note**: Hidden events are filtered before reaching the client SDK. Your frontend only sees user-facing events.
+Every tool event carries the call's `display`, so a reader knows what it will and will not see. The label of a visible call is its `title` when one was authored, else a label derived from its name - the client SDK's `getPartLabel()`. See [Display Modes](/docs/protocol/tools#display-modes) for the protocol side.
 
 ## Stream Event Type
 
@@ -260,14 +250,16 @@ type StreamEvent =
   // Octavus-Specific
   | BlockStartEvent
   | BlockEndEvent
-  | ResourceUpdateEvent
   | ToolRequestEvent
-  | ClientToolRequestEvent;
+  | ClientToolRequestEvent
+  | ...;
 ```
+
+The union grows over time. `safeParseStreamEvent()` reads an event of a type it does not know as `{ kind: 'unknown' }` rather than failing, and keeps any field it does not know on the events it does, so switch on `type` with a `default` branch. See [Versioning](/docs/api-reference/versioning).
 
 ### Client Tool Request
 
-When a tool has no server handler registered, the SDK emits a `client-tool-request` event:
+Each executor submits only the results of the tools it ran. When a step mixes server and client tools, the SDK runs its own handlers and submits their results first; the platform records them and answers with a `tool-request` for the calls still open, which the SDK then hands to the client as a `client-tool-request` event:
 
 ```typescript
 {
@@ -277,35 +269,29 @@ When a tool has no server handler registered, the SDK emits a `client-tool-reque
     {
       toolCallId: 'call_xyz',
       toolName: 'get-browser-location',
-      args: {}
-    }
-  ],
-  serverToolResults: [               // Results from server tools in same batch
-    {
-      toolCallId: 'call_def',
-      toolName: 'get-user-account',
-      result: { name: 'Demo User' }
+      args: {},
+      display: 'stream'
     }
   ]
 }
 ```
 
-After the client handles the tools, send a `continue` request with all results:
+After the client handles the tools, send a `continue` request with their results. A result is only the `toolCallId` and the `result` (or `error`, and `files` when the tool produced any); the platform routes it by the call it recorded when it issued it:
 
 ```typescript
 session.execute({
   type: 'continue',
   executionId: 'exec_abc123',
   toolResults: [
-    ...serverToolResults, // Include server results from the event
     {
       toolCallId: 'call_xyz',
-      toolName: 'get-browser-location',
       result: { lat: 40.7128, lng: -74.006 },
     },
   ],
 });
 ```
+
+A result for a call the execution did not request is refused with `400 UNKNOWN_TOOL_CALL`; a second result for the same call is ignored (the first one stands), and so is a result re-sent for a call the execution already applied. A `continue` that leaves some calls open does not run the agent: it is answered with another `tool-request` for the remaining calls.
 
 See [Client Tools](/docs/client-sdk/client-tools) for full client-side implementation.
 
@@ -338,16 +324,23 @@ Errors are emitted as structured events with type classification:
 
 `retryable` is the platform's verdict once its own recovery (the configured backup model, same-provider retries) is spent: whether a fresh run of the turn can succeed. `backup` is present only when the agent configures a [backup model](/docs/protocol/agent-config#backup-model) and it failed as well; the event itself describes the primary model's failure.
 
+An `error` event the platform itself raises also carries the `requestId` of the request it failed in, the same ID a failed REST call reports; quote it to support. `OctavusError.fromEvent(event)` turns the event into the SDK's one error class.
+
 ### Error Types
 
-| Type                   | Description           |
-| ---------------------- | --------------------- |
-| `rate_limit_error`     | Too many requests     |
-| `authentication_error` | Invalid API key       |
-| `provider_error`       | LLM provider issue    |
-| `provider_overloaded`  | Provider at capacity  |
-| `tool_error`           | Tool execution failed |
-| `internal_error`       | Platform error        |
+| Type                   | Description                                 |
+| ---------------------- | ------------------------------------------- |
+| `rate_limit_error`     | Too many requests                           |
+| `authentication_error` | Invalid API key                             |
+| `validation_error`     | Invalid input or agent definition           |
+| `not_found_error`      | The session, agent, or execution is unknown |
+| `provider_error`       | LLM provider issue                          |
+| `provider_overloaded`  | Provider at capacity                        |
+| `tool_error`           | Tool execution failed                       |
+| `unsupported_error`    | This client version is no longer supported  |
+| `internal_error`       | Platform error                              |
+
+The list grows over time; an unknown value is read as `unknown_error`.
 
 ### Tool Errors
 

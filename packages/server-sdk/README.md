@@ -167,25 +167,35 @@ const session = client.agentSessions.attach(sessionId, {
 });
 ```
 
-### Resource Handlers
+### Persisting Agent State
 
-Track resource updates from the agent:
+A value the agent produces that your application keeps (a running summary, a generated title) is persisted through a tool handler: the protocol calls the tool from a `tool-call` block, and the handler writes the value wherever you store state.
 
 ```typescript
-import { Resource } from '@octavus/server-sdk';
+const session = client.agentSessions.attach(sessionId, {
+  tools: {
+    'save-conversation-summary': async (args) => {
+      await db.sessions.update(sessionId, { summary: args.summary as string });
+      return { saved: true };
+    },
+  },
+});
+```
 
-class ConversationSummaryResource extends Resource {
-  readonly name = 'CONVERSATION_SUMMARY';
+### Errors
 
-  async onUpdate(value: unknown) {
-    // Persist to database, trigger webhooks, etc.
-    await db.sessions.update(sessionId, { summary: value });
+Every failed request throws an `OctavusError` - the same class the stream's `error` events become - with the HTTP `status`, the platform's stable `code`, the classification, whether a retry can help, and the `requestId` to quote to support.
+
+```typescript
+import { OctavusError } from '@octavus/server-sdk';
+
+try {
+  await client.agentSessions.getMessages(sessionId);
+} catch (error) {
+  if (OctavusError.isInstance(error) && error.status === 404) {
+    // start a new session
   }
 }
-
-const session = client.agentSessions.attach(sessionId, {
-  resources: [new ConversationSummaryResource()],
-});
 ```
 
 ### Abort Support

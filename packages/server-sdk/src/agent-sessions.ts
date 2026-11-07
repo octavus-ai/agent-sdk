@@ -1,5 +1,4 @@
 import type {
-  ChatMessage,
   ExecutionLogEntry,
   InlineMcpServer,
   PendingToolCall,
@@ -10,11 +9,10 @@ import type {
 import { BaseApiClient } from '@/base-api-client.js';
 import { throwApiError } from '@/api-error.js';
 import { AgentSession } from '@/session.js';
-import type { Resource } from '@/resource.js';
 import type { ToolResultTruncation } from '@/tool-result-size.js';
 import {
   createSessionResponseSchema,
-  sessionStateSchema,
+  sessionResponseSchema,
   uiSessionResponseSchema,
   expiredSessionResponseSchema,
   restoreSessionResponseSchema,
@@ -25,20 +23,16 @@ import {
 /** Session status indicating whether it's active or expired */
 export type SessionStatus = 'active' | 'expired';
 
-export interface SessionState {
+/**
+ * A session's metadata. `status` is `active` while the platform holds the
+ * session's state and `expired` once that state has aged out or been cleared;
+ * an expired session is restored from the messages you stored with `restore()`.
+ */
+export interface SessionInfo {
   id: string;
   agentId: string;
-  input: Record<string, unknown>;
-  variables: Record<string, unknown>;
-  /**
-   * @deprecated Resources are superseded by tools. Persist state with a
-   * consumer-defined tool (or MCP tool) instead.
-   */
-  resources: Record<string, unknown>;
-  messages: ChatMessage[];
-  status?: 'active';
+  status: SessionStatus;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface UISessionState {
@@ -86,12 +80,6 @@ export interface ExecutionLogsResult {
 
 export interface SessionAttachOptions {
   tools?: ToolHandlers;
-  /**
-   * @deprecated Resources are superseded by tools. Persist state with a
-   * consumer-defined tool (or MCP tool) instead.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-deprecated -- Resource type retained for the deprecated resources option
-  resources?: Resource[];
   /** Inline MCP servers providing namespaced, typed tool groups */
   mcpServers?: InlineMcpServer[];
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
@@ -140,13 +128,11 @@ export class AgentSessionsApi extends BaseApiClient {
   }
 
   /**
-   * Get full session state (for internal/debug use)
-   * Note: Contains all messages including hidden content
-   *
-   * Returns SessionState for active sessions, ExpiredSessionState for expired sessions.
-   * Check `status` field to determine which type was returned.
+   * Get a session's metadata: its agent, when it was created, and whether its
+   * state is still `active` or has `expired`. Messages are read with
+   * `getMessages()`.
    */
-  async get(sessionId: string): Promise<SessionState | ExpiredSessionState> {
+  async get(sessionId: string): Promise<SessionInfo> {
     const response = await fetch(`${this.config.baseUrl}/api/agent-sessions/${sessionId}`, {
       method: 'GET',
       headers: await this.config.getHeaders(),
@@ -156,14 +142,13 @@ export class AgentSessionsApi extends BaseApiClient {
       await throwApiError(response, 'Request failed');
     }
 
-    const data: unknown = await response.json();
-
-    const expiredResult = expiredSessionResponseSchema.safeParse(data);
-    if (expiredResult.success) {
-      return expiredResult.data;
-    }
-
-    return sessionStateSchema.parse(data);
+    const data = sessionResponseSchema.parse(await response.json());
+    return {
+      id: data.id ?? data.sessionId ?? sessionId,
+      agentId: data.agentId,
+      status: data.status ?? 'active',
+      createdAt: data.createdAt,
+    };
   }
 
   /**
@@ -275,8 +260,6 @@ export class AgentSessionsApi extends BaseApiClient {
       sessionId,
       config: this.config,
       tools: options.tools,
-      // eslint-disable-next-line @typescript-eslint/no-deprecated -- forwards the deprecated resources option
-      resources: options.resources,
       mcpServers: options.mcpServers,
       onToolResults: options.onToolResults,
       onToolResultTruncated: options.onToolResultTruncated,
@@ -308,8 +291,6 @@ export class AgentSessionsApi extends BaseApiClient {
         onSessionCreated: options.onSessionCreated,
       },
       tools: options.tools,
-      // eslint-disable-next-line @typescript-eslint/no-deprecated -- forwards the deprecated resources option
-      resources: options.resources,
       mcpServers: options.mcpServers,
       onToolResults: options.onToolResults,
       onToolResultTruncated: options.onToolResultTruncated,

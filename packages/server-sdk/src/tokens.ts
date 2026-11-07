@@ -58,7 +58,7 @@ export class TokensApi extends BaseApiClient {
    * Mint a scoped ephemeral token. The requested scope must be within the
    * calling key's scope, and the TTL is clamped to the platform maximum.
    *
-   * @throws ApiError if the key lacks the mint permission, or the agent/session
+   * @throws OctavusError if the key lacks the mint permission, or the agent/session
    * is unknown or out of scope.
    */
   async mint(params: MintTokenRequest): Promise<MintTokenResponse> {

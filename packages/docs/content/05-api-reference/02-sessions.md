@@ -5,7 +5,7 @@ description: Session management API endpoints.
 
 # Sessions API
 
-Sessions represent conversations with agents. They store conversation history, resources, and variables.
+Sessions represent conversations with agents. They store conversation history and the agent's variables.
 
 All session endpoints require an API key with the **Sessions** permission.
 
@@ -62,7 +62,7 @@ curl -X POST https://octavus.ai/api/agent-sessions \
 
 ## Get Session
 
-Retrieve session state. Returns UI-ready messages for active sessions, or expiration info for expired sessions.
+Retrieve a session. Returns the session's metadata, or with `format=ui` its UI-ready messages; an expired session returns its expiration info either way.
 
 ```
 GET /api/agent-sessions/:sessionId
@@ -72,11 +72,24 @@ GET /api/agent-sessions/:sessionId
 
 ### Query Parameters
 
-| Parameter | Type   | Description                                          |
-| --------- | ------ | ---------------------------------------------------- |
-| `format`  | string | Optional. Use `format=ui` for UI-ready messages only |
+| Parameter | Type   | Description                                                         |
+| --------- | ------ | ------------------------------------------------------------------- |
+| `format`  | string | Optional. Use `format=ui` for the conversation as UI-ready messages |
 
-### Response (Active Session)
+### Response (Metadata)
+
+Without `format`, the response describes the session: its `id`, `agentId`, `status` (`active`), and `createdAt`. The conversation itself is read with `format=ui`.
+
+```json
+{
+  "id": "cm5xyz123abc456def",
+  "agentId": "cm5xvz7k80001abcd",
+  "status": "active",
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+
+### Response (Active Session, `format=ui`)
 
 When the session is active, the response includes `UIMessage` objects. Each trigger produces one assistant message for the whole turn, however many tool rounds it takes: the message's `parts` hold every step in order, with a `step-start` part between steps - the same shape the client SDK builds while the turn streams. A handler that adds a message mid-turn (an `add-message` block after output has already been produced) continues in a new assistant message after it, so history keeps its order.
 
@@ -84,17 +97,9 @@ A turn that is paused for tools - waiting for your server or client to continue 
 
 ```json
 {
-  "id": "cm5xyz123abc456def",
+  "sessionId": "cm5xyz123abc456def",
   "agentId": "cm5xvz7k80001abcd",
   "status": "active",
-  "input": {
-    "COMPANY_NAME": "Acme Corp",
-    "PRODUCT_NAME": "Widget Pro"
-  },
-  "variables": {},
-  "resources": {
-    "CONVERSATION_SUMMARY": ""
-  },
   "messages": [
     {
       "id": "1702345800000-xyz789a",
@@ -107,16 +112,25 @@ A turn that is paused for tools - waiting for your server or client to continue 
       "id": "1702345805000-def456b",
       "role": "assistant",
       "parts": [
+        {
+          "type": "tool-call",
+          "toolCallId": "call_1",
+          "toolName": "get-user-account",
+          "title": "Looking up your account",
+          "display": "title",
+          "args": {},
+          "status": "done"
+        },
         { "type": "text", "text": "I can help you reset your password...", "status": "done" }
       ],
       "status": "done",
       "createdAt": "2024-01-15T10:30:05.000Z"
     }
-  ],
-  "createdAt": "2024-01-15T10:30:00Z",
-  "updatedAt": "2024-01-15T10:30:05Z"
+  ]
 }
 ```
+
+A part reveals the same things here as its events did live: a `title`-mode tool call carries its `title` and status but no `args` or `result`; a `stream`-mode one carries both. Timestamps are ISO 8601 strings.
 
 ### Response (Expired Session)
 
@@ -143,8 +157,9 @@ Messages contain typed `parts` that preserve content ordering:
 |-----------|-------------|
 | `text` | Text content with `text` and `status` fields |
 | `reasoning` | Extended reasoning with `text` and `status` fields |
-| `tool-call` | Tool execution with `toolCallId`, `toolName`, `displayName`, `args`, `result`, `status` |
-| `operation` | Internal operations with `operationId`, `name`, `operationType`, `status` |
+| `tool-call` | Tool execution with `toolCallId`, `toolName`, `title`, `display`, `args`, `result`, `status` |
+| `operation` | A block's operation card with `operationId`, `name`, `operationType`, `title`, `status` |
+| `worker` | A sub-agent card with `workerId`, `workerSlug`, `title`, `display`, nested `parts`, `status` |
 | `file` | File attachment with `id`, `mediaType`, `url`, `filename`, `size` |
 | `source` | Source reference with `sourceType`, `id`, `url`, `title` |
 | `object` | Structured output with `id`, `typeName`, `object`, `status` |
@@ -337,7 +352,9 @@ data: [DONE]
 | `tool-output-error`     | Tool failed                        |
 | `tool-request`          | Platform requesting tool execution |
 | `file-available`        | File ready for display/download    |
-| `resource-update`       | Resource value changed             |
+| `worker-start` ...      | Sub-agent lifecycle (see the SDK)  |
+
+The list grows over time. Read an event of an unknown `type` as one to ignore or forward, and keep any field you do not know; see [Versioning](/docs/api-reference/versioning).
 
 ### Example
 
@@ -353,7 +370,7 @@ curl -N -X POST https://octavus.ai/api/agent-sessions/:sessionId/trigger \
 
 ## Tool Continuation
 
-When the agent calls external tools, you'll receive a `tool-request` event. Execute the tools and send the results back as a continuation of the same execution, identified by the `executionId` from the stream's `start` event:
+When the agent calls external tools, you'll receive a `tool-request` event. Execute the tools and send the results back as a continuation of the same execution, identified by the `executionId` from the stream's `start` event. A result is the `toolCallId` and the `result` (or an `error` string, and `files` when the tool produced any); the platform routes it by the call it recorded when it issued it:
 
 ```json
 {
@@ -362,7 +379,6 @@ When the agent calls external tools, you'll receive a `tool-request` event. Exec
   "toolResults": [
     {
       "toolCallId": "tc_123",
-      "toolName": "get-user-account",
       "result": {
         "name": "Demo User",
         "email": "demo@example.com"
@@ -371,6 +387,8 @@ When the agent calls external tools, you'll receive a `tool-request` event. Exec
   ]
 }
 ```
+
+A result for a call the execution did not request is refused with `400` and the code `UNKNOWN_TOOL_CALL`. A second result for a call that already has one is ignored, and so is a result re-sent for a call the execution already applied, so a continuation retried after a dropped connection is safe. A continuation that answers only some of the open calls does not run the agent: it is answered with a `tool-request` for the calls still open, so several executors can each submit what they ran.
 
 The Server SDK handles this continuation pattern automatically.
 

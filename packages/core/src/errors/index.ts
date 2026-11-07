@@ -6,6 +6,7 @@ export type {
   BackupFailureInfo,
   OctavusErrorOptions,
 } from './types';
+export type { ApiResponseErrorOptions } from './octavus-error';
 
 export {
   OctavusError,
@@ -16,14 +17,11 @@ export {
   isToolError,
   isRetryableError,
   isValidationError,
+  isNotFoundError,
 } from './octavus-error';
 
-export type { CreateErrorEventOptions } from './helpers';
 export {
-  createErrorEvent,
-  errorToStreamEvent,
-  createInternalErrorEvent,
-  createApiErrorEvent,
   isTransientTransportError,
   EXECUTION_NOT_RESUMABLE_CODE,
-} from './helpers';
+  UNKNOWN_TOOL_CALL_CODE,
+} from './transport';

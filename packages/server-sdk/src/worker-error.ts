@@ -1,33 +1,21 @@
-import type { BackupFailureInfo, ErrorType, ErrorSource, ProviderErrorInfo } from '@octavus/core';
+import { OctavusError, type OctavusErrorOptions } from '@octavus/core';
 
-/** Structured error details from the execution error event */
-export interface WorkerErrorDetails {
-  /** Error type classification (e.g., 'validation_error', 'rate_limit_error') */
-  errorType?: ErrorType;
-  /** Where the error originated ('provider', 'platform', 'tool') */
-  source?: ErrorSource;
-  /** Machine-readable error code (e.g., 'OPENAI_400', 'ANTHROPIC_429') */
-  code?: string;
-  /** Whether automatic retry is possible */
-  retryable?: boolean;
-  /** Suggested retry delay in seconds (from provider headers) */
-  retryAfter?: number;
-  /** Provider details when the error originated from an LLM provider */
-  provider?: ProviderErrorInfo;
-  /** How the configured backup model failed too, when it was tried after this error */
-  backup?: BackupFailureInfo;
+export interface WorkerErrorOptions extends OctavusErrorOptions {
+  /** Session ID if the worker started before failing (for debugging URLs) */
+  sessionId?: string;
 }
 
-/** Error thrown when a worker execution fails */
-export class WorkerError extends Error {
-  constructor(
-    message: string,
-    /** Session ID if the worker started before failing (for debugging URLs) */
-    public readonly sessionId?: string,
-    /** Structured error details from the execution error event */
-    public readonly details?: WorkerErrorDetails,
-  ) {
-    super(message);
+/**
+ * Error thrown when a worker execution fails: an `OctavusError` (the error
+ * guards and `requestId` apply) that also names the session it failed in.
+ */
+export class WorkerError extends OctavusError {
+  /** Session ID if the worker started before failing (for debugging URLs) */
+  readonly sessionId?: string;
+
+  constructor(options: WorkerErrorOptions) {
+    super(options);
     this.name = 'WorkerError';
+    this.sessionId = options.sessionId;
   }
 }

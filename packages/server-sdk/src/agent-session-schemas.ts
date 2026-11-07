@@ -1,46 +1,47 @@
 import { z } from 'zod';
-import { chatMessageSchema, uiMessageSchema } from '@octavus/core';
+import { uiMessageSchema } from '@octavus/core';
 
 // ---------------------------------------------------------------------------
 // Session schemas
 // ---------------------------------------------------------------------------
 
-export const createSessionResponseSchema = z.object({
+export const createSessionResponseSchema = z.looseObject({
   sessionId: z.string(),
 });
 
-export const sessionStateSchema = z.object({
-  id: z.string(),
+/**
+ * A session read: the session's metadata, whether its state is live or has
+ * expired. Parsed loosely so the fields of an active session's body beyond its
+ * metadata are left alone.
+ */
+export const sessionResponseSchema = z.looseObject({
+  id: z.string().optional(),
+  sessionId: z.string().optional(),
   agentId: z.string(),
-  input: z.record(z.string(), z.unknown()),
-  variables: z.record(z.string(), z.unknown()),
-  resources: z.record(z.string(), z.unknown()),
-  messages: z.array(chatMessageSchema),
-  status: z.literal('active').optional(),
+  status: z.enum(['active', 'expired']).optional(),
   createdAt: z.string(),
-  updatedAt: z.string(),
 });
 
-export const uiSessionResponseSchema = z.object({
+export const uiSessionResponseSchema = z.looseObject({
   sessionId: z.string(),
   agentId: z.string(),
   messages: z.array(uiMessageSchema),
   status: z.literal('active').optional(),
 });
 
-export const expiredSessionResponseSchema = z.object({
+export const expiredSessionResponseSchema = z.looseObject({
   sessionId: z.string(),
   agentId: z.string(),
   status: z.literal('expired'),
   createdAt: z.string(),
 });
 
-export const restoreSessionResponseSchema = z.object({
+export const restoreSessionResponseSchema = z.looseObject({
   sessionId: z.string(),
   restored: z.boolean(),
 });
 
-export const clearSessionResponseSchema = z.object({
+export const clearSessionResponseSchema = z.looseObject({
   sessionId: z.string(),
   cleared: z.boolean(),
 });
@@ -61,7 +62,7 @@ const executionLogEntrySchema = z.looseObject({
   type: z.string(),
 });
 
-export const executionLogsResponseSchema = z.object({
+export const executionLogsResponseSchema = z.looseObject({
   sessionId: z.string(),
   entries: z.array(executionLogEntrySchema),
   total: z.number().optional(),

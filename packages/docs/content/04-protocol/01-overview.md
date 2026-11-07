@@ -40,12 +40,6 @@ input:
   COMPANY_NAME: { type: string }
   USER_ID: { type: string, optional: true }
 
-# Persistent resources (deprecated - removed in v7; persist state with a tool instead)
-resources:
-  CONVERSATION_SUMMARY:
-    description: Summary for handoff
-    default: ''
-
 # How the agent can be invoked
 triggers:
   user-message:
@@ -195,7 +189,7 @@ The referenced prompt content is inserted before variable interpolation, so vari
 
 ## Next Steps
 
-- [Input & Resources](/docs/protocol/input-resources) - Defining agent inputs
+- [Input & Variables](/docs/protocol/input-resources) - Defining agent inputs and variables
 - [Triggers](/docs/protocol/triggers) - How agents are invoked
 - [Tools](/docs/protocol/tools) - External capabilities
 - [MCP Servers](/docs/protocol/mcp-servers) - Remote services and device capabilities via MCP
@@ -205,4 +199,4 @@ The referenced prompt content is inserted before variable interpolation, so vari
 - [Agent Config](/docs/protocol/agent-config) - Model and settings
 - [Workers](/docs/protocol/workers) - Worker agent format
 - [Types](/docs/protocol/types) - Custom type definitions
-- [Migrating from v6 to v7](/docs/migration/v6-to-v7) - Deprecations and how to migrate
+- [Migrating from v6 to v7](/docs/migration/v6-to-v7) - What changed in v7 and how to move

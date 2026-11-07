@@ -5,7 +5,7 @@ description: Managing agent sessions with the Server SDK.
 
 # Sessions
 
-Sessions represent conversations with an agent. They store conversation history, track resources and variables, and enable stateful interactions.
+Sessions represent conversations with an agent. They store conversation history and the agent's variables, and enable stateful interactions.
 
 ## Creating Sessions
 
@@ -85,7 +85,7 @@ The created session id reaches you through two channels:
 | `idempotencyKey`   | `string`                      | Makes a retried start resolve to the same session; auto-generated |
 | `onSessionCreated` | `(sessionId: string) => void` | Called with the session id as soon as it is assigned              |
 
-`start()` also accepts the same `tools`, `resources`, `mcpServers`, `onToolResults`, and `rejectClientToolCalls` options as `attach()`.
+`start()` also accepts the same `tools`, `mcpServers`, `onToolResults`, and `rejectClientToolCalls` options as `attach()`.
 
 > The two-step `create()` + `attach()` flow is unchanged and fully supported. `start()` is additive - reach for it when you want to defer creation to the first message.
 
@@ -115,25 +115,22 @@ interface UISessionState {
 }
 ```
 
-## Full Session State (Debug)
+## Session Metadata
 
-For debugging or internal use, you can retrieve the complete session state including all variables and internal message format:
+`get()` returns what the platform knows about a session without its messages: the agent it belongs to, when it was created, and whether its state is still `active` or has `expired`:
 
 ```typescript
-const state = await client.agentSessions.get(sessionId);
+const info = await client.agentSessions.get(sessionId);
 
 console.log({
-  id: state.id,
-  agentId: state.agentId,
-  messages: state.messages.length, // ChatMessage[] (internal format)
-  resources: state.resources,
-  variables: state.variables,
-  createdAt: state.createdAt,
-  updatedAt: state.updatedAt,
+  id: info.id,
+  agentId: info.agentId,
+  status: info.status, // 'active' | 'expired'
+  createdAt: info.createdAt,
 });
 ```
 
-> **Note**: Use `getMessages()` for client-facing code. The `get()` method returns internal message format that includes hidden content not intended for end users.
+The conversation itself is read with `getMessages()`; the full execution record (every tool call, model request, and error) with `getLogs()`.
 
 ## Getting Execution Logs
 
@@ -205,20 +202,17 @@ const session = client.agentSessions.attach(sessionId, {
   tools: {
     // Tool handlers (see Tools documentation)
   },
-  resources: [
-    // Resource watchers (optional)
-  ],
 });
 ```
 
 ### Attach Options
 
-| Option                  | Type                              | Description                                                                     |
-| ----------------------- | --------------------------------- | ------------------------------------------------------------------------------- |
-| `tools`                 | `ToolHandlers`                    | Server-side tool handler functions                                              |
-| `resources`             | `Resource[]`                      | Deprecated - resource watchers for real-time updates. Use tools instead.        |
-| `onToolResults`         | `(results: ToolResult[]) => void` | Callback invoked after server-side tool results are produced                    |
-| `rejectClientToolCalls` | `boolean`                         | If `true`, reject tool calls that have no server handler (no client forwarding) |
+| Option                  | Type                                       | Description                                                                     |
+| ----------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
+| `tools`                 | `ToolHandlers`                             | Server-side tool handler functions                                              |
+| `mcpServers`            | `InlineMcpServer[]`                        | Inline MCP servers providing namespaced, typed tool groups                      |
+| `onToolResults`         | `(results: ToolResult[]) => Promise<void>` | Callback invoked after server-side tool results are produced                    |
+| `rejectClientToolCalls` | `boolean`                                  | If `true`, reject tool calls that have no server handler (no client forwarding) |
 
 For MCP tool integration (browser, filesystem, shell via `@octavus/computer`), register dynamic tools after attaching with `session.setDynamicTools()`. See [Computer](/docs/server-sdk/computer) for details.
 
@@ -418,7 +412,7 @@ flowchart TD
 
     B -.- B1["`**client.agentSessions.attach()**
     Configure tool handlers
-    Configure resource watchers`"]
+    Configure inline MCP servers`"]
 
     C -.- C1["`**session.execute()**
     Execute request
@@ -611,20 +605,26 @@ This is idempotent - calling `clear()` on an already expired session succeeds wi
 
 ## Error Handling
 
+Every failed request throws an `OctavusError` - the same class the stream's `error` events are turned into - carrying the HTTP `status`, the platform's stable `code`, the classification (`errorType`), whether a retry can help, and the `requestId` to quote to support:
+
 ```typescript
-import { ApiError } from '@octavus/server-sdk';
+import { OctavusError } from '@octavus/server-sdk';
 
 try {
   const session = await client.agentSessions.getMessages(sessionId);
 } catch (error) {
-  if (error instanceof ApiError) {
+  if (OctavusError.isInstance(error)) {
     if (error.status === 404) {
-      // Session not found or expired
-      console.log('Session expired, create a new one');
+      // Session not found
+      console.log('Session not found, create a new one');
     } else {
-      console.error('API Error:', error.message);
+      console.error(
+        `${error.code ?? error.errorType}: ${error.message} (request ${error.requestId})`,
+      );
     }
   }
   throw error;
 }
 ```
+
+A validation failure (`400`) or an invalid agent definition (`422`) carries its structured `issues`; a `429` or `503` carries `retryAfter` in seconds. See [Error handling](/docs/client-sdk/error-handling) for the classification and the [API reference](/docs/api-reference/overview#errors) for the response body.

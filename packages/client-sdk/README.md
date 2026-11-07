@@ -99,7 +99,6 @@ const chat = new OctavusChat({
   initialMessages: [], // Optional: restore from server
   onError: (error) => console.error(error),
   onFinish: () => console.log('Done'),
-  onResourceUpdate: (name, value) => console.log(`Resource ${name}:`, value),
 });
 ```
 
@@ -163,14 +162,15 @@ Messages contain ordered `parts` with typed content:
 type UIMessagePart =
   | UITextPart // Text content with streaming status
   | UIReasoningPart // Model reasoning/thinking content
-  | UIToolCallPart // Tool call with args, result, and status
-  | UIOperationPart // Internal operations (e.g., set-resource)
+  | UIToolCallPart // Tool call with title, display, args, result, and status
+  | UIOperationPart // A block's operation card (e.g., serialize-thread, generate-image)
+  | UIWorkerPart // A sub-agent's card with its nested parts
   | UISourcePart // URL or document sources
   | UIFilePart // File attachments (uploaded or generated)
   | UIObjectPart; // Structured output objects
 ```
 
-Each part includes a `type` discriminator and relevant fields. See TypeScript types for full field definitions.
+Each part includes a `type` discriminator and relevant fields. See TypeScript types for full field definitions. Label tool, worker, and operation cards with `getPartLabel(part)` (the authored `title`, else a label derived from the name), and read what a part reveals with `displayReveals(part.display)`. A part of a type you do not know is kept as it arrived, so switch on `type` with a `default` branch.
 
 ## Error Handling
 

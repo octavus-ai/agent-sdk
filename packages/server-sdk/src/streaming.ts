@@ -2,14 +2,14 @@ import {
   safeParseStreamEvent,
   isAbortError,
   isTransientTransportError,
-  createInternalErrorEvent,
-  createApiErrorEvent,
+  displayReveals,
+  OctavusError,
   type StreamEvent,
   type ToolHandlers,
   type PendingToolCall,
   type ToolResult,
 } from '@octavus/core';
-import { parseApiError } from '@/api-error.js';
+import { readApiError } from '@/api-error.js';
 import type { ApiClientConfig } from '@/base-api-client.js';
 import {
   MAX_CONTINUATION_BODY_BYTES,
@@ -136,8 +136,6 @@ export interface StreamExecutionConfig {
    * no-op when the header already latched the id.
    */
   onSessionId?: (sessionId: string) => void;
-  /** Called when a resource-update event is received (optional) */
-  onResourceUpdate?: (name: string, value: unknown) => void;
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
   onToolResults?: (results: ToolResult[]) => Promise<void>;
   /** Error message prefix for API errors */
@@ -178,15 +176,41 @@ export interface StreamExecutionPayload {
 }
 
 /**
+ * The event the server SDK emits for a tool it ran itself, revealing what the
+ * call's display mode allows: nothing for `hidden`, the completion and any
+ * error for `title`, the result for `stream`.
+ */
+function toolOutputEvent(call: PendingToolCall, result: ToolResult): StreamEvent | null {
+  const reveal = displayReveals(call.display);
+  if (!reveal.visible) return null;
+  if (result.error !== undefined) {
+    return {
+      type: 'tool-output-error',
+      toolCallId: call.toolCallId,
+      error: result.error,
+      display: call.display,
+      workerId: call.workerId,
+    };
+  }
+  return {
+    type: 'tool-output-available',
+    toolCallId: call.toolCallId,
+    output: reveal.output ? result.result : undefined,
+    display: call.display,
+    workerId: call.workerId,
+  };
+}
+
+/**
  * Executes a streaming request with tool continuation support.
  *
  * This is the shared implementation for both interactive sessions and workers.
  * It handles:
- * - SSE stream parsing
+ * - SSE stream parsing (forwarding events of types it does not know)
  * - Abort signal handling
- * - Tool-request interception and server/client splitting
- * - Automatic continuation for server-handled tools
- * - Client-tool-request emission for client-handled tools
+ * - Running the tools it has handlers for and submitting their results
+ * - Emitting `client-tool-request` for the calls no handler claimed
+ * - Resuming an execution leg the server yielded
  */
 export async function* executeStream(
   config: StreamExecutionConfig,
@@ -196,6 +220,9 @@ export async function* executeStream(
   let toolResults = payload.toolResults;
   let executionId = payload.executionId;
   let continueLoop = true;
+  // The calls of the last `tool-request`, by id: names the results the size
+  // guard reduces.
+  const toolNamesById = new Map<string, string>();
 
   const idleTimeoutMs = Math.max(
     0,
@@ -222,7 +249,9 @@ export async function* executeStream(
     // oversized results to a head+tail preview with actionable guidance so the
     // run continues and the model can self-correct. Media/file outputs are
     // already offloaded to S3 by `onToolResults` at the end of the prior loop.
-    const sized = enforceToolResultsSize(toolResults, toolResultsBudget);
+    const sized = enforceToolResultsSize(toolResults, toolResultsBudget, {
+      toolNameFor: (toolCallId) => toolNamesById.get(toolCallId),
+    });
     toolResults = sized.results;
     if (config.onToolResultTruncated) {
       for (const truncation of sized.truncations) {
@@ -236,12 +265,15 @@ export async function* executeStream(
     // huge number of results, or oversized non-result body fields). Fail loudly
     // with an actionable message rather than POSTing a body that will 413.
     if (sized.overflow || utf8ByteLength(JSON.stringify(body)) > maxBodyBytes) {
-      yield createApiErrorEvent(
-        413,
-        `${config.errorContext ?? 'Request'}: the results are too large to send (over ` +
+      yield new OctavusError({
+        errorType: 'validation_error',
+        source: 'client',
+        status: 413,
+        message:
+          `${config.errorContext ?? 'Request'}: the results are too large to send (over ` +
           `${formatBytes(maxBodyBytes)}) and could not be reduced enough. Return less data - ` +
           `filter, limit, or paginate the results, or write them to a file and return a reference.`,
-      );
+      }).toEvent();
       return;
     }
     const maxRetries = Math.max(0, config.config.maxRetries ?? DEFAULT_MAX_RETRIES);
@@ -342,16 +374,13 @@ export async function* executeStream(
       if (!haveResponse) return;
 
       if (!response.ok) {
-        const { message, code } = await parseApiError(
-          response,
-          config.errorContext ?? 'Request failed',
-        );
-        yield createApiErrorEvent(response.status, message, code);
+        const error = await readApiError(response, config.errorContext ?? 'Request failed');
+        yield error.toEvent();
         return;
       }
 
       if (!response.body) {
-        yield createInternalErrorEvent('Response body is not readable');
+        yield OctavusError.internal('Response body is not readable').toEvent();
         return;
       }
 
@@ -437,10 +466,16 @@ export async function* executeStream(
           if (line.startsWith('data: ') && line !== 'data: [DONE]') {
             try {
               const parsed = safeParseStreamEvent(JSON.parse(line.slice(6)));
-              if (!parsed.success) {
+              if (parsed.kind === 'invalid') {
                 continue;
               }
-              const event = parsed.data;
+              if (parsed.kind === 'unknown') {
+                // An event this SDK does not know, from a newer platform: it is
+                // the consumer's to ignore or use, so it is forwarded as it came.
+                yield parsed.event as StreamEvent;
+                continue;
+              }
+              const event = parsed.event;
 
               if (event.type === 'start' && event.executionId) {
                 executionId = event.executionId;
@@ -471,10 +506,6 @@ export async function* executeStream(
                 continue;
               }
 
-              if (event.type === 'resource-update' && config.onResourceUpdate) {
-                config.onResourceUpdate(event.name, event.value);
-              }
-
               yield event;
             } catch {
               // Skip malformed JSON
@@ -498,7 +529,7 @@ export async function* executeStream(
 
     if (resumeLeg) {
       if (!executionId) {
-        yield createInternalErrorEvent('Missing executionId to resume the execution');
+        yield OctavusError.internal('Missing executionId to resume the execution').toEvent();
         return;
       }
       // Resume the yielded execution: a continuation with nothing to deliver.
@@ -506,43 +537,51 @@ export async function* executeStream(
       continue;
     }
 
-    if (pendingToolCalls && pendingToolCalls.length > 0) {
-      const toolHandlers = config.getToolHandlers();
-      // A suspending pending call is resolved by `onSuspend` - the resident
-      // executor holds it open until the coordination hub delivers the resolving
-      // event. It runs alongside ordinary server tools (the abort-race below
-      // unblocks it on Stop) and is never treated as a missing client tool. Falls
-      // back to the normal path when `onSuspend` is unset.
-      const isSuspend = (tc: PendingToolCall): boolean =>
-        tc.suspend === true && config.onSuspend !== undefined;
-      const hasHandler = (tc: PendingToolCall): boolean => toolHandlers[tc.toolName] !== undefined;
-      const serverTools = pendingToolCalls.filter((tc) => isSuspend(tc) || hasHandler(tc));
-      const clientTools = pendingToolCalls.filter((tc) => !isSuspend(tc) && !hasHandler(tc));
+    if (!pendingToolCalls || pendingToolCalls.length === 0) {
+      continueLoop = false;
+      continue;
+    }
 
+    toolNamesById.clear();
+    for (const tc of pendingToolCalls) toolNamesById.set(tc.toolCallId, tc.toolName);
+
+    const toolHandlers = config.getToolHandlers();
+    // A suspending pending call is resolved by `onSuspend` - the resident
+    // executor holds it open until the coordination hub delivers the resolving
+    // event. It runs alongside ordinary server tools (the abort-race below
+    // unblocks it on Stop) and is never treated as a missing client tool. Falls
+    // back to the normal path when `onSuspend` is unset.
+    const isSuspend = (tc: PendingToolCall): boolean =>
+      tc.suspend === true && config.onSuspend !== undefined;
+    const hasHandler = (tc: PendingToolCall): boolean => toolHandlers[tc.toolName] !== undefined;
+    const ownCalls = pendingToolCalls.filter((tc) => isSuspend(tc) || hasHandler(tc));
+    const unhandledCalls = pendingToolCalls.filter((tc) => !isSuspend(tc) && !hasHandler(tc));
+
+    // Only a tool's executor submits its result. The calls this process does
+    // not own belong to another executor (the browser), which submits them on
+    // its own continuation; this process submits only what it ran. Unless the
+    // caller has no other executor, in which case the calls fail here.
+    const rejectedResults: ToolResult[] =
+      unhandledCalls.length > 0 && config.rejectClientToolCalls
+        ? unhandledCalls.map((tc) => ({
+            toolCallId: tc.toolCallId,
+            error: `Tool "${tc.toolName}" is not available. No handler is registered for this tool.`,
+          }))
+        : [];
+
+    let ownResults: ToolResult[] = [];
+    if (ownCalls.length > 0) {
       const toolExecution = Promise.all(
-        serverTools.map(async (tc): Promise<ToolResult> => {
+        ownCalls.map(async (tc): Promise<ToolResult> => {
           try {
             const result = isSuspend(tc)
               ? await config.onSuspend!(tc, signal)
               : await toolHandlers[tc.toolName]!(tc.args);
-            return {
-              toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
-              result,
-              outputVariable: tc.outputVariable,
-              blockIndex: tc.blockIndex,
-              thread: tc.thread,
-              workerId: tc.workerId,
-            };
+            return { toolCallId: tc.toolCallId, result };
           } catch (err) {
             return {
               toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
               error: err instanceof Error ? err.message : 'Tool execution failed',
-              outputVariable: tc.outputVariable,
-              blockIndex: tc.blockIndex,
-              thread: tc.thread,
-              workerId: tc.workerId,
             };
           }
         }),
@@ -551,7 +590,6 @@ export async function* executeStream(
       // Race tool execution against the abort signal so the stream can stop
       // immediately rather than waiting for slow tools (browser navigation,
       // shell commands, VM HTTP calls) to complete.
-      let serverResults: ToolResult[];
       if (signal && !signal.aborted) {
         let onAbort: (() => void) | undefined;
         const aborted = new Promise<'aborted'>((resolve) => {
@@ -571,65 +609,47 @@ export async function* executeStream(
           yield { type: 'finish', finishReason: 'stop' };
           return;
         }
-        serverResults = raceResult;
+        ownResults = raceResult;
       } else if (signal?.aborted) {
         yield { type: 'finish', finishReason: 'stop' };
         return;
       } else {
-        serverResults = await toolExecution;
+        ownResults = await toolExecution;
       }
 
-      if (config.onToolResults && serverResults.length > 0) {
-        await config.onToolResults(serverResults);
+      if (config.onToolResults) {
+        await config.onToolResults(ownResults);
       }
 
       if (signal?.aborted) {
         yield { type: 'finish', finishReason: 'stop' };
         return;
       }
-
-      for (const tr of serverResults) {
-        if (tr.error) {
-          yield { type: 'tool-output-error', toolCallId: tr.toolCallId, error: tr.error };
-        } else {
-          yield { type: 'tool-output-available', toolCallId: tr.toolCallId, output: tr.result };
-        }
-      }
-
-      if (clientTools.length > 0) {
-        if (config.rejectClientToolCalls) {
-          const rejectedResults: ToolResult[] = clientTools.map((tc) => ({
-            toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
-            error: `Tool "${tc.toolName}" is not available. No handler is registered for this tool.`,
-            outputVariable: tc.outputVariable,
-            blockIndex: tc.blockIndex,
-            thread: tc.thread,
-            workerId: tc.workerId,
-          }));
-          for (const tr of rejectedResults) {
-            yield { type: 'tool-output-error', toolCallId: tr.toolCallId, error: tr.error! };
-          }
-          toolResults = [...serverResults, ...rejectedResults];
-        } else {
-          if (!executionId) {
-            yield createInternalErrorEvent('Missing executionId for client-tool-request');
-            return;
-          }
-          yield {
-            type: 'client-tool-request',
-            executionId,
-            toolCalls: clientTools,
-            serverToolResults: serverResults.length > 0 ? serverResults : undefined,
-          };
-          yield { type: 'finish', finishReason: 'client-tool-calls', executionId };
-          continueLoop = false;
-        }
-      } else {
-        toolResults = serverResults;
-      }
-    } else {
-      continueLoop = false;
     }
+
+    const callsById = new Map(pendingToolCalls.map((tc) => [tc.toolCallId, tc]));
+    for (const result of [...ownResults, ...rejectedResults]) {
+      const call = callsById.get(result.toolCallId);
+      const event = call ? toolOutputEvent(call, result) : null;
+      if (event) yield event;
+    }
+
+    const results = [...ownResults, ...rejectedResults];
+    if (results.length > 0) {
+      // Submit what this process ran. If other executors' calls stay open, the
+      // platform answers with a `tool-request` for them, and the next round
+      // hands those to the client below.
+      toolResults = results;
+      continue;
+    }
+
+    // Nothing here to run: every open call belongs to the client.
+    if (!executionId) {
+      yield OctavusError.internal('Missing executionId for client-tool-request').toEvent();
+      return;
+    }
+    yield { type: 'client-tool-request', executionId, toolCalls: unhandledCalls };
+    yield { type: 'finish', finishReason: 'client-tool-calls', executionId };
+    continueLoop = false;
   }
 }

@@ -1,5 +1,5 @@
 import {
-  createInternalErrorEvent,
+  OctavusError,
   generateId,
   type DynamicTool,
   type InlineMcpServer,
@@ -12,7 +12,6 @@ import {
   type UIMessageSender,
 } from '@octavus/core';
 import type { ApiClientConfig } from '@/base-api-client.js';
-import type { Resource } from '@/resource.js';
 import { executeStream } from '@/streaming.js';
 import type { ToolResultTruncation } from '@/tool-result-size.js';
 import { resolveMcpServers } from '@/resolve-mcp-servers.js';
@@ -46,7 +45,11 @@ export interface TriggerRequest {
   userMessageId?: string;
 }
 
-/** Continue execution after client-side tool handling */
+/**
+ * Continue an execution with the results of the tools this caller ran. Each
+ * executor submits only its own results; the platform resumes once every
+ * requested call has one.
+ */
 export interface ContinueRequest {
   type: 'continue';
   executionId: string;
@@ -111,9 +114,9 @@ export function toSSEStream(events: AsyncIterable<StreamEvent>): ReadableStream<
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       } catch (err) {
-        const errorEvent = createInternalErrorEvent(
+        const errorEvent = OctavusError.internal(
           err instanceof Error ? err.message : 'Unknown error',
-        );
+        ).toEvent();
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`));
         controller.close();
       } finally {
@@ -160,12 +163,6 @@ export interface SessionConfig {
   sessionId?: string;
   config: ApiClientConfig;
   tools?: ToolHandlers;
-  /**
-   * @deprecated Resources are superseded by tools. Persist state with a
-   * consumer-defined tool (or MCP tool) instead.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-deprecated -- Resource type retained for the deprecated resources option
-  resources?: Resource[];
   /** Inline MCP servers providing namespaced, typed tool groups */
   mcpServers?: InlineMcpServer[];
   /** Called after server-side tools execute, before yielding events or continuing. Use to normalize tool results (e.g., upload base64 images). */
@@ -210,8 +207,6 @@ export class AgentSession {
   private baseHandlers: ToolHandlers;
   /** Active handler set: {@link baseHandlers} merged with the latest dynamic tools (which override on name collision). */
   private toolHandlers: ToolHandlers;
-  // eslint-disable-next-line @typescript-eslint/no-deprecated -- Resource type retained for the deprecated resources feature
-  private resourceMap: Map<string, Resource>;
   /** Schemas from inline MCP servers passed at construction. Stable for the session's lifetime. */
   private mcpToolSchemas: ToolSchema[] = [];
   /** Schemas registered via {@link setDynamicTools}. Mutable across the session. */
@@ -233,7 +228,6 @@ export class AgentSession {
     this.onToolResultTruncated = sessionConfig.onToolResultTruncated;
     this.rejectClientToolCalls = sessionConfig.rejectClientToolCalls ?? false;
     this.onSuspend = sessionConfig.onSuspend;
-    this.resourceMap = new Map();
 
     if (sessionConfig.mcpServers !== undefined && sessionConfig.mcpServers.length > 0) {
       const resolved = resolveMcpServers(sessionConfig.mcpServers, sessionConfig.tools);
@@ -243,11 +237,6 @@ export class AgentSession {
       this.baseHandlers = sessionConfig.tools ?? {};
     }
     this.toolHandlers = { ...this.baseHandlers };
-
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- reads the deprecated resources option to wire up watchers
-    for (const resource of sessionConfig.resources ?? []) {
-      this.resourceMap.set(resource.name, resource);
-    }
   }
 
   /**
@@ -385,10 +374,9 @@ export class AgentSession {
       }
     } catch (err) {
       if (!localController.signal.aborted) {
-        const errorEvent = createInternalErrorEvent(
-          err instanceof Error ? err.message : 'Unknown error',
+        handlers.onEvent(
+          OctavusError.internal(err instanceof Error ? err.message : 'Unknown error').toEvent(),
         );
-        handlers.onEvent(errorEvent);
       }
     }
   }
@@ -422,7 +410,6 @@ export class AgentSession {
           ? (response) => this.latchSessionIdFromHeader(response)
           : undefined,
         onSessionId: this.deferredStart ? (id) => this.latchSessionId(id) : undefined,
-        onResourceUpdate: (name, value) => this.handleResourceUpdate(name, value),
         onToolResults: this.onToolResults,
         onToolResultTruncated: this.onToolResultTruncated,
         rejectClientToolCalls: this.rejectClientToolCalls,
@@ -498,13 +485,6 @@ export class AgentSession {
     if (this.sessionId) return;
     const id = response.headers.get('X-Octavus-Session-Id');
     if (id) this.latchSessionId(id);
-  }
-
-  private handleResourceUpdate(name: string, value: unknown): void {
-    const resource = this.resourceMap.get(name);
-    if (resource) {
-      void resource.onUpdate(value);
-    }
   }
 
   /**

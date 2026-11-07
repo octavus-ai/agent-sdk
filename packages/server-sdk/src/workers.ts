@@ -1,4 +1,5 @@
 import type {
+  ErrorEvent,
   StreamEvent,
   ToolHandlers,
   ToolResult,
@@ -9,7 +10,7 @@ import type {
 } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
 import { executeStream } from '@/streaming.js';
-import { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
+import { WorkerError } from '@/worker-error.js';
 import { resolveMcpServers } from '@/resolve-mcp-servers.js';
 
 // =============================================================================
@@ -186,7 +187,7 @@ export class WorkersApi extends BaseApiClient {
     let sessionId: string | undefined;
     let workerOutput: WorkerGenerateResult | undefined;
     let errorMessage: string | undefined;
-    let errorDetails: WorkerErrorDetails | undefined;
+    let errorEvent: ErrorEvent | undefined;
     let lastWorkerId: string | undefined;
     let cost: WorkerExecutionCost | undefined;
     let tokens: WorkerExecutionTokens | undefined;
@@ -200,15 +201,7 @@ export class WorkersApi extends BaseApiClient {
         sessionId = event.executionId;
       } else if (event.type === 'error') {
         errorMessage = event.message;
-        errorDetails = {
-          errorType: event.errorType,
-          source: event.source,
-          code: event.code,
-          retryable: event.retryable,
-          retryAfter: event.retryAfter,
-          provider: event.provider,
-          backup: event.backup,
-        };
+        errorEvent = event;
       } else if (event.type === 'worker-result') {
         lastWorkerId = event.workerId;
         if (event.error !== undefined) {
@@ -229,7 +222,19 @@ export class WorkersApi extends BaseApiClient {
     }
 
     if (errorMessage !== undefined) {
-      throw new WorkerError(errorMessage, sessionId ?? lastWorkerId, errorDetails);
+      throw new WorkerError({
+        errorType: errorEvent?.errorType ?? 'execution_error',
+        message: errorMessage,
+        source: errorEvent?.source ?? 'platform',
+        retryable: errorEvent?.retryable,
+        retryAfter: errorEvent?.retryAfter,
+        code: errorEvent?.code,
+        requestId: errorEvent?.requestId,
+        provider: errorEvent?.provider,
+        tool: errorEvent?.tool,
+        backup: errorEvent?.backup,
+        sessionId: sessionId ?? lastWorkerId,
+      });
     }
 
     if (workerOutput !== undefined) {
@@ -238,7 +243,12 @@ export class WorkersApi extends BaseApiClient {
       return workerOutput;
     }
 
-    throw new WorkerError('Worker completed without producing a result', sessionId);
+    throw new WorkerError({
+      errorType: 'execution_error',
+      message: 'Worker completed without producing a result',
+      source: 'platform',
+      sessionId,
+    });
   }
 
   /**

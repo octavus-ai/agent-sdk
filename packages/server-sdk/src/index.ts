@@ -3,7 +3,7 @@ export { AgentsApi } from '@/agents.js';
 export { TokensApi, type MintTokenRequest, type MintTokenResponse } from '@/tokens.js';
 export {
   AgentSessionsApi,
-  type SessionState,
+  type SessionInfo,
   type UISessionState,
   type ExpiredSessionState,
   type RestoreSessionResult,
@@ -69,10 +69,7 @@ export {
   type WorkforceAgentUnavailableReason,
   type WorkforceComputerState,
 } from '@/workforce.js';
-export { WorkerError, type WorkerErrorDetails } from '@/worker-error.js';
-// eslint-disable-next-line @typescript-eslint/no-deprecated -- re-exporting the deprecated Resource so existing consumers keep compiling
-export { Resource } from '@/resource.js';
-export { ApiError } from '@/api-error.js';
+export { WorkerError, type WorkerErrorOptions } from '@/worker-error.js';
 export { createInlineMcpServer, defineInlineMcpTool } from '@/inline-mcp.js';
 export { normalizeToolResultMedia } from '@/normalize-media.js';
 export { normalizeToolResultOutputFiles } from '@/normalize-output-files.js';
@@ -81,6 +78,7 @@ export {
   MAX_CONTINUATION_BODY_BYTES,
   CONTINUATION_BODY_RESERVE_BYTES,
   type ToolResultTruncation,
+  type EnforceToolResultsSizeOptions,
   type EnforceToolResultsSizeResult,
 } from '@/tool-result-size.js';
 
@@ -93,16 +91,148 @@ export type {
   AgentDefinition,
 } from '@/agent-types.js';
 
-export type * from '@octavus/core';
+// The wire contract, re-exported from @octavus/core so a consumer needs one package.
+export type {
+  // Errors
+  ErrorType,
+  ErrorSource,
+  ProviderErrorInfo,
+  ToolErrorInfo,
+  BackupFailureInfo,
+  OctavusErrorOptions,
+  // Tools
+  DisplayMode,
+  DisplayReveal,
+  ToolHandler,
+  ToolHandlers,
+  ToolSchema,
+  ToolProvider,
+  InlineMcpServer,
+  DynamicTool,
+  EntryHealth,
+  ComputerHealth,
+  EnsureReadyResult,
+  DeviceProvider,
+  DynamicStdioEntry,
+  DynamicMcpProvider,
+  FileReference,
+  FinishReason,
+  // Events
+  StartEvent,
+  FinishEvent,
+  ErrorEvent,
+  TextStartEvent,
+  TextDeltaEvent,
+  TextEndEvent,
+  ReasoningStartEvent,
+  ReasoningDeltaEvent,
+  ReasoningEndEvent,
+  ToolInputStartEvent,
+  ToolInputDeltaEvent,
+  ToolInputEndEvent,
+  ToolInputAvailableEvent,
+  ToolOutputAvailableEvent,
+  ToolOutputErrorEvent,
+  SourceUrlEvent,
+  SourceDocumentEvent,
+  SourceEvent,
+  BlockStartEvent,
+  BlockEndEvent,
+  StepStartEvent,
+  StepDiscardEvent,
+  PersistedEvent,
+  PendingToolCall,
+  ToolRequestEvent,
+  ClientToolRequestEvent,
+  ToolResult,
+  FileAvailableEvent,
+  TodoItemStatus,
+  TodoItem,
+  TodoUpdateEvent,
+  WorkerStartEvent,
+  WorkerResultEvent,
+  WorkerInputStartEvent,
+  WorkerInputDeltaEvent,
+  WorkerInputReadyEvent,
+  UsageEvent,
+  WorkerExecutionCost,
+  WorkerExecutionTokens,
+  StreamEvent,
+  UnknownStreamEvent,
+  StreamEventParseResult,
+  // UI messages
+  UIMessageStatus,
+  UIPartStatus,
+  UITextPart,
+  UIReasoningPart,
+  UIToolCallStatus,
+  UIToolCallPart,
+  UIOperationStatus,
+  UIOperationPart,
+  UISourceUrlPart,
+  UISourceDocumentPart,
+  UISourcePart,
+  UIFilePart,
+  UIObjectStatus,
+  UIObjectPart,
+  UITodoItem,
+  UITodoPart,
+  UIWorkerStatus,
+  UIWorkerPart,
+  UIStepStartPart,
+  UIUnknownPart,
+  UIMessagePart,
+  UIMessage,
+  UIMessageSender,
+  // Labels
+  PartIdentity,
+  PartLabelResolver,
+  LabeledPart,
+  // Tolerance
+  UnknownWireValue,
+  UnknownWireValueReporter,
+  // Execution log
+  LogEntryFile,
+  LoggedToolCall,
+  ModelRequestTrace,
+  StepStatsTrace,
+  StepThinking,
+  StepImages,
+  StepReportedCost,
+  StepRouterDecision,
+  ExecutionLogError,
+  ExecutionLogEntryType,
+  ExecutionLogEntryBase,
+  TriggerLogEntry,
+  MessageLogEntry,
+  ToolCallLogEntry,
+  ToolResultLogEntry,
+  ScriptToolCallLogEntry,
+  LlmToolRequestLogEntry,
+  LlmResponseLogEntry,
+  ReasoningLogEntry,
+  ThreadCreatedLogEntry,
+  BlockOperationLogEntry,
+  ModelRequestLogEntry,
+  StepStatsLogEntry,
+  WorkerExecutionLogEntry,
+  WorkerOutputLogEntry,
+  CompactionLogEntry,
+  ToolOutputBoundedLogEntry,
+  ImageAdaptedLogEntry,
+  AbortLogEntry,
+  ErrorLogEntry,
+  ExecutionLogEntry,
+  TrimmedValue,
+  // Media
+  InlineMediaKind,
+  InlineMediaPart,
+  InlineMediaLocation,
+  ImageDimensions,
+} from '@octavus/core';
 export {
-  // Error classes
-  AppError,
-  NotFoundError,
-  ValidationError,
-  ConflictError,
-  ForbiddenError,
+  // Errors
   OctavusError,
-  // Error type guards
   isRateLimitError,
   isQuotaExceededError,
   isAuthenticationError,
@@ -110,13 +240,10 @@ export {
   isToolError,
   isRetryableError,
   isValidationError,
-  // Error event helpers
-  createErrorEvent,
-  errorToStreamEvent,
-  createInternalErrorEvent,
-  createApiErrorEvent,
+  isNotFoundError,
   isTransientTransportError,
   EXECUTION_NOT_RESUMABLE_CODE,
+  UNKNOWN_TOOL_CALL_CODE,
   // Utilities
   generateId,
   isAbortError,
@@ -126,15 +253,21 @@ export {
   isMainThread,
   threadForPart,
   isOtherThread,
+  // Display and labels
+  displayReveals,
+  getPartLabel,
+  getPartIdentity,
+  formatIdentityLabel,
   // Type guards
   isFileReference,
   isFileReferenceArray,
   isDeviceProvider,
   isDynamicMcpProvider,
-  // Safe parse helpers
+  // Parse helpers
   safeParseStreamEvent,
   safeParseUIMessage,
   safeParseUIMessages,
+  setUnknownWireValueReporter,
   // Skills
   OCTAVUS_SKILL_TOOLS,
   isOctavusSkillTool,
@@ -142,4 +275,6 @@ export {
   // MCP management
   OCTAVUS_MCP_TOOLS,
   isOctavusMcpTool,
+  // Execution log
+  isTrimmedValue,
 } from '@octavus/core';

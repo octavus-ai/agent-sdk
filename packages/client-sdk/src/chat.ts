@@ -2,6 +2,8 @@ import {
   generateId,
   threadForPart,
   isFileReferenceArray,
+  displayReveals,
+  safeParseUIMessage,
   OctavusError,
   type UIMessage,
   type UIMessagePart,
@@ -32,9 +34,6 @@ import {
   type ResolvedTextSmoothing,
   type TextSmoothingOption,
 } from './text-pacer';
-
-/** Block types that are internal operations (not LLM-driven) */
-const OPERATION_BLOCK_TYPES = new Set(['set-resource', 'serialize-thread', 'generate-image']);
 
 /**
  * Events that add to or settle a sub-agent card's content when they carry a
@@ -137,12 +136,6 @@ interface PendingToolState {
   toolCallId: string;
   toolName: string;
   args: Record<string, unknown>;
-  source?: 'llm' | 'block';
-  outputVariable?: string;
-  blockIndex?: number;
-  thread?: string;
-  /** Worker ID if this tool call is from a worker execution */
-  workerId?: string;
 }
 
 /**
@@ -257,12 +250,6 @@ export interface OctavusChatOptions {
   /** Callback when streaming is stopped by user */
   onStop?: () => void;
   /**
-   * Callback when a resource is updated.
-   * @deprecated Resources are superseded by tools. Persist state with a
-   * consumer-defined tool (or MCP tool) instead.
-   */
-  onResourceUpdate?: (name: string, value: unknown) => void;
-  /**
    * Callback when execution starts with the session/execution ID.
    * Useful for tracking the current execution for activity logs.
    *
@@ -315,7 +302,7 @@ interface BlockState {
   blockName: string;
   blockType: string;
   display: DisplayMode;
-  description?: string;
+  title?: string;
   outputToChat: boolean;
   thread?: string;
   reasoning: string;
@@ -344,8 +331,8 @@ interface WorkerPartState {
 
 interface StreamingState {
   messageId: string;
-  /** Kept across updates so a message resumed from history keeps its timestamp. */
-  createdAt: Date;
+  /** Kept across updates so a message resumed from history keeps its timestamp (ISO 8601). */
+  createdAt: string;
   parts: UIMessagePart[];
   activeBlock: BlockState | null;
   blocks: Map<string, BlockState>;
@@ -429,7 +416,7 @@ function createUserMessage(input: UserMessageInput, files?: FileReference[]): UI
     role: 'user',
     parts,
     status: 'done',
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(),
     ...(input.sender ? { sender: input.sender } : {}),
   };
 }
@@ -507,7 +494,7 @@ function parsePartialJson(jsonText: string): unknown {
 function createEmptyStreamingState(): StreamingState {
   return {
     messageId: generateId(),
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(),
     parts: [],
     activeBlock: null,
     blocks: new Map(),
@@ -586,6 +573,20 @@ function buildMessageFromState(state: StreamingState, status: 'streaming' | 'don
     status,
     createdAt: state.createdAt,
   };
+}
+
+/**
+ * The caller's stored messages, read through the tolerant parser so a message
+ * stored under an earlier contract (an enum value since renamed, a part type
+ * since added) renders the way the current one does. A message the parser
+ * cannot read at all is kept as given rather than dropped.
+ */
+function normalizeInitialMessages(messages: UIMessage[] | undefined): UIMessage[] {
+  if (!messages) return [];
+  return messages.map((message) => {
+    const parsed = safeParseUIMessage(message);
+    return parsed.success ? parsed.data : message;
+  });
 }
 
 /** The trailing assistant message still in progress, when the caller supplied one. */
@@ -706,8 +707,6 @@ export class OctavusChat {
   private _pendingClientToolsCache: Record<string, InteractiveTool[]> = {};
   private _completedToolResults: ToolResult[] = [];
   private _clientToolAbortController: AbortController | null = null;
-  // Server tool results from mixed server+client tools (for continuation)
-  private _serverToolResults: ToolResult[] = [];
   // Execution ID for continuation (from client-tool-request event)
   private _pendingExecutionId: string | null = null;
   // Flag indicating automatic client tools have completed and are ready to continue
@@ -783,7 +782,7 @@ export class OctavusChat {
 
   constructor(options: OctavusChatOptions) {
     this.options = options;
-    this._messages = options.initialMessages ?? [];
+    this._messages = normalizeInitialMessages(options.initialMessages);
     this.transport = options.transport;
     this._smoothing = resolveTextSmoothing(options.textSmoothing);
   }
@@ -1270,7 +1269,6 @@ export class OctavusChat {
     this._pendingToolsByName.clear();
     this._pendingToolsByCallId.clear();
     this._completedToolResults = [];
-    this._serverToolResults = [];
     this._pendingExecutionId = null;
     this._readyToContinue = false;
     this._finishEventReceived = false;
@@ -1444,13 +1442,8 @@ export class OctavusChat {
 
     const toolResult: ToolResult = {
       toolCallId,
-      toolName: pendingTool.toolName,
       result: error ? undefined : result,
       error,
-      outputVariable: pendingTool.outputVariable,
-      blockIndex: pendingTool.blockIndex,
-      thread: pendingTool.thread,
-      workerId: pendingTool.workerId,
     };
     this._completedToolResults.push(toolResult);
 
@@ -1478,7 +1471,6 @@ export class OctavusChat {
     this._pendingToolsByName.clear();
     this._pendingToolsByCallId.clear();
     this._completedToolResults = [];
-    this._serverToolResults = [];
     this._pendingExecutionId = null;
     this._readyToContinue = false;
     this._finishEventReceived = false;
@@ -1499,7 +1491,7 @@ export class OctavusChat {
         role: 'assistant',
         parts: finalParts,
         status: 'done',
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
       };
 
       const messages = [...this._messages];
@@ -1570,7 +1562,7 @@ export class OctavusChat {
           blockName: event.blockName,
           blockType: event.blockType,
           display: event.display,
-          description: event.description,
+          title: event.title,
           outputToChat: event.outputToChat ?? true,
           thread: event.thread,
           reasoning: '',
@@ -1580,15 +1572,15 @@ export class OctavusChat {
         state.blocks.set(event.blockId, block);
         state.activeBlock = block;
 
-        const isOperation = OPERATION_BLOCK_TYPES.has(event.blockType);
-        const isHidden = event.display === 'hidden';
-        if (isOperation && !isHidden) {
+        if (event.operation && displayReveals(event.display).visible) {
           const thread = event.thread;
           const operationPart: UIOperationPart = {
             type: 'operation',
             operationId: event.blockId,
-            name: event.description ?? event.blockName,
+            name: event.blockName,
             operationType: event.blockType,
+            title: event.title,
+            display: event.display,
             status: 'running',
             thread: threadForPart(thread),
           };
@@ -1954,7 +1946,7 @@ export class OctavusChat {
           type: 'tool-call',
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          displayName: event.title,
+          title: event.title,
           display: event.display,
           args: {},
           result: undefined,
@@ -2056,7 +2048,9 @@ export class OctavusChat {
             const updatedParts = [...workerPart.parts];
             updatedParts[toolPartIndex] = {
               ...part,
-              args: part.display === 'title' ? {} : (event.input as Record<string, unknown>),
+              args: displayReveals(part.display).input
+                ? (event.input as Record<string, unknown>)
+                : {},
               status: 'running',
             };
             state.parts[workerState.partIndex] = { ...workerPart, parts: updatedParts };
@@ -2073,7 +2067,9 @@ export class OctavusChat {
             const part = state.parts[toolPartIndex] as UIToolCallPart;
             state.parts[toolPartIndex] = {
               ...part,
-              args: part.display === 'title' ? {} : (event.input as Record<string, unknown>),
+              args: displayReveals(part.display).input
+                ? (event.input as Record<string, unknown>)
+                : {},
               status: 'running',
             };
             this.updateStreamingMessage();
@@ -2096,7 +2092,7 @@ export class OctavusChat {
             const updatedParts = [...workerPart.parts];
             updatedParts[toolPartIndex] = {
               ...part,
-              result: part.display === 'title' ? undefined : event.output,
+              result: displayReveals(part.display).output ? event.output : undefined,
               status: 'done',
             };
             state.parts[workerState.partIndex] = { ...workerPart, parts: updatedParts };
@@ -2110,7 +2106,7 @@ export class OctavusChat {
             const part = state.parts[toolPartIndex] as UIToolCallPart;
             state.parts[toolPartIndex] = {
               ...part,
-              result: part.display === 'title' ? undefined : event.output,
+              result: displayReveals(part.display).output ? event.output : undefined,
               status: 'done',
             };
             this.updateStreamingMessage();
@@ -2225,11 +2221,6 @@ export class OctavusChat {
         break;
       }
 
-      case 'resource-update':
-        // eslint-disable-next-line @typescript-eslint/no-deprecated -- dispatches the deprecated resource-update callback
-        this.options.onResourceUpdate?.(event.name, event.value);
-        break;
-
       case 'todo-update': {
         const workerId = event.workerId;
         const workerState = workerId ? state.activeWorkers.get(workerId) : undefined;
@@ -2280,7 +2271,8 @@ export class OctavusChat {
           type: 'worker',
           workerId: event.workerId,
           workerSlug: event.workerSlug,
-          description: event.description,
+          title: event.title,
+          display: event.display,
           input: undefined,
           parts: [],
           status: 'running',
@@ -2302,10 +2294,10 @@ export class OctavusChat {
         let partIndex: number;
         if (existingIndex !== -1) {
           // Re-use existing worker part. Defensively fill in any fields the
-          // existing part doesn't yet have - input/description may be missing
-          // if the part was created by worker-input-start before the LLM
-          // finished generating input, and worker-input-ready hasn't arrived;
-          // a placeholder learns its identity here.
+          // existing part doesn't yet have - input/title may be missing if the
+          // part was created by worker-input-start before the LLM finished
+          // generating input, and worker-input-ready hasn't arrived; a
+          // placeholder learns its identity here.
           const existingPart = state.parts[existingIndex] as UIWorkerPart;
           state.parts[existingIndex] = {
             ...existingPart,
@@ -2315,7 +2307,8 @@ export class OctavusChat {
                 ? event.workerSlug
                 : existingPart.workerSlug,
             input: existingPart.input ?? event.input,
-            description: existingPart.description ?? event.description,
+            title: existingPart.title ?? event.title,
+            display: existingPart.display ?? event.display,
           };
           partIndex = existingIndex;
         } else {
@@ -2324,7 +2317,8 @@ export class OctavusChat {
             type: 'worker',
             workerId: event.workerId,
             workerSlug: event.workerSlug,
-            description: event.description,
+            title: event.title,
+            display: event.display,
             input: event.input,
             parts: [],
             status: 'running',
@@ -2467,18 +2461,7 @@ export class OctavusChat {
       }
 
       case 'error': {
-        // Create structured error from the error event
-        throw new OctavusError({
-          errorType: event.errorType,
-          message: event.message,
-          source: event.source,
-          retryable: event.retryable,
-          retryAfter: event.retryAfter,
-          code: event.code,
-          provider: event.provider,
-          tool: event.tool,
-          backup: event.backup,
-        });
+        throw OctavusError.fromEvent(event);
       }
 
       case 'tool-request':
@@ -2486,9 +2469,9 @@ export class OctavusChat {
         break;
 
       case 'client-tool-request':
-        // Store execution ID and server tool results for continuation
+        // Store the execution ID for the continuation that submits this
+        // client's results.
         this._pendingExecutionId = event.executionId;
-        this._serverToolResults = event.serverToolResults ?? [];
         // A continuation will follow once the client tools resolve. Count it so
         // neither the trigger loop's nor an outer continuation's post-loop settle
         // discards the shared streaming state while that continuation is in
@@ -2573,7 +2556,6 @@ export class OctavusChat {
       type: 'worker',
       workerId,
       workerSlug: PLACEHOLDER_WORKER_SLUG,
-      description: undefined,
       input: undefined,
       parts: [],
       status: 'running',
@@ -2829,7 +2811,7 @@ export class OctavusChat {
       const part = state.parts[toolPartIndex] as UIToolCallPart;
       state.parts[toolPartIndex] = {
         ...part,
-        result: part.display === 'title' ? undefined : output,
+        result: displayReveals(part.display).output ? output : undefined,
         status: 'done',
       };
       this.updateStreamingMessage();
@@ -2878,10 +2860,9 @@ export class OctavusChat {
       return;
     }
 
-    // Combine server results (from mixed tools scenario) with client results
-    const allResults = [...this._serverToolResults, ...this._completedToolResults];
+    // Only this client's results: every other executor submits its own.
+    const results = this._completedToolResults;
     const executionId = this._pendingExecutionId;
-    this._serverToolResults = [];
     this._completedToolResults = [];
     this._pendingExecutionId = null;
 
@@ -2890,7 +2871,7 @@ export class OctavusChat {
 
     try {
       // Use the transport's continuation method (works for both HTTP and Socket)
-      for await (const item of this.transport.continueWithToolResults(executionId, allResults)) {
+      for await (const item of this.transport.continueWithToolResults(executionId, results)) {
         if (this.streamingState === null) break;
         if (item.type === 'replay-start') {
           this.beginReplayBatch(item.sinceRound);
@@ -2972,11 +2953,6 @@ export class OctavusChat {
           toolCallId: tc.toolCallId,
           toolName: tc.toolName,
           args: tc.args,
-          source: tc.source,
-          outputVariable: tc.outputVariable,
-          blockIndex: tc.blockIndex,
-          thread: tc.thread,
-          workerId: tc.workerId,
         };
         // Add to both maps
         this._pendingToolsByCallId.set(tc.toolCallId, toolState);
@@ -3014,13 +2990,8 @@ export class OctavusChat {
 
           this._completedToolResults.push({
             toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
             result,
             files: collectedFiles.length > 0 ? collectedFiles : undefined,
-            outputVariable: tc.outputVariable,
-            blockIndex: tc.blockIndex,
-            thread: tc.thread,
-            workerId: tc.workerId,
           });
 
           this.emitToolOutputAvailable(tc.toolCallId, result);
@@ -3028,12 +2999,7 @@ export class OctavusChat {
           const errorMessage = err instanceof Error ? err.message : 'Tool execution failed';
           this._completedToolResults.push({
             toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
             error: errorMessage,
-            outputVariable: tc.outputVariable,
-            blockIndex: tc.blockIndex,
-            thread: tc.thread,
-            workerId: tc.workerId,
           });
 
           this.emitToolOutputError(tc.toolCallId, errorMessage);
@@ -3043,12 +3009,7 @@ export class OctavusChat {
         const errorMessage = `No client handler for tool: ${tc.toolName}`;
         this._completedToolResults.push({
           toolCallId: tc.toolCallId,
-          toolName: tc.toolName,
           error: errorMessage,
-          outputVariable: tc.outputVariable,
-          blockIndex: tc.blockIndex,
-          thread: tc.thread,
-          workerId: tc.workerId,
         });
 
         this.emitToolOutputError(tc.toolCallId, errorMessage);

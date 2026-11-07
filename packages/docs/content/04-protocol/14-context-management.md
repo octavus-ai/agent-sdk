@@ -15,7 +15,7 @@ Compaction and bounding shape the agent's **working state** - both what the mode
 workers:
   context-summarizer: # the worker that produces the running summary
     description: Summarizes earlier conversation to free up context
-    display: description
+    display: hidden
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -97,7 +97,7 @@ The common use is deciding which model compaction runs on. Declare `MODEL` (and 
 workers:
   context-summarizer:
     description: Summarizes earlier conversation to free up context
-    display: description
+    display: hidden
 
 agent:
   model: MODEL
@@ -114,7 +114,7 @@ agent:
 
 ## What users see
 
-Because the summarizer is a worker, it surfaces like any other worker, following its `display` mode (a subtle `description` indicator by default). Compaction is otherwise seamless - the conversation reads as one continuous thread, and the complete record stays available in the session's execution logs and trace.
+Because the summarizer is a worker, it surfaces like any other worker, following its `display` mode: `hidden` in the examples above, so compaction leaves no trace in the chat; without a `display` it shows a labeled `title` card while it runs. Compaction is otherwise seamless - the conversation reads as one continuous thread, and the complete record stays available in the session's execution logs and trace.
 
 ## Stored state and the full record
 

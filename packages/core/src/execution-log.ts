@@ -297,7 +297,8 @@ export interface MessageLogEntry extends ExecutionLogEntryBase {
 export interface ToolCallLogEntry extends ExecutionLogEntryBase {
   type: 'tool-call';
   toolName?: string;
-  toolDescription?: string;
+  /** The call's authored title, when the tool or block has one. */
+  toolTitle?: string;
   toolArguments?: Record<string, unknown>;
   /**
    * For a delegated tool - a platform-MCP tool the runtime drives as a turn of a

@@ -60,7 +60,6 @@ const { messages, status, error, send, stop } = useOctavusChat({
   initialMessages: [], // Optional: restore messages from server
   onError: (error) => {}, // Optional: error callback
   onFinish: () => {}, // Optional: completion callback
-  onResourceUpdate: (name, value) => {}, // Optional: resource update callback
 });
 ```
 

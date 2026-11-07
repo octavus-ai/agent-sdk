@@ -7,6 +7,8 @@ description: Handling errors in streaming responses with structured error types.
 
 Octavus provides structured error handling across all transports. Errors are categorized by type and source, enabling you to build appropriate UI responses and monitoring.
 
+`OctavusError` is the one error of the SDK: a stream `error` event and a failed HTTP request both surface as it, with the same classification. A failed request additionally carries the HTTP `status`, the platform's `requestId`, and - for a validation failure - its `issues`.
+
 ## Error Types
 
 The `onError` callback receives an `OctavusError` with structured information:
@@ -24,6 +26,8 @@ const { error, status } = useOctavusChat({
       retryable: err.retryable, // Can be retried
       retryAfter: err.retryAfter, // Seconds to wait (rate limits)
       code: err.code, // Machine-readable code
+      status: err.status, // HTTP status, for a failed request
+      requestId: err.requestId, // The platform's request ID, to quote to support
       provider: err.provider, // Provider details (if applicable)
       backup: err.backup, // How the backup model failed too (if one was tried)
     });
@@ -44,11 +48,16 @@ const { error, status } = useOctavusChat({
 | `authentication_error` | Invalid API key       | Check configuration |
 | `permission_error`     | No access to resource | Check permissions   |
 | `validation_error`     | Invalid request       | Fix request data    |
+| `not_found_error`      | Unknown session/agent | Start over          |
+| `conflict_error`       | State refuses request | Wait or reload      |
 | `provider_error`       | LLM provider issue    | Retry or show error |
 | `provider_overloaded`  | Provider at capacity  | Retry with backoff  |
 | `provider_timeout`     | Provider timed out    | Retry               |
 | `tool_error`           | Tool execution failed | Show tool error     |
+| `unsupported_error`    | Client too old        | Prompt an update    |
 | `internal_error`       | Platform error        | Show generic error  |
+
+The list grows over time; a value this version does not know is read as `unknown_error`.
 
 ### Error Sources
 
@@ -277,6 +286,7 @@ interface ErrorEvent {
   retryable: boolean;
   retryAfter?: number;
   code?: string;
+  requestId?: string; // The platform's request ID, when the platform raised the error
   provider?: {
     name: string;
     model?: string;
@@ -315,3 +325,7 @@ function ToolCallPart({ part }: { part: UIToolCallPart }) {
 ```
 
 Tool errors don't trigger `onError` - they're captured on the tool call part itself.
+
+## Request Failures
+
+A transport that fails before the stream starts - the HTTP transport's `fetch` answered with a non-2xx status - delivers the platform's [error body](/docs/api-reference/overview#error-response) as an `OctavusError` through the same `onError`, with `status` and `requestId` set. `OctavusError.fromApiResponse(status, body, fallbackMessage)` builds one from a response you read yourself, and `OctavusError.isInstance(error)` recognizes one across package copies.

@@ -187,17 +187,19 @@ Tools defined in the worker protocol but not provided as handlers become client 
 
 ### WorkerError (generate)
 
-`generate()` throws a `WorkerError` on failure. The error includes an optional `sessionId` for constructing debug URLs:
+`generate()` throws a `WorkerError` on failure. It is an [`OctavusError`](/docs/client-sdk/error-handling), so it carries the same classification (`errorType`, `source`, `code`, `retryable`, `retryAfter`, `requestId`, and the provider details when a model failed) and the error guards recognize it. It also includes an optional `sessionId` for constructing debug URLs:
 
 ```typescript
-import { OctavusClient, WorkerError } from '@octavus/server-sdk';
+import { OctavusClient, WorkerError, isRateLimitError } from '@octavus/server-sdk';
 
 try {
   const { output } = await client.workers.generate(agentId, input);
   console.log('Result:', output);
 } catch (error) {
-  if (error instanceof WorkerError) {
-    console.error('Worker failed:', error.message);
+  if (isRateLimitError(error)) {
+    // Retry after error.retryAfter seconds
+  } else if (error instanceof WorkerError) {
+    console.error('Worker failed:', error.message, error.requestId);
     if (error.sessionId) {
       console.error(`Debug: ${client.baseUrl}/sessions/${error.sessionId}`);
     }
@@ -352,14 +354,16 @@ Workers emit standard stream events plus worker-specific events.
   type: 'worker-start',
   workerId: string,     // Unique ID (also used as session ID for debug)
   workerSlug: string,   // The worker's slug
-  description?: string, // Display description for UI
+  title?: string,       // The worker's authored title, when it has one
+  display?: 'hidden' | 'title' | 'stream',
+  input?: object,       // The worker's input; present only when display is 'stream'
 }
 
 // Worker completed
 {
   type: 'worker-result',
   workerId: string,
-  output?: unknown,  // The worker's output value
+  output?: unknown,  // The worker's output value; present only when display is 'stream'
   error?: string,    // Error message if worker failed
 }
 ```

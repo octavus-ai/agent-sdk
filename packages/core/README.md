@@ -23,7 +23,9 @@ Types for all streaming events in Octavus agent communication:
 - **Reasoning events**: `ReasoningStartEvent`, `ReasoningDeltaEvent`, `ReasoningEndEvent`
 - **Tool events**: `ToolInputStartEvent`, `ToolInputAvailableEvent`, `ToolOutputAvailableEvent`, etc.
 - **Source events**: `SourceUrlEvent`, `SourceDocumentEvent`
-- **Octavus events**: `BlockStartEvent`, `BlockEndEvent`, `ResourceUpdateEvent`, `ToolRequestEvent`, `FileAvailableEvent`
+- **Octavus events**: `BlockStartEvent`, `BlockEndEvent`, `ToolRequestEvent`, `FileAvailableEvent`, the worker events
+
+Parsing is tolerant: `safeParseStreamEvent()` keeps the fields it does not know, reads an event of an unknown `type` as `{ kind: 'unknown' }`, and reads an unknown enum value as its documented fallback (reported through `setUnknownWireValueReporter`). `getPartLabel()` and `displayReveals()` carry the display model: a card's label is its authored `title`, else a label derived from its identity, and its `display` mode decides what it reveals.
 
 ### UI Message Types
 

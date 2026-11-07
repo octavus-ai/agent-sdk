@@ -45,25 +45,22 @@ skills:
 
 ### Skill Fields
 
-| Field         | Required | Description                                                                                                                                              |
-| ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `display`     | No       | How to show in UI: `hidden`, `title`, or `stream`. `name`/`description` are deprecated (see the [migration guide](/docs/migration/v6-to-v7)).            |
-| `title`       | No       | UI label shown when `display: title`. Overrides the skill's built-in `title` from its `SKILL.md`.                                                        |
-| `description` | No       | Model-facing description override (the skill's built-in description is used otherwise). Not used as the UI label in `title` mode - use `title` for that. |
-| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                                                                                    |
+| Field         | Required | Description                                                                                                                                 |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `display`     | No       | What the client sees: `hidden`, `title` (the default), or `stream`                                                                          |
+| `title`       | No       | The label of the skill's cards in every visible mode. Overrides the skill's built-in `title` from its `SKILL.md`.                           |
+| `description` | No       | Model-facing description override (the skill's built-in description is used otherwise). Never shown to the user - the label is the `title`. |
+| `execution`   | No       | Where the skill runs: `sandbox` (default) or `device`                                                                                       |
 
 ### Display Modes
 
-The `display` setting on a skill applies to all tools under that skill namespace. The supported modes are `hidden`, `title`, and `stream`. See [Tool Display Modes](/docs/protocol/tools#display-modes) for full details.
+The `display` setting on a skill applies to all tools under that skill namespace. The modes are the same three as for [tools](/docs/protocol/tools#display-modes). A skill's label resolves to `skills.<slug>.title`, then `onDemandSkills.title`, then the skill's own built-in `title` (from its `SKILL.md`); without any, the client derives a label from the tool name. The platform's own skill tools (reading a skill's instructions, running code, saving a file) carry titles of their own, so a `title`-mode skill reads as a sequence of labeled steps.
 
-> **Deprecated:** `name` and `description` are deprecated and will be removed in v7. Use `title` or `stream`. In `title` mode a skill's label resolves to `skills.<slug>.title`, then `onDemandSkills.title`, then the skill's own built-in `title` (from its `SKILL.md`), then its slug. See the [migration guide](/docs/migration/v6-to-v7).
-
-| Mode          | Behavior                                                                                                             |
-| ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `hidden`      | Skill tools run silently, no UI events emitted                                                                       |
-| `name`        | _Deprecated (removed in v7)._ Showed the skill slug only. Use `title` or `stream`.                                   |
-| `description` | _Deprecated (removed in v7)._ Showed the description as the label. Use `title` or `stream`.                          |
-| `stream`      | Full visibility - arguments stream progressively, result shown after execution, result preserved after page refresh. |
+| Mode     | Behavior                                                                                                             |
+| -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `hidden` | Skill tools run silently; nothing reaches the client                                                                 |
+| `title`  | Labeled cards; arguments and results stay on the server                                                              |
+| `stream` | Full visibility - arguments stream progressively, result shown after execution, result preserved after page refresh. |
 
 ## Enabling Skills
 
@@ -521,4 +518,4 @@ Device skills run on the agent's computer and share its environment. They do not
 
 - [Agent Config](/docs/protocol/agent-config) - Configuring skills in agent settings
 - [Skills Advanced Guide](/docs/protocol/skills-advanced) - Best practices and advanced patterns
-- [Migrating from v6 to v7](/docs/migration/v6-to-v7) - Skill titles and moving off deprecated modes
+- [Migrating from v6 to v7](/docs/migration/v6-to-v7) - Skill titles and the three display modes

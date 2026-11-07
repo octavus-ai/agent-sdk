@@ -1,4 +1,4 @@
-import { createApiErrorEvent, isAbortError, type ToolResult } from '@octavus/core';
+import { OctavusError, isAbortError, type ToolResult } from '@octavus/core';
 import { parseSSEStream } from '@/stream/reader';
 import type { Transport, TriggerOptions } from './types';
 
@@ -64,6 +64,14 @@ export interface HttpTransportOptions {
 // Transport Implementation
 // =============================================================================
 
+function parseJsonBody(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 /**
  * Create an HTTP transport using native fetch() and SSE parsing.
  * This is the default transport for Next.js and other HTTP-based applications.
@@ -89,10 +97,17 @@ export function createHttpTransport(options: HttpTransportOptions): Transport {
       const response = await responsePromise;
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => `Request failed: ${response.status}`);
         // Surface a non-ok response as a typed error event so consumer onError
-        // type guards and the retryable flag work. Matches the server-SDK stream.
-        yield createApiErrorEvent(response.status, errorText);
+        // type guards and the retryable flag work. The platform's error body
+        // (forwarded by the consumer's server) carries the message, code, and
+        // request ID; any other body is the message itself.
+        const text = await response.text().catch(() => '');
+        yield OctavusError.fromApiResponse(
+          response.status,
+          parseJsonBody(text),
+          `Request failed: ${response.status}`,
+          { requestId: response.headers.get('Request-Id') },
+        ).toEvent();
         return;
       }
 

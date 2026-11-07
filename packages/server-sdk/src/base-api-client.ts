@@ -1,8 +1,6 @@
 import type { ZodType } from 'zod';
 import { throwApiError } from '@/api-error.js';
 
-export { ApiError } from '@/api-error.js';
-
 export interface ApiClientConfig {
   baseUrl: string;
   /**

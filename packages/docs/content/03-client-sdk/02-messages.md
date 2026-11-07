@@ -15,7 +15,7 @@ interface UIMessage {
   role: 'user' | 'assistant';
   parts: UIMessagePart[];
   status: 'streaming' | 'done';
-  createdAt: Date;
+  createdAt: string; // ISO 8601 timestamp
   sender?: UIMessageSender; // Author of a user message, in multi-user chats
 }
 
@@ -64,21 +64,24 @@ interface UIToolCallPart {
   type: 'tool-call';
   toolCallId: string;
   toolName: string;
-  displayName?: string; // Human-readable name
-  args: Record<string, unknown>;
-  result?: unknown;
+  title?: string; // The authored title, when the tool has one (see getPartLabel)
+  display?: 'hidden' | 'title' | 'stream'; // What the part reveals (see displayReveals)
+  args: Record<string, unknown>; // Empty unless display is 'stream'
+  result?: unknown; // Present only when display is 'stream'
   error?: string;
   status: 'pending' | 'running' | 'done' | 'error' | 'cancelled';
   thread?: string;
 }
 
-// Internal operations (set-resource, serialize-thread)
+// Operation cards for blocks that produce an artifact (serialize-thread, generate-image, ...)
 interface UIOperationPart {
   type: 'operation';
   operationId: string;
-  name: string;
-  operationType: string;
-  status: 'running' | 'done';
+  name: string; // The block's name
+  operationType: string; // The block type
+  title?: string; // The block's authored title, when it has one
+  display?: 'hidden' | 'title' | 'stream';
+  status: 'running' | 'done' | 'cancelled';
   thread?: string;
 }
 
@@ -135,10 +138,11 @@ interface UIWorkerPart {
   type: 'worker';
   workerId: string;
   workerSlug: string;
-  description?: string;
-  input?: Record<string, unknown>;
-  parts: UIMessagePart[]; // Nested parts from the worker (excluding nested workers)
-  output?: unknown;
+  title?: string; // The worker's authored title, when it has one
+  display?: 'hidden' | 'title' | 'stream';
+  input?: Record<string, unknown>; // Present only when display is 'stream'
+  parts: UIMessagePart[]; // Nested parts from the worker (excluding nested workers); empty unless 'stream'
+  output?: unknown; // Present only when display is 'stream'
   error?: string;
   status: 'running' | 'done' | 'error' | 'cancelled';
 }
@@ -150,6 +154,22 @@ interface UIStepStartPart {
   type: 'step-start';
 }
 ```
+
+The union of part types grows over time. A part of a type this version does not know is kept in `parts` as it arrived, so a renderer switches on `type` with a `default` branch that renders nothing. See [Versioning](/docs/api-reference/versioning).
+
+## Labels and Display Modes
+
+A tool call, worker, or operation part shows the same label in every visible mode: its authored `title`, else a label derived from its identity (the tool name, the worker slug, the block name). `getPartLabel(part)` applies that rule; pass a resolver to supply your own labels for the tools you know:
+
+```tsx
+import { getPartLabel } from '@octavus/react';
+
+const label = getPartLabel(part, (identity) =>
+  identity.kind === 'tool' ? MY_TOOL_LABELS[identity.toolName] : undefined,
+);
+```
+
+What a part carries follows its `display` mode, live and after a reload: a `title` part has its label, status, and error but empty `args` and no `result`; a `stream` part has everything. `displayReveals(part.display)` tells you what to expect (`visible`, `label`, `input`, `output`, `nested`), so a renderer can skip the Input and Result sections it will never get instead of rendering empty ones. The protocol side is in [Display Modes](/docs/protocol/tools#display-modes).
 
 ## Sending Messages
 
@@ -283,7 +303,7 @@ function MessageBubble({ message }: { message: UIMessage }) {
 ### Rendering Parts
 
 ```tsx
-import { isOtherThread, type UIMessagePart } from '@octavus/react';
+import { getPartLabel, isOtherThread, type UIMessagePart } from '@octavus/react';
 
 function PartRenderer({ part }: { part: UIMessagePart }) {
   // Check if part belongs to a named thread (e.g., "summary")
@@ -306,7 +326,7 @@ function PartRenderer({ part }: { part: UIMessagePart }) {
     case 'tool-call':
       return (
         <div className="bg-gray-100 p-2 rounded text-sm">
-          🔧 {part.displayName || part.toolName}
+          🔧 {getPartLabel(part)}
           {part.status === 'done' && ' ✓'}
           {part.status === 'error' && ` ✗ ${part.error}`}
         </div>
@@ -315,7 +335,7 @@ function PartRenderer({ part }: { part: UIMessagePart }) {
     case 'operation':
       return (
         <div className="text-gray-500 text-sm">
-          {part.name}
+          {getPartLabel(part)}
           {part.status === 'done' && ' ✓'}
         </div>
       );
@@ -449,9 +469,6 @@ useOctavusChat({
   onError: (error) => {
     console.error('Error:', error);
     toast.error('Failed to get response');
-  },
-  onResourceUpdate: (name, value) => {
-    console.log('Resource updated:', name, value);
   },
 });
 ```

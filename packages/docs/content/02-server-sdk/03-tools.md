@@ -21,6 +21,8 @@ When the Server SDK encounters a tool call:
 1. **Handler exists** (server, inline MCP, or dynamic) → Execute on server, continue automatically
 2. **No handler** → Forward to client via `client-tool-request` event
 
+Each executor submits only the results of the tools it ran. In a step that mixes both, the Server SDK submits its own results first; the platform keeps them and asks again for the calls still open, which then go to the client. A submitted result carries only its `toolCallId` and `result` (or `error`) - the platform routes it by the call it recorded when it issued it, and refuses a result for a call it never requested.
+
 Inline MCP tools and dynamic tools registered via `session.setDynamicTools()` (e.g., from `@octavus/computer`) work identically to manual handlers from the platform's perspective. See [Inline MCP Servers](/docs/server-sdk/inline-mcp) for namespaced consumer-defined tool groups (including per-tool [titles](/docs/server-sdk/inline-mcp#per-tool-titles) for distinct execution-card labels), and [Computer](/docs/server-sdk/computer) for device-side MCPs.
 
 For client-side tool handling, see [Client Tools](/docs/client-sdk/client-tools).
@@ -174,12 +176,12 @@ sequenceDiagram
     alt Has server handler
         Note over SDK: 3a. Execute handler<br/>tools['get-user']()
         SDK-->>Client: tool-output-available
-        SDK->>Platform: Continue with results
+        SDK->>Platform: Continue with its results
     else No server handler
         SDK-->>Client: 3b. client-tool-request
         Note over Client: Execute client tool<br/>or show interactive UI
         Client->>SDK: Tool results
-        SDK->>Platform: Continue with results
+        SDK->>Platform: Continue with the client's results
     end
 
     Platform->>LLM: 4. Process results

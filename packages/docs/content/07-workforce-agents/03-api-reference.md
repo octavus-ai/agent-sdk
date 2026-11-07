@@ -125,6 +125,9 @@ An agent runs one task at a time, so a new thread normally waits behind a run al
 {
   "error": "The agent already has a run in flight or queued",
   "code": "AGENT_BUSY",
+  "type": "conflict_error",
+  "retryable": false,
+  "requestId": "req_8f2c41d07a9b4e6c",
   "currentThreadId": "cm5xyz123abc456def"
 }
 ```
@@ -351,7 +354,7 @@ curl -X POST https://octavus.ai/api/v1/workforce/agents/AGENT_ID/threads/THREAD_
 
 ## Errors
 
-Errors return `{ "error": string, "code": string }` with an HTTP status:
+Errors return the platform's standard [error body](/docs/api-reference/overview#error-response) - `error`, `code`, `type`, `retryable`, `requestId`, plus any data the error carries - with an HTTP status:
 
 | Status | Meaning                                                                                                                                                                                                                                                          |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

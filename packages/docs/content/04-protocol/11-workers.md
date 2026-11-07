@@ -196,7 +196,6 @@ Workers support the same blocks as handlers:
 | `add-message`      | Add a message to a thread                    |
 | `next-message`     | Generate LLM response                        |
 | `tool-call`        | Call a tool deterministically                |
-| `set-resource`     | Update a resource value                      |
 | `serialize-thread` | Convert thread to text                       |
 | `generate-image`   | Generate an image from a prompt variable     |
 
@@ -528,19 +527,17 @@ The LLM can then call workers as tools during conversation.
 
 ### Display Modes
 
-Controls how worker execution appears to users. The default for workers is `stream`.
+Controls how worker execution appears to users. The default for workers is `stream`. The card's label is the worker's `title` when one is authored, else a label derived from its slug; the `description` is written for the model and never shown.
 
-| Mode          | Behavior                                                                                                                           |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `hidden`      | Worker runs silently. No events reach the client - no `UIWorkerPart` is created.                                                   |
-| `name`        | Shows a running/done indicator with the worker name. No nested content (text, tool calls, reasoning) is forwarded.                 |
-| `description` | Shows a running/done indicator with the worker description. No nested content is forwarded.                                        |
-| `stream`      | Full visibility. All nested events are forwarded - text, reasoning, tool calls, sources, files. Worker input is included on start. |
-| `title`       | Like `description`, but shows the worker's `title` field instead of its description. No nested content or input is forwarded.      |
+| Mode     | Behavior                                                                                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hidden` | Worker runs silently. No events reach the client - no `UIWorkerPart` is created.                                                                                       |
+| `title`  | A running/done card with the worker's label and its error if it fails. The input, the output, and the nested content (text, tool calls, reasoning) stay on the server. |
+| `stream` | Full visibility. All nested events are forwarded - text, reasoning, tool calls, sources, files. Worker input is included on start and the output on completion.        |
 
 **Progressive input streaming:** When a worker with `display: stream` is invoked agentically (LLM calls it as a tool), the `UIWorkerPart` appears in the UI immediately as the LLM starts generating the worker's arguments. The worker input streams progressively into the worker part, the same way text tokens stream into a text part. Once input finishes, worker execution begins and nested content flows into the same worker part. There is no intermediate tool card.
 
-**`name` and `description` modes:** Worker input is stripped from the `worker-start` event (it may contain sensitive data). Only the running/done status and the final `worker-result` are forwarded to the parent stream. Use these for workers where the user only needs to know the worker ran, not what it did internally.
+**`title` mode:** Worker input is stripped from the `worker-start` event (it may contain sensitive data) and the output from `worker-result`. Only the label, the running/done status, and an error are forwarded to the parent stream, live and in the stored conversation. Use it for workers where the user only needs to know the worker ran, not what it did internally.
 
 **`hidden` mode:** The worker executes normally but produces no UI presence at all. Use for internal workers that are implementation details.
 
@@ -584,7 +581,7 @@ workers:
 
 This is the agentic-path counterpart of the `run-worker` block's `input:` mapping shown above, and follows the same right-hand-side rules:
 
-- An UPPER_SNAKE name that exists in the parent's scope (session input, variables, or resources) resolves to that value.
+- An UPPER_SNAKE name that exists in the parent's scope (session input or variables) resolves to that value.
 - Anything else is treated as a literal, so you can pin a constant the model should not choose (e.g. `RESPONSE_FORMAT: markdown`).
 
 A bound input is:

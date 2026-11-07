@@ -172,26 +172,22 @@ class AgentSessionsApi {
   // Create a new session
   async create(agentId: string, input?: Record<string, unknown>): Promise<string>;
 
-  // Get full session state (for debugging/internal use)
-  async get(sessionId: string): Promise<SessionState>;
+  // Get a session's metadata (agent, creation time, active or expired)
+  async get(sessionId: string): Promise<SessionInfo>;
 
   // Get UI-ready messages (for client display)
-  async getMessages(sessionId: string): Promise<UISessionState>;
+  async getMessages(sessionId: string): Promise<UISessionState | ExpiredSessionState>;
 
   // Attach to a session for triggering
   attach(sessionId: string, options?: SessionAttachOptions): AgentSession;
 }
 
-// Full session state (internal format)
-interface SessionState {
+// Session metadata
+interface SessionInfo {
   id: string;
   agentId: string;
-  input: Record<string, unknown>;
-  variables: Record<string, unknown>;
-  resources: Record<string, unknown>;
-  messages: ChatMessage[]; // Internal message format
+  status: 'active' | 'expired';
   createdAt: string;
-  updatedAt: string;
 }
 
 // UI-ready session state

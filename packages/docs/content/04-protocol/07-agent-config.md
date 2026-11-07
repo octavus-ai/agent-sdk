@@ -231,7 +231,7 @@ agent:
     - PRODUCT_NAME
 ```
 
-Variables in `input` can come from `protocol.input`, `protocol.resources`, or `protocol.variables`.
+Variables in `input` can come from `protocol.input` or `protocol.variables`.
 
 ### Input Mapping Formats
 
@@ -451,8 +451,8 @@ Enable Octavus skills for code execution and file generation:
 ```yaml
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 agent:
   model: anthropic/claude-sonnet-4-5
@@ -834,11 +834,6 @@ input:
   PRODUCT_NAME: { type: string }
   USER_ID: { type: string, optional: true }
 
-resources:
-  CONVERSATION_SUMMARY:
-    type: string
-    default: ''
-
 tools:
   get-user-account:
     description: Look up user account
@@ -860,12 +855,13 @@ mcpServers:
   figma:
     description: Figma design tool integration
     source: remote
-    display: description
+    display: title
+    title: Working in Figma
 
 skills:
   qr-code:
-    display: description
-    description: Generating QR codes
+    display: title
+    title: Generating QR codes
 
 agent:
   model: anthropic/claude-sonnet-4-5

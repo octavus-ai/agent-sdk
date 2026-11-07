@@ -5,7 +5,7 @@ description: Defining custom types for structured data in your agent protocol.
 
 # Types
 
-Types let you define reusable data structures for your agent. Use them in inputs, triggers, tools, resources, variables, and structured output responses.
+Types let you define reusable data structures for your agent. Use them in inputs, triggers, tools, variables, and structured output responses.
 
 ## Why Types?
 
@@ -38,7 +38,7 @@ types:
 
 ## Built-in Types
 
-These scalar types can be used directly in inputs, resources, variables, triggers, and tool parameters:
+These scalar types can be used directly in inputs, variables, triggers, and tool parameters:
 
 | Type      | Description                           | Example Values                  |
 | --------- | ------------------------------------- | ------------------------------- |
@@ -553,8 +553,9 @@ types:
 
 tools:
   add-to-cart:
-    description: Adding products to cart
-    display: description
+    description: Add products to the cart
+    display: title
+    title: Adding products to the cart
     parameters:
       cartItems:
         type: CartItemList

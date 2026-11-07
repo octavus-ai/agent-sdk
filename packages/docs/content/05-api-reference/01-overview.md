@@ -46,6 +46,8 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 The header value is the wire-format major the client can parse, not the SDK release version. A wire-incompatible change bumps it, and the platform keeps serving the previous shape to clients that still advertise the previous value.
 
+Everything else the platform adds - a new field, event type, part type, or enum value - is additive and arrives without a header change; a reader keeps what it does not know and ignores what it cannot place. See [Versioning](/docs/api-reference/versioning) for the rules.
+
 ## API Key Permissions
 
 API keys have these permission scopes:
@@ -79,28 +81,51 @@ All responses are JSON. Success responses return the data directly (not wrapped 
 
 ### Error Response
 
+Every error, on every endpoint, is one flat body:
+
 ```json
 {
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Agent not found"
-  }
+  "error": "Session not found: sess_abc123",
+  "code": "NOT_FOUND",
+  "type": "not_found_error",
+  "retryable": false,
+  "requestId": "req_8f2c41d07a9b4e6c"
 }
 ```
 
+| Field        | Description                                                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error`      | A readable message                                                                                                                          |
+| `code`       | The stable machine-readable code (`NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_PROTOCOL`, `UNKNOWN_TOOL_CALL`, `AGENT_BUSY`, ...)              |
+| `type`       | The classification, the same vocabulary as a stream `error` event's `errorType` (`validation_error`, `not_found_error`, `rate_limit_error`) |
+| `retryable`  | Whether the same request can succeed if retried                                                                                             |
+| `requestId`  | The request's ID, an opaque string; quote it when contacting support                                                                        |
+| `issues`     | Present on a validation failure (`400`) or an invalid agent definition (`422`): the structured issues                                       |
+| `retryAfter` | Present on a `429` or `503`: seconds to wait, also sent as the `Retry-After` header                                                         |
+
+An endpoint may add fields that describe the error's data (a `409 AGENT_BUSY` names the thread holding the agent). Unknown fields are to be ignored.
+
+### Request IDs
+
+Every response, success or error, carries the request's ID in the `Request-Id` header. An `error` event the platform raises on a stream carries the same ID as `requestId`.
+
 ## HTTP Status Codes
 
-| Code | Description                               |
-| ---- | ----------------------------------------- |
-| 200  | Success                                   |
-| 201  | Created                                   |
-| 400  | Bad Request - Invalid parameters          |
-| 401  | Unauthorized - Missing or invalid API key |
-| 403  | Forbidden - Insufficient permissions      |
-| 404  | Not Found                                 |
-| 429  | Too Many Requests - Honor `Retry-After`   |
-| 500  | Internal Server Error                     |
-| 503  | Service Unavailable - Honor `Retry-After` |
+| Code | Description                                                         |
+| ---- | ------------------------------------------------------------------- |
+| 200  | Success                                                             |
+| 201  | Created                                                             |
+| 400  | Bad Request - Invalid parameters (`issues` lists them)              |
+| 401  | Unauthorized - Missing or invalid API key                           |
+| 402  | Payment Required - A plan limit was reached                         |
+| 403  | Forbidden - Insufficient permissions                                |
+| 404  | Not Found                                                           |
+| 409  | Conflict - The state does not allow the request (a busy agent)      |
+| 422  | Unprocessable - The agent definition is invalid (`issues` says why) |
+| 426  | Upgrade Required - This client version is no longer supported       |
+| 429  | Too Many Requests - Honor `Retry-After`                             |
+| 500  | Internal Server Error                                               |
+| 503  | Service Unavailable - Honor `Retry-After`                           |
 
 ## Service Status
 
@@ -122,7 +147,7 @@ Current status, active incidents, planned maintenance, and incident history are 
 | Method | Endpoint                          | Description           |
 | ------ | --------------------------------- | --------------------- |
 | POST   | `/api/agent-sessions`             | Create session        |
-| GET    | `/api/agent-sessions/:id`         | Get session state     |
+| GET    | `/api/agent-sessions/:id`         | Get session           |
 | POST   | `/api/agent-sessions/:id/trigger` | Execute trigger (SSE) |
 
 ### Tokens
