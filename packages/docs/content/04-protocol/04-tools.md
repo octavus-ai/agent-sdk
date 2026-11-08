@@ -282,7 +282,7 @@ handlers:
 Tools are implemented in your backend:
 
 ```typescript
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'get-user-account': async (args) => {
       const userId = args.userId as string;

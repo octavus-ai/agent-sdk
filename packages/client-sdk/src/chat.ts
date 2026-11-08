@@ -138,6 +138,14 @@ interface PendingToolState {
   args: Record<string, unknown>;
 }
 
+/** What a `start` event reports when an execution begins. */
+export interface ExecutionStart {
+  /** The execution's id: what a continuation resumes, and what activity logs are keyed by. */
+  executionId: string;
+  /** The session's id, when the execution runs in one (a worker execution does not). */
+  sessionId?: string;
+}
+
 /**
  * Input for creating a user message.
  * Supports text content, structured object content, and file attachments.
@@ -250,17 +258,18 @@ export interface OctavusChatOptions {
   /** Callback when streaming is stopped by user */
   onStop?: () => void;
   /**
-   * Callback when execution starts with the session/execution ID.
-   * Useful for tracking the current execution for activity logs.
+   * Callback when an execution starts: the execution's id, and the session's
+   * when the stream reports one (a worker execution has no session). Useful
+   * for tracking the current execution for activity logs.
    *
    * @example
    * ```typescript
-   * onStart: (sessionId) => {
-   *   setCurrentSessionId(sessionId);
+   * onStart: ({ executionId, sessionId }) => {
+   *   setCurrentExecutionId(executionId);
    * }
    * ```
    */
-  onStart?: (sessionId: string) => void;
+  onStart?: (start: ExecutionStart) => void;
   /**
    * Callback with the platform session id, fired once when a stream first
    * reports one (and again only if it changes). Use it with create-and-trigger
@@ -2502,7 +2511,7 @@ export class OctavusChat {
    */
   private handleStart(event: Extract<StreamEvent, { type: 'start' }>): void {
     if (event.executionId) {
-      this.options.onStart?.(event.executionId);
+      this.options.onStart?.({ executionId: event.executionId, sessionId: event.sessionId });
     }
     if (event.sessionId && event.sessionId !== this._sessionId) {
       this._sessionId = event.sessionId;

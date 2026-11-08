@@ -16,7 +16,7 @@ export const mintTokenRequestSchema = z.object({
   ttlSeconds: z.number().int().positive().optional(),
 });
 
-export const mintTokenResponseSchema = z.object({
+export const mintTokenResponseSchema = z.looseObject({
   /** The scoped, short-lived bearer token (an `oct_et_*` string). */
   token: z.string(),
   /** Unique token id, usable to revoke it early. */
@@ -62,7 +62,7 @@ export class TokensApi extends BaseApiClient {
    * is unknown or out of scope.
    */
   async mint(params: MintTokenRequest): Promise<MintTokenResponse> {
-    return await this.httpPost('/api/tokens', params, mintTokenResponseSchema);
+    return await this.httpPost('/api/v1/tokens', params, mintTokenResponseSchema);
   }
 
   /**
@@ -71,9 +71,9 @@ export class TokensApi extends BaseApiClient {
    */
   async revoke(token: string): Promise<{ revoked: boolean; jti?: string }> {
     return await this.httpPost(
-      '/api/tokens/revoke',
+      '/api/v1/tokens/revoke',
       { token },
-      z.object({ revoked: z.boolean(), jti: z.string().optional() }),
+      z.looseObject({ revoked: z.boolean(), jti: z.string().optional() }),
     );
   }
 }

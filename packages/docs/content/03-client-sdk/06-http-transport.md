@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { sessionId, ...payload } = body;
 
-  const session = client.agentSessions.attach(sessionId, {
+  const session = client.sessions.attach(sessionId, {
     tools: {
       'get-user-account': async (args) => {
         return { name: 'Demo User', plan: 'pro' };
@@ -132,7 +132,7 @@ import { Chat } from '@/components/Chat';
 
 export default async function ChatPage() {
   // Create session server-side
-  const sessionId = await octavus.agentSessions.create('your-agent-id', {
+  const { id: sessionId } = await octavus.sessions.create('your-agent-id', {
     COMPANY_NAME: 'Acme Corp',
   });
 
@@ -220,7 +220,7 @@ const client = new OctavusClient({
 app.post('/api/trigger', async (req, res) => {
   const { sessionId, ...payload } = req.body;
 
-  const session = client.agentSessions.attach(sessionId, {
+  const session = client.sessions.attach(sessionId, {
     tools: {
       // Server-side tool handlers only
       // Tools without handlers are forwarded to the client

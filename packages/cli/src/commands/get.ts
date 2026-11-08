@@ -4,8 +4,9 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig, ConfigError } from '@/config.js';
-import { CliApi, ApiError } from '@/api.js';
+import { loadConfig } from '@/config.js';
+import { createClient, getAgentBySlug } from '@/client.js';
+import { exitCode, reportError } from '@/errors.js';
 import * as output from '@/output.js';
 
 interface GetOptions {
@@ -23,17 +24,16 @@ export function registerGetCommand(program: Command): void {
       try {
         await runGet(slug, options);
       } catch (err) {
-        handleError(err, options);
-        process.exit(err instanceof ConfigError ? 2 : 1);
+        reportError(err, options);
+        process.exit(exitCode(err));
       }
     });
 }
 
 async function runGet(slug: string, options: GetOptions): Promise<void> {
-  const config = loadConfig();
-  const api = new CliApi(config);
+  const client = createClient(loadConfig());
 
-  const agent = await api.getAgent(slug);
+  const agent = await getAgentBySlug(client, slug);
 
   if (!agent) {
     if (options.json) {
@@ -64,36 +64,4 @@ async function runGet(slug: string, options: GetOptions): Promise<void> {
     'Prompts',
     agent.prompts.length > 0 ? agent.prompts.map((p) => p.name).join(', ') : '(none)',
   );
-}
-
-function getErrorCode(err: unknown): string {
-  if (err instanceof ConfigError) return 'CONFIG_ERROR';
-  if (err instanceof ApiError) return 'API_ERROR';
-  return 'UNKNOWN';
-}
-
-function handleError(err: unknown, options: GetOptions): void {
-  if (options.json === true) {
-    output.json({
-      error: err instanceof Error ? err.message : 'Unknown error',
-      code: getErrorCode(err),
-    });
-    return;
-  }
-
-  if (err instanceof ConfigError) {
-    output.error(err.message);
-  } else if (err instanceof ApiError) {
-    output.error(`API error: ${err.message}`);
-    if (err.status !== 0) {
-      output.dim(`  Status: ${err.status}`);
-    }
-    if (err.requestId !== undefined) {
-      output.dim(`  Request ID: ${err.requestId}`);
-    }
-  } else if (err instanceof Error) {
-    output.error(err.message);
-  } else {
-    output.error('An unknown error occurred');
-  }
 }

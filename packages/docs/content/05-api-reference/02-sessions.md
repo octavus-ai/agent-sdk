@@ -1,20 +1,40 @@
 ---
 title: Sessions
-description: Session management API endpoints.
+description: Session resources, triggers, continuations, messages, logs, and uploads.
 ---
 
 # Sessions API
 
-Sessions represent conversations with agents. They store conversation history and the agent's variables.
+A session is a conversation with an agent: it holds the conversation history and the agent's variables. A session is a resource under `/api/v1/sessions`; its messages, its execution log, and the executions that run in it are resources of their own beneath it.
 
 All session endpoints require an API key with the **Sessions** permission.
 
+## The session resource
+
+Every endpoint that creates or changes a session returns the session:
+
+```json
+{
+  "id": "cm5xyz123abc456def",
+  "agentId": "cm5xvz7k80001abcd",
+  "status": "active",
+  "createdAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+| Field       | Type   | Description                                                                                                                   |
+| ----------- | ------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `id`        | string | The session ID                                                                                                                |
+| `agentId`   | string | The agent the session runs                                                                                                    |
+| `status`    | string | `active` while the platform holds the session's state; `expired` once that state has aged out (24 hours idle) or been cleared |
+| `createdAt` | string | ISO 8601                                                                                                                      |
+
+An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the messages you stored.
+
 ## Create Session
 
-Create a new agent session.
-
 ```
-POST /api/agent-sessions
+POST /api/v1/sessions
 ```
 
 ### Request Body
@@ -35,20 +55,16 @@ POST /api/agent-sessions
 | `agentId` | string | Yes      | Agent ID (the `id` field, not `slug`) |
 | `input`   | object | No       | Input variables for the agent         |
 
-> **Getting the agent ID:** Copy the ID from the agent URL in the [platform](https://octavus.ai) (e.g., `octavus.ai/projects/.../agents/clxyz123`), or use the [CLI](/docs/server-sdk/cli) (`octavus sync ./agents/my-agent`) for local development workflows.
+> **Getting the agent ID:** Copy the ID from the agent URL in the [platform](https://octavus.ai) (e.g., `octavus.ai/projects/.../agents/clxyz123`), look it up with [`GET /api/v1/agents?slug=`](/docs/api-reference/agents#list-agents), or use the [CLI](/docs/server-sdk/cli) (`octavus sync ./agents/my-agent` prints it).
 
 ### Response
 
-```json
-{
-  "sessionId": "cm5xyz123abc456def"
-}
-```
+`201` with the [session](#the-session-resource).
 
 ### Example
 
 ```bash
-curl -X POST https://octavus.ai/api/agent-sessions \
+curl -X POST https://octavus.ai/api/v1/sessions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -60,46 +76,68 @@ curl -X POST https://octavus.ai/api/agent-sessions \
   }'
 ```
 
-## Get Session
+## Start Session
 
-Retrieve a session. Returns the session's metadata, or with `format=ui` its UI-ready messages; an expired session returns its expiration info either way.
+Create a session and run its first trigger in one streaming request. The response is the trigger's event stream (see [Trigger Session](#trigger-session)); the created session's ID is in the `X-Octavus-Session-Id` response header and on the first `start` event.
 
 ```
-GET /api/agent-sessions/:sessionId
+POST /api/v1/sessions/start
 ```
 
-> **Note**: For an agent configured with [context management](/docs/protocol/context-management) (`maxToolOutputTokens` and/or `contextManagement`), the returned session state is the agent's **bounded working memory**, not a byte-complete transcript: tool results are the bounded previews and, once the session has compacted, older turns are represented by the running summary. For the complete, untruncated history - every tool result at full size - read the session's execution logs / trace, which is the durable record.
-
-### Query Parameters
-
-| Parameter | Type   | Description                                                         |
-| --------- | ------ | ------------------------------------------------------------------- |
-| `format`  | string | Optional. Use `format=ui` for the conversation as UI-ready messages |
-
-### Response (Metadata)
-
-Without `format`, the response describes the session: its `id`, `agentId`, `status` (`active`), and `createdAt`. The conversation itself is read with `format=ui`.
+### Request Body
 
 ```json
 {
-  "id": "cm5xyz123abc456def",
   "agentId": "cm5xvz7k80001abcd",
-  "status": "active",
-  "createdAt": "2024-01-15T10:30:00Z"
+  "input": { "COMPANY_NAME": "Acme Corp" },
+  "idempotencyKey": "chat-8f2c41d0",
+  "trigger": {
+    "triggerName": "user-message",
+    "input": { "USER_MESSAGE": "Hello" }
+  }
 }
 ```
 
-### Response (Active Session, `format=ui`)
+| Field            | Type   | Required | Description                                                                                                                           |
+| ---------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `agentId`        | string | Yes      | Agent ID                                                                                                                              |
+| `input`          | object | No       | The session's input variables                                                                                                         |
+| `idempotencyKey` | string | No       | A retried start with the same key resolves to the session the first request created instead of creating another (1-200 chars)         |
+| `trigger`        | object | Yes      | The first trigger: `triggerName`, `input`, `sender`, `userMessageId`, `dynamicToolSchemas`, as on [Trigger Session](#trigger-session) |
 
-When the session is active, the response includes `UIMessage` objects. Each trigger produces one assistant message for the whole turn, however many tool rounds it takes: the message's `parts` hold every step in order, with a `step-start` part between steps - the same shape the client SDK builds while the turn streams. A handler that adds a message mid-turn (an `add-message` block after output has already been produced) continues in a new assistant message after it, so history keeps its order.
+## Get Session
+
+```
+GET /api/v1/sessions/:sessionId
+```
+
+Returns the [session](#the-session-resource). The conversation itself is read from [Get Messages](#get-messages).
+
+### Example
+
+```bash
+curl https://octavus.ai/api/v1/sessions/:sessionId \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## Get Messages
+
+```
+GET /api/v1/sessions/:sessionId/messages
+```
+
+The session's conversation as the UI renders it. Each trigger produces one assistant message for the whole turn, however many tool rounds it takes: the message's `parts` hold every step in order, with a `step-start` part between steps - the same shape the client SDK builds while the turn streams. A handler that adds a message mid-turn (an `add-message` block after output has already been produced) continues in a new assistant message after it, so history keeps its order.
 
 A turn that is paused for tools - waiting for your server or client to continue it - is still in progress: its message has `status: "streaming"`, and its tool calls and sub-agent cards that await a result read `running`. A tool call a finished turn never resolved reads `cancelled`.
 
+An expired session has no messages: the response is `{ "messages": [] }`. Read [Get Session](#get-session) for the status.
+
+> **Note**: For an agent configured with [context management](/docs/protocol/context-management) (`maxToolOutputTokens` and/or `contextManagement`), the messages reflect the agent's **bounded working memory**, not a byte-complete transcript: tool results are the bounded previews and, once the session has compacted, older turns are represented by the running summary. For the complete, untruncated history - every tool result at full size - read the session's [execution log](#get-logs), which is the durable record.
+
+### Response
+
 ```json
 {
-  "sessionId": "cm5xyz123abc456def",
-  "agentId": "cm5xvz7k80001abcd",
-  "status": "active",
   "messages": [
     {
       "id": "1702345800000-xyz789a",
@@ -132,51 +170,30 @@ A turn that is paused for tools - waiting for your server or client to continue 
 
 A part reveals the same things here as its events did live: a `title`-mode tool call carries its `title` and status but no `args` or `result`; a `stream`-mode one carries both. Timestamps are ISO 8601 strings.
 
-### Response (Expired Session)
-
-When the session has expired, the response indicates the expiration status:
-
-```json
-{
-  "status": "expired",
-  "sessionId": "cm5xyz123abc456def",
-  "agentId": "cm5xvz7k80001abcd",
-  "createdAt": "2024-01-15T10:30:00Z"
-}
-```
-
-Use the [Restore Session](#restore-session) endpoint to restore an expired session from stored messages.
-
-````
-
 ### UIMessage Parts
 
 Messages contain typed `parts` that preserve content ordering:
 
-| Part Type | Description |
-|-----------|-------------|
-| `text` | Text content with `text` and `status` fields |
-| `reasoning` | Extended reasoning with `text` and `status` fields |
-| `tool-call` | Tool execution with `toolCallId`, `toolName`, `title`, `display`, `args`, `result`, `status` |
-| `operation` | A block's operation card with `operationId`, `name`, `operationType`, `title`, `status` |
-| `worker` | A sub-agent card with `workerId`, `workerSlug`, `title`, `display`, nested `parts`, `status` |
-| `file` | File attachment with `id`, `mediaType`, `url`, `filename`, `size` |
-| `source` | Source reference with `sourceType`, `id`, `url`, `title` |
-| `object` | Structured output with `id`, `typeName`, `object`, `status` |
+| Part Type    | Description                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| `text`       | Text content with `text` and `status` fields                                                 |
+| `reasoning`  | Extended reasoning with `text` and `status` fields                                           |
+| `tool-call`  | Tool execution with `toolCallId`, `toolName`, `title`, `display`, `args`, `result`, `status` |
+| `operation`  | A block's operation card with `operationId`, `name`, `operationType`, `title`, `status`      |
+| `worker`     | A sub-agent card with `workerId`, `workerSlug`, `title`, `display`, nested `parts`, `status` |
+| `file`       | File attachment with `id`, `mediaType`, `url`, `filename`, `size`                            |
+| `source`     | Source reference with `sourceType`, `id`, `url`, `title`                                     |
+| `object`     | Structured output with `id`, `typeName`, `object`, `status`                                  |
+| `step-start` | The boundary between two model steps of one turn                                             |
 
-### Example
-
-```bash
-curl https://octavus.ai/api/agent-sessions/:sessionId \
-  -H "Authorization: Bearer YOUR_API_KEY"
-````
+The list grows over time; keep a part of an unknown `type` and skip it when rendering (see [Versioning](/docs/api-reference/versioning)).
 
 ## Restore Session
 
-Restore an expired session from stored messages. This allows you to continue a conversation after the server-side state has expired.
+Restore an expired session from stored messages, so a conversation continues after the server-side state has expired.
 
 ```
-POST /api/agent-sessions/:sessionId/restore
+POST /api/v1/sessions/:sessionId/restore
 ```
 
 ### Request Body
@@ -205,22 +222,12 @@ POST /api/agent-sessions/:sessionId/restore
 
 ### Response
 
-```json
-{
-  "sessionId": "cm5xyz123abc456def",
-  "restored": true
-}
-```
-
-| Field       | Type    | Description                                                             |
-| ----------- | ------- | ----------------------------------------------------------------------- |
-| `sessionId` | string  | The session ID                                                          |
-| `restored`  | boolean | `true` if restored from messages, `false` if session was already active |
+The [session](#the-session-resource), `active` again. A session whose state was still live is left as it is.
 
 ### Example
 
 ```bash
-curl -X POST https://octavus.ai/api/agent-sessions/:sessionId/restore \
+curl -X POST https://octavus.ai/api/v1/sessions/:sessionId/restore \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -233,36 +240,29 @@ curl -X POST https://octavus.ai/api/agent-sessions/:sessionId/restore \
 
 ## Clear Session
 
-Clear session state, transitioning it to `expired` status. The session can be restored afterwards with the [Restore Session](#restore-session) endpoint.
-
-This is idempotent - clearing an already expired session succeeds without error.
+Clear the session's state. The session becomes `expired` and can be restored afterwards with [Restore Session](#restore-session). Idempotent: clearing an already expired session succeeds.
 
 ```
-DELETE /api/agent-sessions/:sessionId
+DELETE /api/v1/sessions/:sessionId
 ```
 
 ### Response
 
-```json
-{
-  "sessionId": "cm5xyz123abc456def",
-  "cleared": true
-}
-```
+The [session](#the-session-resource), with `status: "expired"`.
 
 ### Example
 
 ```bash
-curl -X DELETE https://octavus.ai/api/agent-sessions/:sessionId \
+curl -X DELETE https://octavus.ai/api/v1/sessions/:sessionId \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ## Trigger Session
 
-Execute a trigger on a session. Returns a Server-Sent Events stream.
+Run a trigger on the session: start a new turn and stream it as Server-Sent Events.
 
 ```
-POST /api/agent-sessions/:sessionId/trigger
+POST /api/v1/sessions/:sessionId/trigger
 ```
 
 ### Request Body
@@ -272,8 +272,7 @@ POST /api/agent-sessions/:sessionId/trigger
   "triggerName": "user-message",
   "input": {
     "USER_MESSAGE": "How do I reset my password?"
-  },
-  "toolResults": []
+  }
 }
 ```
 
@@ -281,17 +280,17 @@ POST /api/agent-sessions/:sessionId/trigger
 | ------------------------ | -------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `triggerName`            | string         | Yes      | Name of the trigger to execute                                                                                                                         |
 | `input`                  | object         | No       | Input variables for the trigger                                                                                                                        |
-| `toolResults`            | array          | No       | Tool results for continuation (handled by SDK)                                                                                                         |
 | `rollbackAfterMessageId` | string \| null | No       | For retry: ID of the last message to keep. Messages after this are removed. `null` = truncate all.                                                     |
 | `sender`                 | object         | No       | Author of this turn (`{ id?, name?, image? }`), stamped onto the user message as `UIMessage.sender`. Turn metadata, not a trigger input.               |
 | `userMessageId`          | string         | No       | The id to persist this turn's user message under (1-128 chars), applied when no message in the session has it yet. Turn metadata, not a trigger input. |
+| `dynamicToolSchemas`     | array          | No       | Schemas of tools the caller discovered at runtime (an MCP server's), offered to the model for this turn                                                |
 
 ### Response
 
 Returns `text/event-stream` with SSE events:
 
 ```
-data: {"type":"start","messageId":"msg-123"}
+data: {"type":"start","executionId":"exec_123","sessionId":"cm5xyz123abc456def","messageId":"msg-123"}
 
 data: {"type":"block-start","blockId":"b1","blockName":"Add user message","blockType":"add-message","display":"hidden"}
 
@@ -326,6 +325,8 @@ data: {"type":"finish","finishReason":"stop"}
 data: [DONE]
 ```
 
+The `start` event names the execution (`executionId`); a [continuation](#continue-execution) addresses it. A turn ends in one of three ways, told by the `finish` event's `finishReason`: `stop` (the turn is complete), `tool-calls` (the turn is paused on the calls of the preceding `tool-request` event, see [Tool Continuation](#tool-continuation)), or `continue` (the leg reached its time budget, see [Execution Legs](#execution-legs)). Aborting the request stops generation; what was produced is kept.
+
 ### Event Types
 
 | Event                   | Description                        |
@@ -359,7 +360,7 @@ The list grows over time. Read an event of an unknown `type` as one to ignore or
 ### Example
 
 ```bash
-curl -N -X POST https://octavus.ai/api/agent-sessions/:sessionId/trigger \
+curl -N -X POST https://octavus.ai/api/v1/sessions/:sessionId/trigger \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -368,14 +369,18 @@ curl -N -X POST https://octavus.ai/api/agent-sessions/:sessionId/trigger \
   }'
 ```
 
-## Tool Continuation
+## Continue Execution
 
-When the agent calls external tools, you'll receive a `tool-request` event. Execute the tools and send the results back as a continuation of the same execution, identified by the `executionId` from the stream's `start` event. A result is the `toolCallId` and the `result` (or an `error` string, and `files` when the tool produced any); the platform routes it by the call it recorded when it issued it:
+Continue the execution a session's turn paused in: deliver the results of the tools you ran, or resume a leg that reached its time budget. Returns the rest of the turn as the same event stream a trigger does.
+
+```
+POST /api/v1/sessions/:sessionId/executions/:executionId/continue
+```
+
+### Request Body
 
 ```json
 {
-  "type": "continue",
-  "executionId": "exec_123",
   "toolResults": [
     {
       "toolCallId": "tc_123",
@@ -388,41 +393,97 @@ When the agent calls external tools, you'll receive a `tool-request` event. Exec
 }
 ```
 
-A result for a call the execution did not request is refused with `400` and the code `UNKNOWN_TOOL_CALL`. A second result for a call that already has one is ignored, and so is a result re-sent for a call the execution already applied, so a continuation retried after a dropped connection is safe. A continuation that answers only some of the open calls does not run the agent: it is answered with a `tool-request` for the calls still open, so several executors can each submit what they ran.
+| Field                      | Type    | Required | Description                                                                    |
+| -------------------------- | ------- | -------- | ------------------------------------------------------------------------------ |
+| `toolResults`              | array   | No       | The results of the calls you ran; empty (or omitted) to resume a yielded leg   |
+| `toolResults[].toolCallId` | string  | Yes      | The call's ID from the `tool-request` event                                    |
+| `toolResults[].result`     | any     | No       | What the tool returned                                                         |
+| `toolResults[].error`      | string  | No       | Why the tool failed, instead of a result                                       |
+| `toolResults[].files`      | array   | No       | `FileReference`s the tool produced                                             |
+| `toolResults[].truncated`  | boolean | No       | True when you reduced the result to a preview because it was too large to send |
+| `dynamicToolSchemas`       | array   | No       | As on [Trigger Session](#trigger-session)                                      |
+
+### Tool Continuation
+
+When the agent calls tools the platform does not run itself, the stream carries a `tool-request` event with the pending calls and ends with `finish: tool-calls`:
+
+```
+data: {"type":"tool-request","toolCalls":[{"toolCallId":"tc_123","toolName":"get-user-account","args":{"userId":"user-123"},"display":"title"}]}
+
+data: {"type":"finish","finishReason":"tool-calls","executionId":"exec_123"}
+```
+
+Each pending call carries its `toolCallId`, `toolName`, `args`, and `display` (what your own output events may reveal), plus `thread` and `workerId` when it came from a sub-agent or a thread. Run the tools and send the results back on this endpoint. The platform routes each result by the call it recorded when it issued it: a result for a call the execution did not request is refused with `400` and the code `UNKNOWN_TOOL_CALL`, a second result for a call that already has one is ignored, and so is a result re-sent for a call the execution already applied, so a continuation retried after a dropped connection is safe.
+
+A continuation that answers only some of the open calls does not run the agent: it is answered with a `tool-request` for the calls still open and `finish: tool-calls`, so several executors (your server, the browser) can each submit what they ran. The execution resumes once every call has a result.
 
 The Server SDK handles this continuation pattern automatically.
 
-## Execution Legs
+### Execution Legs
 
-A long turn runs as a chain of server invocations, each bounded in time. When an invocation reaches its budget, the platform saves the turn's progress and ends that leg with a `persisted` event followed by `finish` with `finishReason: "continue"`. Nothing is pending: resume the same execution with a continuation that carries the `executionId` from the stream's `start` event and an empty `toolResults` list, exactly as you continue after a `tool-request`.
+A long turn runs as a chain of server invocations, each bounded in time. When an invocation reaches its budget, the platform saves the turn's progress and ends that leg with a `persisted` event followed by `finish` with `finishReason: "continue"`. Nothing is pending: resume the same execution with an empty continuation.
 
 ```json
-{
-  "type": "continue",
-  "executionId": "exec_123",
-  "toolResults": []
-}
+{ "toolResults": [] }
 ```
 
-The next leg streams from where the previous one stopped, into the same assistant message, and ends with its own `finish` - another `continue`, a `tool-calls` pause, or the final `stop`. The model never sees the boundary. The Server SDK performs the continuation itself, so `session.execute()` yields one stream for the whole turn.
+The next leg streams from where the previous one stopped, into the same assistant message, and ends with its own `finish` - another `continue`, a `tool-calls` pause, or the final `stop`. The model never sees the boundary. The Server SDK performs the continuation itself, so `session.execute()` yields one stream for the whole turn; a raw caller must resume a `continue` leg itself.
 
-Legs are yielded only to callers that can resume them: send `X-Octavus-Sdk-Version: 5` (or higher) on every request to opt in. The Server SDK sends it. A caller without the header runs each leg until it pauses for tools or finishes on its own.
+### Errors
 
 A continuation for an execution the session no longer holds - it finished, expired, or was lost before its first save - returns `409` with the error code `EXECUTION_NOT_RESUMABLE`. Re-send the original trigger to start the turn over.
 
-## Upload URLs
-
-Get presigned URLs for file uploads. Files are uploaded directly to S3.
+## Get Logs
 
 ```
-POST /api/files/upload-urls
+GET /api/v1/sessions/:sessionId/logs
+```
+
+The session's execution log: the chronological trace of everything that happened during its executions - triggers, model requests, tool calls and results, sub-agent runs, errors. The durable record, where the messages are the agent's working memory.
+
+### Query Parameters
+
+| Parameter              | Type    | Description                                                                                      |
+| ---------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `excludeModelRequests` | boolean | `true` leaves out `model-request` entries, which carry full provider payloads when tracing is on |
+
+### Response
+
+```json
+{
+  "entries": [
+    {
+      "id": "...",
+      "timestamp": "2024-01-15T10:30:00.000Z",
+      "type": "trigger",
+      "triggerName": "user-message"
+    }
+  ],
+  "total": 1,
+  "truncated": false
+}
+```
+
+| Field       | Type    | Description                                                                          |
+| ----------- | ------- | ------------------------------------------------------------------------------------ |
+| `entries`   | array   | The entries, oldest first; the most recent ones when the response was capped         |
+| `total`     | number  | The number of entries on the server, which exceeds `entries.length` when `truncated` |
+| `truncated` | boolean | True when the response was capped (at 3000 entries)                                  |
+
+An expired session has no log: `{ "entries": [], "total": 0, "truncated": false }`. Entry types grow over time; handle an unknown `type` with a default branch.
+
+## Uploads
+
+Get presigned URLs for uploading files to a session. Files are uploaded directly to S3; the session must be active.
+
+```
+POST /api/v1/sessions/:sessionId/uploads
 ```
 
 ### Request Body
 
 ```json
 {
-  "sessionId": "cm5xyz123abc456def",
   "files": [
     {
       "filename": "photo.jpg",
@@ -435,13 +496,14 @@ POST /api/files/upload-urls
 
 | Field               | Type   | Required | Description                         |
 | ------------------- | ------ | -------- | ----------------------------------- |
-| `sessionId`         | string | Yes      | Session ID to associate files with  |
 | `files`             | array  | Yes      | Array of file metadata (1-20 files) |
 | `files[].filename`  | string | Yes      | Original filename                   |
 | `files[].mediaType` | string | Yes      | MIME type (e.g., `image/png`)       |
 | `files[].size`      | number | Yes      | File size in bytes                  |
 
 ### Response
+
+`201`:
 
 ```json
 {
@@ -478,3 +540,25 @@ POST /api/files/upload-urls
 | Max files per request | 20         |
 | Upload URL expiry     | 15 minutes |
 | Download URL expiry   | 24 hours   |
+
+## File View URL
+
+A short-lived view URL for a file the session produced, to render it inline (in a sandboxed frame) without exposing the storage URL.
+
+```
+POST /api/v1/sessions/:sessionId/files/view-url
+```
+
+### Request Body
+
+```json
+{ "fileUrl": "https://s3.amazonaws.com/bucket/key?..." }
+```
+
+### Response
+
+```json
+{ "viewUrl": "https://.../outputs/sessions/cm5xyz123abc456def/report.html?..." }
+```
+
+`viewUrl` is a signed URL on the platform's content domain. It is `null` when the file is not one the session owns or viewing is unavailable; fall back to the file's download URL.

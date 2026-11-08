@@ -47,7 +47,7 @@ Define tools in your protocol but don't register handlers for client tools:
 
 ```typescript
 // Only register server-side tools
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     // Server tools have handlers
     'get-user-account': async (args) => {
@@ -336,7 +336,7 @@ Tools can be split between server and client based on where they should execute:
 
 ```typescript
 // Server (API route)
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     // Server tools - data access, mutations
     'get-user-account': async (args) => db.users.findById(args.userId),
@@ -389,7 +389,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { sessionId, ...payload } = body;
 
-  const session = client.agentSessions.attach(sessionId, {
+  const session = client.sessions.attach(sessionId, {
     tools: {
       // Server tools only
     },

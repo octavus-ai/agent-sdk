@@ -55,12 +55,11 @@ Send the JWT as the Bearer token on any session request. With the SDK, pass a **
 import { OctavusClient } from '@octavus/server-sdk';
 
 const client = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   // Called per request - return the workload's current federated token.
   apiKey: async () => await getWorkloadIdentityToken(),
 });
 
-await client.agentSessions.start(/* ... */);
+await client.sessions.start(/* ... */);
 ```
 
 ## Revoke

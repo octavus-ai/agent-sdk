@@ -55,8 +55,8 @@ export interface WorkerExecuteOptions {
 export interface WorkerGenerateResult {
   /** The worker's output value */
   output: unknown;
-  /** Session ID for the worker execution (usable for debugging/session URLs) */
-  sessionId: string;
+  /** The execution's id, which `getSessionUrl()` turns into its activity page. */
+  executionId: string;
   /**
    * Dollar cost of this execution: the Octavus bandwidth fee plus the LLM
    * provider fee (and, for BYOK, an estimate of the provider cost at Octavus
@@ -132,17 +132,16 @@ export class WorkersApi extends BaseApiClient {
       {
         config: this.config,
         getToolHandlers: () => resolved.toolHandlers,
-        url: `${this.config.baseUrl}/api/agents/${agentId}/execute`,
+        url: ({ executionId }) => this.executionUrl(agentId, executionId),
         buildBody: ({ executionId, toolResults }) =>
           !executionId
             ? {
-                type: 'start',
                 input,
                 ...(resolved.dynamicToolSchemas !== undefined && {
                   dynamicToolSchemas: resolved.dynamicToolSchemas,
                 }),
               }
-            : { type: 'continue', executionId, toolResults },
+            : { toolResults: toolResults ?? [] },
         errorContext: 'Failed to execute worker',
       },
       {},
@@ -160,16 +159,16 @@ export class WorkersApi extends BaseApiClient {
    * @param agentId - The worker agent ID
    * @param input - Input values for the worker
    * @param options - Optional configuration including tools and abort signal
-   * @returns The worker output and session ID
+   * @returns The worker output and the execution's id
    * @throws {WorkerError} If the worker fails or completes without output
    *
    * @example Basic usage
    * ```typescript
-   * const { output, sessionId } = await client.workers.generate(agentId, {
+   * const { output, executionId } = await client.workers.generate(agentId, {
    *   TOPIC: 'AI safety',
    * });
    * console.log(output);
-   * console.log(`Debug: ${client.getSessionUrl(sessionId)}`);
+   * console.log(`Debug: ${client.getSessionUrl(executionId)}`);
    * ```
    *
    * @example With timeout
@@ -184,7 +183,7 @@ export class WorkersApi extends BaseApiClient {
     input: Record<string, unknown>,
     options: WorkerExecuteOptions = {},
   ): Promise<WorkerGenerateResult> {
-    let sessionId: string | undefined;
+    let executionId: string | undefined;
     let workerOutput: WorkerGenerateResult | undefined;
     let errorMessage: string | undefined;
     let errorEvent: ErrorEvent | undefined;
@@ -198,7 +197,7 @@ export class WorkersApi extends BaseApiClient {
     // with the richest available info regardless of which arrives first.
     for await (const event of this.execute(agentId, input, options)) {
       if (event.type === 'start' && event.executionId) {
-        sessionId = event.executionId;
+        executionId = event.executionId;
       } else if (event.type === 'error') {
         errorMessage = event.message;
         errorEvent = event;
@@ -211,7 +210,7 @@ export class WorkersApi extends BaseApiClient {
         } else {
           workerOutput = {
             output: event.output,
-            sessionId: sessionId ?? event.workerId,
+            executionId: executionId ?? event.workerId,
           };
         }
       } else if (event.type === 'usage') {
@@ -233,7 +232,7 @@ export class WorkersApi extends BaseApiClient {
         provider: errorEvent?.provider,
         tool: errorEvent?.tool,
         backup: errorEvent?.backup,
-        sessionId: sessionId ?? lastWorkerId,
+        executionId: executionId ?? lastWorkerId,
       });
     }
 
@@ -247,7 +246,7 @@ export class WorkersApi extends BaseApiClient {
       errorType: 'execution_error',
       message: 'Worker completed without producing a result',
       source: 'platform',
-      sessionId,
+      executionId,
     });
   }
 
@@ -297,16 +296,18 @@ export class WorkersApi extends BaseApiClient {
       {
         config: this.config,
         getToolHandlers: () => toolHandlers,
-        url: `${this.config.baseUrl}/api/agents/${agentId}/execute`,
-        buildBody: ({ executionId: execId, toolResults: results }) => ({
-          type: 'continue',
-          executionId: execId ?? executionId,
-          toolResults: results ?? toolResults,
-        }),
+        url: ({ executionId: execId }) => this.executionUrl(agentId, execId ?? executionId),
+        buildBody: ({ toolResults: results }) => ({ toolResults: results ?? toolResults }),
         errorContext: 'Failed to continue worker',
       },
       { executionId, toolResults },
       options.signal,
     );
+  }
+
+  /** The URL a leg posts to: the agent's executions to start one, the execution to continue it. */
+  private executionUrl(agentId: string, executionId: string | undefined): string {
+    const executions = `${this.config.baseUrl}/api/v1/agents/${agentId}/executions`;
+    return executionId ? `${executions}/${executionId}/continue` : executions;
   }
 }

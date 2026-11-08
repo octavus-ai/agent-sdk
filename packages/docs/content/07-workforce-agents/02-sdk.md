@@ -21,7 +21,6 @@ Construct `OctavusClient` with your agent's API key:
 import { OctavusClient } from '@octavus/server-sdk';
 
 const client = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   apiKey: process.env.OCTAVUS_AGENT_KEY, // oct_agt_...
 });
 ```

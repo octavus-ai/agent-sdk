@@ -20,7 +20,7 @@ const client = new OctavusClient({
 });
 
 // Create a session with the support-chat agent
-const sessionId = await client.agentSessions.create('support-chat', {
+const { id: sessionId } = await client.sessions.create('support-chat', {
   COMPANY_NAME: 'Acme Corp',
   PRODUCT_NAME: 'Widget Pro',
   USER_ID: 'user-123', // Optional inputs
@@ -31,7 +31,7 @@ console.log('Session created:', sessionId);
 
 ## Create and Trigger in One Call
 
-`create()` followed by `attach().execute()` is two round trips, and it forces you to create the session before you know whether the user will ever send a message. `agentSessions.start()` does both in a single streaming request: it creates the session **and** runs its first trigger, so per-session configuration (model, system-prompt inputs, anything routed through session `input`) is captured at the moment of the first message, and no session is created for a conversation that never starts.
+`create()` followed by `attach().execute()` is two round trips, and it forces you to create the session before you know whether the user will ever send a message. `sessions.start()` does both in a single streaming request: it creates the session **and** runs its first trigger, so per-session configuration (model, system-prompt inputs, anything routed through session `input`) is captured at the moment of the first message, and no session is created for a conversation that never starts.
 
 ```typescript
 import { toSSEStream } from '@octavus/server-sdk';
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   const { chatId, message, model } = await request.json();
 
   // No session exists yet. The first execute() creates it and runs the trigger.
-  const session = client.agentSessions.start({
+  const session = client.sessions.start({
     agentId: 'support-chat',
     input: { COMPANY_NAME: 'Acme Corp', MODEL: model }, // captured now, not earlier
     idempotencyKey: chatId, // a retry resolves to the same session
@@ -87,47 +87,42 @@ The created session id reaches you through two channels:
 
 `start()` also accepts the same `tools`, `mcpServers`, `onToolResults`, and `rejectClientToolCalls` options as `attach()`.
 
-> The two-step `create()` + `attach()` flow is unchanged and fully supported. `start()` is additive - reach for it when you want to defer creation to the first message.
+> Both flows are fully supported: `create()` + `attach()` when you need the session up front, `start()` when creation can wait for the first message.
 
 ## Getting Session Messages
 
-To restore a conversation on page load, use `getMessages()` to retrieve UI-ready messages:
+To restore a conversation on page load, use `getMessages()` to retrieve the conversation as UI-ready messages:
 
 ```typescript
-const session = await client.agentSessions.getMessages(sessionId);
+const messages = await client.sessions.getMessages(sessionId);
+
+console.log(messages.length); // UIMessage[] ready for frontend
+```
+
+The returned messages can be passed directly to the client SDK's `initialMessages` option. An expired session has no messages (an empty array); read the session's `status` with `get()` to tell the two apart.
+
+## The Session
+
+`get()` returns the session: the agent it belongs to, when it was created, and whether its state is still `active` or has `expired`. `create()`, `restore()`, and `clear()` return the same shape.
+
+```typescript
+const session = await client.sessions.get(sessionId);
 
 console.log({
-  sessionId: session.sessionId,
+  id: session.id,
   agentId: session.agentId,
-  messages: session.messages.length, // UIMessage[] ready for frontend
+  status: session.status, // 'active' | 'expired'
+  createdAt: session.createdAt,
 });
 ```
 
-The returned messages can be passed directly to the client SDK's `initialMessages` option.
-
-### UISessionState Interface
-
 ```typescript
-interface UISessionState {
-  sessionId: string;
+interface Session {
+  id: string;
   agentId: string;
-  messages: UIMessage[]; // UI-ready conversation history
+  status: 'active' | 'expired';
+  createdAt: string; // ISO 8601
 }
-```
-
-## Session Metadata
-
-`get()` returns what the platform knows about a session without its messages: the agent it belongs to, when it was created, and whether its state is still `active` or has `expired`:
-
-```typescript
-const info = await client.agentSessions.get(sessionId);
-
-console.log({
-  id: info.id,
-  agentId: info.agentId,
-  status: info.status, // 'active' | 'expired'
-  createdAt: info.createdAt,
-});
 ```
 
 The conversation itself is read with `getMessages()`; the full execution record (every tool call, model request, and error) with `getLogs()`.
@@ -137,37 +132,33 @@ The conversation itself is read with `getMessages()`; the full execution record 
 `getLogs()` returns the chronological execution trace for a session - triggers, messages, tool calls, LLM responses, model request markers, per-step token stats, errors, and other events emitted while the agent ran. Useful for debugging, observability, and building custom timeline views. See [Debugging](/docs/server-sdk/debugging) for what the model telemetry entries contain.
 
 ```typescript
-const result = await client.agentSessions.getLogs(sessionId);
+const { entries } = await client.sessions.getLogs(sessionId);
 
-if (result.status === 'expired') {
-  console.log('Session expired:', result.sessionId);
-} else {
-  for (const entry of result.entries) {
-    console.log(entry.type, entry.timestamp);
-  }
+for (const entry of entries) {
+  console.log(entry.type, entry.timestamp);
 }
 ```
 
 Each entry is a typed variant of `ExecutionLogEntry` (a discriminated union) so consumers can narrow on `entry.type`:
 
 ```typescript
-const result = await client.agentSessions.getLogs(sessionId);
+const { entries } = await client.sessions.getLogs(sessionId);
 
-if (result.status !== 'expired') {
-  const toolCalls = result.entries.filter((e) => e.type === 'tool-call');
-  for (const call of toolCalls) {
-    // call.toolName, call.toolArguments are typed without optional chaining
-    console.log(call.toolName, call.toolArguments);
-  }
+const toolCalls = entries.filter((e) => e.type === 'tool-call');
+for (const call of toolCalls) {
+  // call.toolName, call.toolArguments are typed without optional chaining
+  console.log(call.toolName, call.toolArguments);
 }
 ```
+
+An expired session has no log: `entries` is empty and `total` is 0.
 
 ### Excluding Model Request Payloads
 
 Every provider call logs a `model-request` entry. By default it is a lightweight marker (request timing, provider, and model); with [model request tracing](/docs/server-sdk/debugging#model-request-tracing) enabled it also carries the full provider request body and can be large. Pass `excludeModelRequests: true` to skip these entries:
 
 ```typescript
-const result = await client.agentSessions.getLogs(sessionId, {
+const result = await client.sessions.getLogs(sessionId, {
   excludeModelRequests: true,
 });
 ```
@@ -177,19 +168,22 @@ const result = await client.agentSessions.getLogs(sessionId, {
 Responses are capped at 3000 entries (most recent). When the log exceeds that cap, the response includes `total` and `truncated` so consumers can detect this:
 
 ```typescript
-const result = await client.agentSessions.getLogs(sessionId);
+const logs = await client.sessions.getLogs(sessionId);
 
-if (result.status !== 'expired' && result.truncated) {
-  console.warn(`Showing latest 3000 of ${result.total} entries`);
+if (logs.truncated) {
+  console.warn(`Showing latest 3000 of ${logs.total} entries`);
 }
 ```
 
-### Response Types
+### Response Type
 
-| Status    | Type                  | Description                                                                                  |
-| --------- | --------------------- | -------------------------------------------------------------------------------------------- |
-| `active`  | `ExecutionLogsResult` | `{ sessionId, entries, total?, truncated? }`. `total` and `truncated` are present when known |
-| `expired` | `ExpiredSessionState` | `{ sessionId, agentId, status: 'expired', createdAt }`                                       |
+```typescript
+interface ExecutionLogs {
+  entries: ExecutionLogEntry[];
+  total: number; // the number of entries on the server
+  truncated: boolean; // true when only the most recent entries were returned
+}
+```
 
 > **Forward-compatible types**: `ExecutionLogEntry` may gain new variants over time. Include a `default` case when switching on `entry.type` so unknown variants are handled gracefully.
 
@@ -198,7 +192,7 @@ if (result.status !== 'expired' && result.truncated) {
 To trigger actions on a session, you need to attach to it first:
 
 ```typescript
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     // Tool handlers (see Tools documentation)
   },
@@ -268,7 +262,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { sessionId, ...payload } = body;
 
-  const session = client.agentSessions.attach(sessionId, {
+  const session = client.sessions.attach(sessionId, {
     tools: {
       /* ... */
     },
@@ -294,7 +288,7 @@ export async function POST(request: Request) {
   const user = await authenticate(request); // your auth
   const { sessionId, ...payload } = await request.json();
 
-  const session = client.agentSessions.attach(sessionId, {
+  const session = client.sessions.attach(sessionId, {
     tools: {
       /* ... */
     },
@@ -406,11 +400,11 @@ flowchart TD
     F -->|Yes| C
     F -->|No| A
 
-    A -.- A1["`**client.agentSessions.create()**
-    Returns sessionId
+    A -.- A1["`**client.sessions.create()**
+    Returns the session
     Initializes state`"]
 
-    B -.- B1["`**client.agentSessions.attach()**
+    B -.- B1["`**client.sessions.attach()**
     Configure tool handlers
     Configure inline MCP servers`"]
 
@@ -419,44 +413,40 @@ flowchart TD
     Stream events
     Update state`"]
 
-    D -.- D1["`**client.agentSessions.getMessages()**
-    Get UI-ready messages
-    Check session status`"]
+    D -.- D1["`**client.sessions.get()**
+    Check session status
+    **getMessages()** for the conversation`"]
 
     E -.- E1["`Sessions expire after
     24 hours (configurable)`"]
 
-    G -.- G1["`**client.agentSessions.clear()**
+    G -.- G1["`**client.sessions.clear()**
     Programmatically clear state
     Session becomes expired`"]
 
-    F -.- F1["`**client.agentSessions.restore()**
+    F -.- F1["`**client.sessions.restore()**
     Restore from stored messages
     Or create new session`"]
 ```
 
 ## Session Expiration
 
-Sessions expire after a period of inactivity (default: 24 hours). When you call `getMessages()` or `get()`, the response includes a `status` field:
+Sessions expire after a period of inactivity (default: 24 hours). `get()` tells you whether a session's state is still there:
 
 ```typescript
-const result = await client.agentSessions.getMessages(sessionId);
+const session = await client.sessions.get(sessionId);
 
-if (result.status === 'expired') {
+if (session.status === 'expired') {
   // Session has expired - restore or create new
-  console.log('Session expired:', result.sessionId);
+  console.log('Session expired:', session.id);
 } else {
   // Session is active
-  console.log('Messages:', result.messages.length);
+  const messages = await client.sessions.getMessages(sessionId);
+  console.log('Messages:', messages.length);
 }
 ```
 
-### Response Types
-
-| Status    | Type                  | Description                                                   |
-| --------- | --------------------- | ------------------------------------------------------------- |
-| `active`  | `UISessionState`      | Session is active, includes `messages` array                  |
-| `expired` | `ExpiredSessionState` | Session expired, includes `sessionId`, `agentId`, `createdAt` |
+A trigger on an expired session fails with `404`; restore it first, or create a new one.
 
 ## Persisting Chat History
 
@@ -464,18 +454,15 @@ To enable session restoration, store the chat messages in your own database afte
 
 ```typescript
 // After each trigger completes, save messages
-const result = await client.agentSessions.getMessages(sessionId);
+const messages = await client.sessions.getMessages(sessionId);
 
-if (result.status === 'active') {
-  // Store in your database
-  await db.chats.update({
-    where: { id: chatId },
-    data: {
-      sessionId: result.sessionId,
-      messages: result.messages, // Store UIMessage[] as JSON
-    },
-  });
-}
+await db.chats.update({
+  where: { id: chatId },
+  data: {
+    sessionId,
+    messages, // Store UIMessage[] as JSON
+  },
+});
 ```
 
 > **Best Practice**: Store the full `UIMessage[]` array. This preserves all message parts (text, tool calls, files, etc.) needed for accurate restoration.
@@ -489,52 +476,43 @@ When a user returns to your app:
 const chat = await db.chats.findUnique({ where: { id: chatId } });
 
 // 2. Check if session is still active
-const result = await client.agentSessions.getMessages(chat.sessionId);
+const session = await client.sessions.get(chat.sessionId);
 
-if (result.status === 'active') {
+if (session.status === 'active') {
   // Session is active - use it directly
   return {
-    sessionId: result.sessionId,
-    messages: result.messages,
+    sessionId: session.id,
+    messages: await client.sessions.getMessages(session.id),
   };
 }
 
 // 3. Session expired - restore from stored messages
 if (chat.messages && chat.messages.length > 0) {
-  const restored = await client.agentSessions.restore(
+  const restored = await client.sessions.restore(
     chat.sessionId,
     chat.messages,
     { COMPANY_NAME: 'Acme Corp' }, // Optional: same input as create()
   );
 
-  if (restored.restored) {
-    // Session restored successfully
-    return {
-      sessionId: restored.sessionId,
-      messages: chat.messages,
-    };
-  }
+  // The session is active again
+  return {
+    sessionId: restored.id,
+    messages: chat.messages,
+  };
 }
 
-// 4. Cannot restore - create new session
-const newSessionId = await client.agentSessions.create('support-chat', {
+// 4. Nothing to restore from - create new session
+const created = await client.sessions.create('support-chat', {
   COMPANY_NAME: 'Acme Corp',
 });
 
 return {
-  sessionId: newSessionId,
+  sessionId: created.id,
   messages: [],
 };
 ```
 
-### Restore Response
-
-```typescript
-interface RestoreSessionResult {
-  sessionId: string;
-  restored: boolean; // true if restored, false if session was already active
-}
-```
+`restore()` returns the session, `active` again; a session whose state was still live is returned as it is.
 
 ## Complete Example
 
@@ -554,23 +532,22 @@ async function getOrCreateSession(chatId: string, agentId: string, input: Record
 
   if (chat?.sessionId) {
     // Check session status
-    const result = await client.agentSessions.getMessages(chat.sessionId);
+    const session = await client.sessions.get(chat.sessionId);
 
-    if (result.status === 'active') {
-      return { sessionId: result.sessionId, messages: result.messages };
+    if (session.status === 'active') {
+      const messages = await client.sessions.getMessages(session.id);
+      return { sessionId: session.id, messages };
     }
 
-    // Try to restore expired session
+    // Restore the expired session from the stored messages
     if (chat.messages?.length > 0) {
-      const restored = await client.agentSessions.restore(chat.sessionId, chat.messages, input);
-      if (restored.restored) {
-        return { sessionId: restored.sessionId, messages: chat.messages };
-      }
+      const restored = await client.sessions.restore(chat.sessionId, chat.messages, input);
+      return { sessionId: restored.id, messages: chat.messages };
     }
   }
 
   // Create new session
-  const sessionId = await client.agentSessions.create(agentId, input);
+  const { id: sessionId } = await client.sessions.create(agentId, input);
 
   // Save to database
   await db.chats.upsert({
@@ -588,18 +565,11 @@ async function getOrCreateSession(chatId: string, agentId: string, input: Record
 To programmatically clear a session's state (e.g., for testing reset/restore flows), use `clear()`:
 
 ```typescript
-const result = await client.agentSessions.clear(sessionId);
-console.log(result.cleared); // true
+const session = await client.sessions.clear(sessionId);
+console.log(session.status); // 'expired'
 ```
 
-After clearing, the session transitions to `expired` status. You can then restore it with `restore()` or create a new session.
-
-```typescript
-interface ClearSessionResult {
-  sessionId: string;
-  cleared: boolean;
-}
-```
+After clearing, the session is `expired`. You can then restore it with `restore()` or create a new session.
 
 This is idempotent - calling `clear()` on an already expired session succeeds without error.
 
@@ -611,7 +581,7 @@ Every failed request throws an `OctavusError` - the same class the stream's `err
 import { OctavusError } from '@octavus/server-sdk';
 
 try {
-  const session = await client.agentSessions.getMessages(sessionId);
+  const messages = await client.sessions.getMessages(sessionId);
 } catch (error) {
   if (OctavusError.isInstance(error)) {
     if (error.status === 404) {

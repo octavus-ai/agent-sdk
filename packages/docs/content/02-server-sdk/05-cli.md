@@ -5,7 +5,7 @@ description: Command-line interface for validating and syncing agent definitions
 
 # Octavus CLI
 
-The `@octavus/cli` package provides a command-line interface for validating and syncing agent definitions from your local filesystem to the Octavus platform.
+The `@octavus/cli` package provides a command-line interface for validating and syncing agent definitions from your local filesystem to the Octavus platform. It is built on the [Server SDK](/docs/server-sdk/overview)'s `client.agents` and `client.skills`, so everything it does is also available to your own code.
 
 **Current version:** `{{VERSION:@octavus/cli}}`
 
@@ -80,7 +80,7 @@ Each project has its own agents, so you'll get different agent IDs per environme
 
 ### `octavus sync <path>`
 
-Sync an agent definition to the platform. Creates the agent if it doesn't exist, or updates it if it does.
+Sync an agent definition to the platform. Creates the agent if it doesn't exist, or updates it if it does. Either way the whole definition is validated on the platform - schema, semantic rules, and the skills, workers, MCP servers, and models it references - so a sync never deploys an agent the web editor would refuse; a definition with errors fails the command and changes nothing.
 
 ```bash
 octavus sync ./agents/my-agent
@@ -328,7 +328,7 @@ The recommended workflow for managing agents:
 2. **Validate** - Run `octavus validate ./my-agent` to check for errors
 3. **Sync** - Run `octavus sync ./my-agent` to push to platform
 4. **Store agent ID** - Save the output ID in an environment variable
-5. **Use in app** - Read the ID from env and pass to `client.agentSessions.create()`
+5. **Use in app** - Read the ID from env and pass to `client.sessions.create()`
 
 ```bash
 # After syncing: octavus sync ./agents/support-chat
@@ -341,7 +341,7 @@ OCTAVUS_SUPPORT_AGENT_ID=clxyz123abc456
 ```typescript
 const agentId = process.env.OCTAVUS_SUPPORT_AGENT_ID;
 
-const sessionId = await client.agentSessions.create(agentId, {
+const { id: sessionId } = await client.sessions.create(agentId, {
   COMPANY_NAME: 'Acme Corp',
 });
 ```

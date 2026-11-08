@@ -13,17 +13,16 @@ The `WorkersApi` enables executing worker agents from your server. Workers are t
 import { OctavusClient } from '@octavus/server-sdk';
 
 const client = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   apiKey: 'your-api-key',
 });
 
-const { output, sessionId } = await client.workers.generate(agentId, {
+const { output, executionId } = await client.workers.generate(agentId, {
   TOPIC: 'AI safety',
   DEPTH: 'detailed',
 });
 
 console.log('Result:', output);
-console.log(`Debug: ${client.baseUrl}/sessions/${sessionId}`);
+console.log(`Debug: ${client.getSessionUrl(executionId)}`);
 ```
 
 ## WorkersApi Reference
@@ -48,8 +47,8 @@ Runs the worker to completion and returns the output value. This is the simplest
 interface WorkerGenerateResult {
   /** The worker's output value */
   output: unknown;
-  /** Session ID for debugging (usable for session URLs) */
-  sessionId: string;
+  /** The execution's id; `client.getSessionUrl(executionId)` is its activity page */
+  executionId: string;
   /** Dollar cost of this execution (see Cost reporting below) */
   cost?: WorkerExecutionCost;
   /** Token totals for this execution */
@@ -187,7 +186,7 @@ Tools defined in the worker protocol but not provided as handlers become client 
 
 ### WorkerError (generate)
 
-`generate()` throws a `WorkerError` on failure. It is an [`OctavusError`](/docs/client-sdk/error-handling), so it carries the same classification (`errorType`, `source`, `code`, `retryable`, `retryAfter`, `requestId`, and the provider details when a model failed) and the error guards recognize it. It also includes an optional `sessionId` for constructing debug URLs:
+`generate()` throws a `WorkerError` on failure. It is an [`OctavusError`](/docs/client-sdk/error-handling), so it carries the same classification (`errorType`, `source`, `code`, `retryable`, `retryAfter`, `requestId`, and the provider details when a model failed) and the error guards recognize it. It also includes an optional `executionId` for constructing debug URLs:
 
 ```typescript
 import { OctavusClient, WorkerError, isRateLimitError } from '@octavus/server-sdk';
@@ -200,8 +199,8 @@ try {
     // Retry after error.retryAfter seconds
   } else if (error instanceof WorkerError) {
     console.error('Worker failed:', error.message, error.requestId);
-    if (error.sessionId) {
-      console.error(`Debug: ${client.baseUrl}/sessions/${error.sessionId}`);
+    if (error.executionId) {
+      console.error(`Debug: ${client.getSessionUrl(error.executionId)}`);
     }
   }
 }
@@ -393,12 +392,11 @@ Workers emit standard stream events plus worker-specific events.
 import { OctavusClient, WorkerError } from '@octavus/server-sdk';
 
 const client = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   apiKey: process.env.OCTAVUS_API_KEY!,
 });
 
 try {
-  const { output, sessionId } = await client.workers.generate(
+  const { output, executionId } = await client.workers.generate(
     'research-assistant-id',
     {
       TOPIC: 'AI safety best practices',
@@ -416,8 +414,8 @@ try {
 } catch (error) {
   if (error instanceof WorkerError) {
     console.error('Failed:', error.message);
-    if (error.sessionId) {
-      console.error(`Debug: ${client.baseUrl}/sessions/${error.sessionId}`);
+    if (error.executionId) {
+      console.error(`Debug: ${client.getSessionUrl(error.executionId)}`);
     }
   }
 }
@@ -431,7 +429,6 @@ For full control over streaming events and progress tracking:
 import { OctavusClient, type StreamEvent } from '@octavus/server-sdk';
 
 const client = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   apiKey: process.env.OCTAVUS_API_KEY!,
 });
 

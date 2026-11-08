@@ -4,14 +4,10 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig, ConfigError } from '@/config.js';
-import { CliApi, ApiError } from '@/api.js';
-import {
-  packageSkillBundle,
-  parseSkillFrontmatter,
-  readSkillEnv,
-  SkillFileError,
-} from '@/skill-files.js';
+import { loadConfig } from '@/config.js';
+import { createClient } from '@/client.js';
+import { exitCode, reportError } from '@/errors.js';
+import { packageSkillBundle, parseSkillFrontmatter, readSkillEnv } from '@/skill-files.js';
 import * as output from '@/output.js';
 
 interface SkillSyncOptions {
@@ -31,15 +27,14 @@ export function registerSkillSyncCommand(program: Command): void {
       try {
         await runSkillSync(skillPath, options);
       } catch (err) {
-        handleError(err, options);
-        process.exit(err instanceof ConfigError ? 2 : 1);
+        reportError(err, options);
+        process.exit(exitCode(err));
       }
     });
 }
 
 async function runSkillSync(skillPath: string, options: SkillSyncOptions): Promise<void> {
-  const config = loadConfig();
-  const api = new CliApi(config);
+  const client = createClient(loadConfig());
 
   // Read and validate skill
   if (!options.quiet && !options.json) {
@@ -54,12 +49,12 @@ async function runSkillSync(skillPath: string, options: SkillSyncOptions): Promi
 
   // Package and upload bundle
   const bundle = await packageSkillBundle(skillPath);
-  const syncResult = await api.syncSkill(bundle);
+  const { skill, created } = await client.skills.sync(bundle);
 
   if (!options.quiet && !options.json) {
-    const action = syncResult.created ? 'Created' : 'Updated';
-    output.success(`${action}: ${output.bold(syncResult.slug)}`);
-    output.keyValue('Skill ID', syncResult.skillId);
+    const action = created ? 'Created' : 'Updated';
+    output.success(`${action}: ${output.bold(skill.slug)}`);
+    output.keyValue('Skill ID', skill.id);
   }
 
   // Handle secrets
@@ -91,8 +86,8 @@ async function runSkillSync(skillPath: string, options: SkillSyncOptions): Promi
       output.info(`Pushing ${Object.keys(envSecrets).length} secret(s)...`);
     }
 
-    const secretsResult = await api.upsertSkillSecrets(syncResult.skillId, envSecrets);
-    secretCount = secretsResult.updated.length;
+    const updated = await client.skills.setSecrets(skill.id, envSecrets);
+    secretCount = updated.length;
 
     if (!options.quiet && !options.json) {
       output.success(`${secretCount} secret(s) updated`);
@@ -101,48 +96,10 @@ async function runSkillSync(skillPath: string, options: SkillSyncOptions): Promi
 
   if (options.json) {
     output.json({
-      slug: syncResult.slug,
-      skillId: syncResult.skillId,
-      created: syncResult.created,
+      slug: skill.slug,
+      skillId: skill.id,
+      created,
       secretsUpdated: secretCount,
     });
-  }
-}
-
-function getErrorCode(err: unknown): string {
-  if (err instanceof ConfigError) return 'CONFIG_ERROR';
-  if (err instanceof SkillFileError) return 'FILE_ERROR';
-  if (err instanceof ApiError) return 'API_ERROR';
-  return 'UNKNOWN';
-}
-
-function handleError(err: unknown, options: SkillSyncOptions): void {
-  if (options.json === true) {
-    output.json({
-      error: err instanceof Error ? err.message : 'Unknown error',
-      code: getErrorCode(err),
-    });
-    return;
-  }
-
-  if (err instanceof ConfigError) {
-    output.error(err.message);
-  } else if (err instanceof SkillFileError) {
-    output.error(err.message);
-    if (err.filePath !== undefined) {
-      output.dim(`  File: ${err.filePath}`);
-    }
-  } else if (err instanceof ApiError) {
-    output.error(`API error: ${err.message}`);
-    if (err.status !== 0) {
-      output.dim(`  Status: ${err.status}`);
-    }
-    if (err.requestId !== undefined) {
-      output.dim(`  Request ID: ${err.requestId}`);
-    }
-  } else if (err instanceof Error) {
-    output.error(err.message);
-  } else {
-    output.error('An unknown error occurred');
   }
 }

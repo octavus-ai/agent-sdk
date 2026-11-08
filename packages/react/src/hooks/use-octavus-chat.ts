@@ -7,6 +7,7 @@ import {
   isSocketTransport,
   type OctavusChatOptions,
   type ChatStatus,
+  type ExecutionStart,
   type UserMessageInput,
   type UIMessage,
   type Transport,
@@ -22,6 +23,7 @@ import {
 export type {
   OctavusChatOptions,
   ChatStatus,
+  ExecutionStart,
   UserMessageInput,
   FileReference,
   UploadFilesOptions,
@@ -43,11 +45,14 @@ export interface UseOctavusChatReturn {
    */
   error: OctavusError | null;
   /**
-   * The current session/execution ID from the most recent `send()` call.
-   * Updated when the server responds with a `start` event containing an execution ID.
-   * Useful for tracking activity logs or debugging.
-   *
-   * For workers, this is the execution ID. For interactive sessions, this is the session ID.
+   * The id of the execution the most recent `send()` started, from its `start`
+   * event. Useful for tracking activity logs or debugging.
+   */
+  executionId: string | null;
+  /**
+   * The id of the session the chat runs in, once a stream has reported one
+   * (a session created lazily by the first message reports it on that
+   * stream). Null for a chat whose executions run in no session.
    */
   sessionId: string | null;
   /**
@@ -236,13 +241,12 @@ export interface UseOctavusChatReturn {
 export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatReturn {
   const chatRef = useRef<OctavusChat | null>(null);
   const transportRef = useRef<Transport | null>(null);
+  const [executionId, setExecutionId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
-
-  const sessionIdSetterRef = useRef(setSessionId);
-  sessionIdSetterRef.current = setSessionId;
 
   if (transportRef.current !== options.transport) {
     chatRef.current?.stop();
+    setExecutionId(null);
     setSessionId(null);
     chatRef.current = new OctavusChat(options);
     transportRef.current = options.transport;
@@ -257,9 +261,10 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     onError: options.onError,
     onFinish: options.onFinish,
     onStop: options.onStop,
-    onStart: (id) => {
-      sessionIdSetterRef.current(id);
-      options.onStart?.(id);
+    onStart: (start: ExecutionStart) => {
+      setExecutionId(start.executionId);
+      if (start.sessionId) setSessionId(start.sessionId);
+      options.onStart?.(start);
     },
     onSessionCreated: options.onSessionCreated,
     requestUploadUrls: options.requestUploadUrls,
@@ -337,6 +342,7 @@ export function useOctavusChat(options: OctavusChatOptions): UseOctavusChatRetur
     messages,
     status,
     error,
+    executionId,
     sessionId,
     connectionState,
     connectionError,

@@ -82,7 +82,7 @@ const tools: ToolHandlers = {
 Pass tool handlers when attaching to a session:
 
 ```typescript
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'get-user-account': async (args) => {
       // Implementation
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
   const authToken = request.headers.get('Authorization');
   const user = await validateToken(authToken);
 
-  const session = client.agentSessions.attach(sessionId, {
+  const session = client.sessions.attach(sessionId, {
     tools: {
       'get-user-account': async (args) => {
         // Use request context

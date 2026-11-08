@@ -27,6 +27,12 @@ export interface ApiClientConfig {
   maxContinuationBytes?: number;
 }
 
+/** A parsed response together with its HTTP status, for the calls whose status carries meaning. */
+export interface ApiResponse<T> {
+  status: number;
+  data: T;
+}
+
 /** Base class for API clients with shared HTTP utilities */
 export abstract class BaseApiClient {
   protected readonly config: ApiClientConfig;
@@ -35,18 +41,16 @@ export abstract class BaseApiClient {
     this.config = config;
   }
 
-  protected async httpGet<T>(path: string, schema: ZodType<T>): Promise<T> {
-    const response = await fetch(`${this.config.baseUrl}${path}`, {
+  protected async httpGet<T>(
+    path: string,
+    schema: ZodType<T>,
+    query?: Record<string, string | undefined>,
+  ): Promise<T> {
+    const response = await fetch(this.url(path, query), {
       method: 'GET',
       headers: await this.config.getHeaders(),
     });
-
-    if (!response.ok) {
-      await throwApiError(response, 'Request failed');
-    }
-
-    const data: unknown = await response.json();
-    return schema.parse(data);
+    return await this.readJson(response, schema);
   }
 
   protected async httpPost<T>(
@@ -55,45 +59,67 @@ export abstract class BaseApiClient {
     schema: ZodType<T>,
     options: { headers?: Record<string, string> } = {},
   ): Promise<T> {
-    const response = await fetch(`${this.config.baseUrl}${path}`, {
+    const response = await fetch(this.url(path), {
       method: 'POST',
       headers: { ...(await this.config.getHeaders()), ...options.headers },
       body: JSON.stringify(body),
     });
+    return await this.readJson(response, schema);
+  }
 
-    if (!response.ok) {
-      await throwApiError(response, 'Request failed');
-    }
-
-    const data: unknown = await response.json();
-    return schema.parse(data);
+  /**
+   * POST a multipart form. The JSON content type the shared headers carry is
+   * dropped so the runtime sets the multipart boundary itself.
+   */
+  protected async httpPostForm<T>(
+    path: string,
+    form: FormData,
+    schema: ZodType<T>,
+  ): Promise<ApiResponse<T>> {
+    const { 'Content-Type': _contentType, ...headers } = await this.config.getHeaders();
+    const response = await fetch(this.url(path), { method: 'POST', headers, body: form });
+    return { status: response.status, data: await this.readJson(response, schema) };
   }
 
   protected async httpPatch<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
-    const response = await fetch(`${this.config.baseUrl}${path}`, {
+    const response = await fetch(this.url(path), {
       method: 'PATCH',
       headers: await this.config.getHeaders(),
       body: JSON.stringify(body),
     });
+    return await this.readJson(response, schema);
+  }
 
-    if (!response.ok) {
-      await throwApiError(response, 'Request failed');
-    }
-
-    const data: unknown = await response.json();
-    return schema.parse(data);
+  protected async httpPut<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
+    const response = await fetch(this.url(path), {
+      method: 'PUT',
+      headers: await this.config.getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return await this.readJson(response, schema);
   }
 
   protected async httpDelete<T>(path: string, schema: ZodType<T>): Promise<T> {
-    const response = await fetch(`${this.config.baseUrl}${path}`, {
+    const response = await fetch(this.url(path), {
       method: 'DELETE',
       headers: await this.config.getHeaders(),
     });
+    return await this.readJson(response, schema);
+  }
 
+  private url(path: string, query?: Record<string, string | undefined>): string {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value !== undefined) params.set(key, value);
+    }
+    const search = params.toString();
+    return `${this.config.baseUrl}${path}${search ? `?${search}` : ''}`;
+  }
+
+  private async readJson<T>(response: Response, schema: ZodType<T>): Promise<T> {
     if (!response.ok) {
       await throwApiError(response, 'Request failed');
     }
-
     const data: unknown = await response.json();
     return schema.parse(data);
   }

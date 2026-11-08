@@ -23,17 +23,16 @@ import { OctavusClient, toSSEStream } from '@octavus/server-sdk';
 
 // Initialize client
 const client = new OctavusClient({
-  baseUrl: process.env.OCTAVUS_BASE_URL!,
   apiKey: process.env.OCTAVUS_API_KEY,
 });
 
 // Create a session
-const sessionId = await client.agentSessions.create(agentId, {
+const { id: sessionId } = await client.sessions.create(agentId, {
   COMPANY_NAME: 'Acme Corp',
 });
 
 // Attach to session with tool handlers
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'get-user': async (args) => {
       return await db.users.findById(args.userId);
@@ -57,41 +56,64 @@ return new Response(toSSEStream(events), {
 
 ```typescript
 const client = new OctavusClient({
-  baseUrl: 'https://api.octavus.ai', // Or your self-hosted URL
   apiKey: 'your-api-key', // Optional: for authenticated requests
+  baseUrl: 'https://octavus.ai', // Optional: the platform's URL (this is the default)
 });
 ```
 
-### Agent Sessions API
+### Sessions API
 
 ```typescript
-// Create a new session
-const sessionId = await client.agentSessions.create(agentId, input);
+// Create a session: { id, agentId, status, createdAt }
+const session = await client.sessions.create(agentId, input);
 
-// Get session state (for debugging)
-const state = await client.agentSessions.get(sessionId);
+// Get a session (status is 'active' or 'expired')
+const current = await client.sessions.get(session.id);
 
-// Get UI-ready messages
-const { messages, status } = await client.agentSessions.getMessages(sessionId);
+// Get the conversation as UI-ready messages
+const messages = await client.sessions.getMessages(session.id);
 
-// Restore expired session
-await client.agentSessions.restore(sessionId, storedMessages, input);
+// Restore an expired session from stored messages
+await client.sessions.restore(session.id, storedMessages, input);
 
-// Clear session state (resets to expired)
-await client.agentSessions.clear(sessionId);
+// Clear session state (the session becomes expired)
+await client.sessions.clear(session.id);
 
-// Attach to session for triggering
-const session = client.agentSessions.attach(sessionId, options);
+// Attach to a session for triggering
+const handle = client.sessions.attach(session.id, options);
 ```
 
 ### Agents API
 
 ```typescript
-// List all agents
-const agents = await client.agents.list();
+// List agents; `slug` narrows the list to one
+const agents = await client.agents.list({ slug: 'support-chat' });
 
-// Get agent by ID
+// Get an agent's definition by ID
 const agent = await client.agents.get(agentId);
+
+// Create, update, archive, and validate definitions (the Agents permission)
+const created = await client.agents.create(definition);
+const updated = await client.agents.update(agentId, { protocol });
+const { valid, issues } = await client.agents.validate(definition);
+await client.agents.archive(agentId);
+
+// A definition the platform refuses fails with a 422 that carries its issues
+try {
+  await client.agents.update(agentId, { protocol });
+} catch (error) {
+  if (OctavusError.isInstance(error) && error.status === 422) {
+    for (const issue of validationIssuesOf(error)) console.error(issue.severity, issue.message);
+  }
+}
+```
+
+### Skills API
+
+```typescript
+// Upload a skill bundle and set its secrets (an organization key with the Skills permission)
+const { skill, created } = await client.skills.sync(bundleZip);
+await client.skills.setSecrets(skill.id, { API_TOKEN: '...' });
 ```
 
 ### Files API
@@ -120,7 +142,7 @@ await session.trigger('user-message', {
 ### Triggering Events
 
 ```typescript
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'tool-name': async (args) => {
       // Execute tool and return result
@@ -150,7 +172,7 @@ The SDK automatically handles the tool execution loop:
 3. SDK sends results back to continue the conversation
 
 ```typescript
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'get-user-account': async (args) => {
       // Access your database, APIs, etc.
@@ -172,7 +194,7 @@ const session = client.agentSessions.attach(sessionId, {
 A value the agent produces that your application keeps (a running summary, a generated title) is persisted through a tool handler: the protocol calls the tool from a `tool-call` block, and the handler writes the value wherever you store state.
 
 ```typescript
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'save-conversation-summary': async (args) => {
       await db.sessions.update(sessionId, { summary: args.summary as string });
@@ -190,7 +212,7 @@ Every failed request throws an `OctavusError` - the same class the stream's `err
 import { OctavusError } from '@octavus/server-sdk';
 
 try {
-  await client.agentSessions.getMessages(sessionId);
+  await client.sessions.getMessages(sessionId);
 } catch (error) {
   if (OctavusError.isInstance(error) && error.status === 404) {
     // start a new session
@@ -217,11 +239,11 @@ Sessions remain active for 24 hours (configurable). Use `getMessages()` for UI d
 When session state expires:
 
 ```typescript
-const result = await client.agentSessions.getMessages(sessionId);
+const session = await client.sessions.get(sessionId);
 
-if (result.status === 'expired') {
+if (session.status === 'expired') {
   // Restore from your stored messages
-  await client.agentSessions.restore(sessionId, storedMessages);
+  await client.sessions.restore(sessionId, storedMessages);
 }
 ```
 

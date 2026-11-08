@@ -171,7 +171,7 @@ agent:
 When creating a session, pass the model:
 
 ```typescript
-const sessionId = await client.agentSessions.create('my-agent', {
+const { id: sessionId } = await client.sessions.create('my-agent', {
   MODEL: 'anthropic/claude-sonnet-4-5',
 });
 ```
@@ -765,7 +765,7 @@ agent:
 When creating a session, pass the values in their natural type:
 
 ```typescript
-const sessionId = await client.agentSessions.create('my-agent', {
+const { id: sessionId } = await client.sessions.create('my-agent', {
   TEMPERATURE: 0.7,
   THINKING: 'medium',
   MAX_STEPS: 5,

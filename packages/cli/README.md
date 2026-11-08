@@ -61,12 +61,14 @@ octavus validate ./agents/support-chat
 # ✓ Agent support-chat is valid
 
 octavus validate ./agents/support-chat --json
-# { "slug": "support-chat", "valid": true, "errors": [], "warnings": [] }
+# { "slug": "support-chat", "valid": true, "issues": [] }
 ```
+
+Each issue carries its `severity` (`error`, `warning`, or `info`), `code`, and `suggestions`. Only errors fail the command.
 
 ### sync
 
-Sync an agent to the platform (creates or updates).
+Sync an agent to the platform (creates or updates). The whole definition is validated on the platform first, so a definition with errors fails the command and deploys nothing.
 
 ```bash
 octavus sync <path>

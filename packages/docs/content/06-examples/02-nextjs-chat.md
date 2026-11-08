@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   const { agentId, input } = await request.json();
 
   // Create a new session with initial input variables
-  const sessionId = await octavus.agentSessions.create(agentId, input);
+  const { id: sessionId } = await octavus.sessions.create(agentId, input);
 
   return NextResponse.json({ sessionId });
 }
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
 **Protocol Note:** The `input` object contains variables defined in your agent's protocol. For example, if your agent has `COMPANY_NAME` as an input variable:
 
 ```typescript
-const sessionId = await octavus.agentSessions.create(agentId, {
+const { id: sessionId } = await octavus.sessions.create(agentId, {
   COMPANY_NAME: 'Acme Corp',
   USER_ID: user.id,
 });
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
   const { sessionId, ...payload } = body;
 
   // Attach to the session with tool handlers
-  const session = octavus.agentSessions.attach(sessionId, {
+  const session = octavus.sessions.attach(sessionId, {
     tools: {
       // Server-side tool handlers run on YOUR server, not Octavus
       'get-user-account': async (args) => {

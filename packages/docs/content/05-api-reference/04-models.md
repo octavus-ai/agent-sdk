@@ -16,7 +16,7 @@ Unlike the rest of the API, this endpoint is **public - no authentication requir
 ## List Models
 
 ```
-GET /api/models
+GET /api/v1/models
 ```
 
 ### Query Parameters
@@ -128,8 +128,8 @@ A request through OpenRouter is billed the exact cost OpenRouter reports for it.
 
 ```bash
 # All models
-curl https://octavus.ai/api/models
+curl https://octavus.ai/api/v1/models
 
 # Filter to one provider
-curl "https://octavus.ai/api/models?provider=anthropic"
+curl "https://octavus.ai/api/v1/models?provider=anthropic"
 ```

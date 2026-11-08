@@ -37,14 +37,12 @@ On an OpenRouter model, `stepStats` also carries what OpenRouter reported about 
 | `router`       | A router's decision, when it reports one: `reason` (e.g. `initial`, `continuation`, `escalation`), the `effort` the model ran at, the `incumbentModel`, any `advisorModel` it consulted, and `serverTools` it ran.                                                            |
 
 ```typescript
-const result = await client.agentSessions.getLogs(sessionId);
+const { entries } = await client.sessions.getLogs(sessionId);
 
-if (result.status !== 'expired') {
-  for (const entry of result.entries) {
-    if (entry.type !== 'step-stats' || !entry.stepStats) continue;
-    const { model, servedModel, reportedCost, router, thinking } = entry.stepStats;
-    console.log(model, '->', servedModel, reportedCost?.total, router?.reason, thinking?.applied);
-  }
+for (const entry of entries) {
+  if (entry.type !== 'step-stats' || !entry.stepStats) continue;
+  const { model, servedModel, reportedCost, router, thinking } = entry.stepStats;
+  console.log(model, '->', servedModel, reportedCost?.total, router?.reason, thinking?.applied);
 }
 ```
 

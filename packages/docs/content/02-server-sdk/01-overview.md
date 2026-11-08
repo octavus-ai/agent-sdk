@@ -27,7 +27,6 @@ npm install --save-dev @octavus/cli
 import { OctavusClient } from '@octavus/server-sdk';
 
 const client = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   apiKey: 'your-api-key',
 });
 ```
@@ -52,13 +51,13 @@ Create and manage agent sessions using the agent ID:
 
 ```typescript
 // Create a new session (use agent ID from CLI sync)
-const sessionId = await client.agentSessions.create('clxyz123abc456', {
+const { id: sessionId } = await client.sessions.create('clxyz123abc456', {
   COMPANY_NAME: 'Acme Corp',
   PRODUCT_NAME: 'Widget Pro',
 });
 
-// Get UI-ready session messages (for session restore)
-const session = await client.agentSessions.getMessages(sessionId);
+// Get the conversation as UI-ready messages (for session restore)
+const messages = await client.sessions.getMessages(sessionId);
 ```
 
 ### Tool Handlers
@@ -66,7 +65,7 @@ const session = await client.agentSessions.getMessages(sessionId);
 Tools run on your server with your data:
 
 ```typescript
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'get-user-account': async (args) => {
       // Access your database, APIs, etc.
@@ -113,7 +112,7 @@ const computer = new Computer({
 
 await computer.start();
 
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'set-chat-title': async (args) => ({ title: args.title }),
   },
@@ -146,7 +145,7 @@ The main entry point for interacting with Octavus.
 
 ```typescript
 interface OctavusClientConfig {
-  baseUrl: string; // Octavus API URL
+  baseUrl?: string; // The platform's URL (default: https://octavus.ai)
   apiKey?: string; // Your API key
   traceModelRequests?: boolean; // Enable model request tracing (default: false)
   maxRetries?: number; // Retries for transient network failures during streaming (default: 2, set to 0 to disable)
@@ -155,46 +154,56 @@ interface OctavusClientConfig {
 
 class OctavusClient {
   readonly agents: AgentsApi;
-  readonly agentSessions: AgentSessionsApi;
+  readonly sessions: SessionsApi;
   readonly workers: WorkersApi;
   readonly files: FilesApi;
+  readonly skills: SkillsApi;
+  readonly tokens: TokensApi;
 
-  constructor(config: OctavusClientConfig);
+  constructor(config?: OctavusClientConfig);
 }
 ```
 
-### AgentSessionsApi
+### SessionsApi
 
-Manages agent sessions.
+Manages sessions.
 
 ```typescript
-class AgentSessionsApi {
-  // Create a new session
-  async create(agentId: string, input?: Record<string, unknown>): Promise<string>;
+class SessionsApi {
+  // Create a session
+  async create(agentId: string, input?: Record<string, unknown>): Promise<Session>;
 
-  // Get a session's metadata (agent, creation time, active or expired)
-  async get(sessionId: string): Promise<SessionInfo>;
+  // Get a session (agent, creation time, active or expired)
+  async get(sessionId: string): Promise<Session>;
 
-  // Get UI-ready messages (for client display)
-  async getMessages(sessionId: string): Promise<UISessionState | ExpiredSessionState>;
+  // Get the conversation as UI-ready messages (empty once the session expired)
+  async getMessages(sessionId: string): Promise<UIMessage[]>;
+
+  // Restore an expired session from stored messages
+  async restore(
+    sessionId: string,
+    messages: UIMessage[],
+    input?: Record<string, unknown>,
+  ): Promise<Session>;
+
+  // Clear the session's state; it becomes expired
+  async clear(sessionId: string): Promise<Session>;
+
+  // The execution log
+  async getLogs(sessionId: string, options?: GetLogsOptions): Promise<ExecutionLogs>;
 
   // Attach to a session for triggering
   attach(sessionId: string, options?: SessionAttachOptions): AgentSession;
+
+  // Create a session and run its first trigger in one request
+  start(options: StartSessionOptions): AgentSession;
 }
 
-// Session metadata
-interface SessionInfo {
+interface Session {
   id: string;
   agentId: string;
   status: 'active' | 'expired';
   createdAt: string;
-}
-
-// UI-ready session state
-interface UISessionState {
-  sessionId: string;
-  agentId: string;
-  messages: UIMessage[]; // UI-ready messages for frontend
 }
 ```
 

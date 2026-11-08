@@ -66,7 +66,7 @@ Enum values pair naturally with [conditional prompt content](#conditional-prompt
 When creating a session, pass input values:
 
 ```typescript
-const sessionId = await client.agentSessions.create('support-chat', {
+const { id: sessionId } = await client.sessions.create('support-chat', {
   COMPANY_NAME: 'Acme Corp',
   PRODUCT_NAME: 'Widget Pro',
   SUPPORT_POLICIES: 'Refunds within 30 days...',

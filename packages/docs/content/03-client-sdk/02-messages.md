@@ -449,12 +449,12 @@ function Chat({ sessionId, initialMessages }: ChatProps) {
 }
 ```
 
-On your backend, use `agentSessions.getMessages()` to fetch UI-ready messages:
+On your backend, use `sessions.getMessages()` to fetch UI-ready messages:
 
 ```typescript
 // Server-side
-const session = await client.agentSessions.getMessages(sessionId);
-// session.messages is UIMessage[] ready for the client
+const messages = await client.sessions.getMessages(sessionId);
+// UIMessage[] ready for the client's `initialMessages`
 ```
 
 ## Callbacks

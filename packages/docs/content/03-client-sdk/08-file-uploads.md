@@ -367,7 +367,6 @@ The Server SDK provides direct access to the Files API:
 import { OctavusClient } from '@octavus/server-sdk';
 
 const client = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   apiKey: 'your-api-key',
 });
 

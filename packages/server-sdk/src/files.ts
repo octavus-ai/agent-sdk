@@ -17,7 +17,7 @@ export const fileUploadRequestSchema = z.object({
 /**
  * Schema for a single file upload response
  */
-export const fileUploadInfoSchema = z.object({
+export const fileUploadInfoSchema = z.looseObject({
   /** File ID to reference in messages */
   id: z.string(),
   /** Presigned PUT URL for uploading to S3 */
@@ -29,8 +29,12 @@ export const fileUploadInfoSchema = z.object({
 /**
  * Schema for the upload URLs response
  */
-export const uploadUrlsResponseSchema = z.object({
+export const uploadUrlsResponseSchema = z.looseObject({
   files: z.array(fileUploadInfoSchema),
+});
+
+const viewUrlResponseSchema = z.looseObject({
+  viewUrl: z.string().nullable(),
 });
 
 // =============================================================================
@@ -95,9 +99,24 @@ export class FilesApi extends BaseApiClient {
    */
   async getUploadUrls(sessionId: string, files: FileUploadRequest[]): Promise<UploadUrlsResponse> {
     return await this.httpPost(
-      '/api/files/upload-urls',
-      { sessionId, files },
+      `/api/v1/sessions/${sessionId}/uploads`,
+      { files },
       uploadUrlsResponseSchema,
     );
+  }
+
+  /**
+   * Get a short-lived view URL for a file the session produced, to render it
+   * inline (in a sandboxed frame) without exposing the storage URL. Returns
+   * null when the file is not one the session owns; fall back to its download
+   * URL then.
+   */
+  async getViewUrl(sessionId: string, fileUrl: string): Promise<string | null> {
+    const { viewUrl } = await this.httpPost(
+      `/api/v1/sessions/${sessionId}/files/view-url`,
+      { fileUrl },
+      viewUrlResponseSchema,
+    );
+    return viewUrl;
   }
 }

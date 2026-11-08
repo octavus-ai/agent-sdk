@@ -1,25 +1,33 @@
-export { OctavusClient, type OctavusClientConfig, type ApiKeyProvider } from '@/client.js';
-export { AgentsApi } from '@/agents.js';
+export {
+  OctavusClient,
+  DEFAULT_BASE_URL,
+  type OctavusClientConfig,
+  type ApiKeyProvider,
+} from '@/client.js';
+export { AgentsApi, type ListAgentsOptions } from '@/agents.js';
 export { TokensApi, type MintTokenRequest, type MintTokenResponse } from '@/tokens.js';
 export {
-  AgentSessionsApi,
-  type SessionInfo,
-  type UISessionState,
-  type ExpiredSessionState,
-  type RestoreSessionResult,
-  type ClearSessionResult,
+  SessionsApi,
+  type Session,
   type SessionStatus,
   type SessionAttachOptions,
   type StartSessionOptions,
   type GetLogsOptions,
-  type ExecutionLogsResult,
-} from '@/agent-sessions.js';
+  type ExecutionLogs,
+} from '@/sessions.js';
 export {
   FilesApi,
   type FileUploadRequest,
   type FileUploadInfo,
   type UploadUrlsResponse,
 } from '@/files.js';
+export {
+  SkillsApi,
+  type Skill,
+  type SkillVisibility,
+  type SkillSyncOptions,
+  type SkillSyncResult,
+} from '@/skills.js';
 export {
   AgentSession,
   toSSEStream,
@@ -82,13 +90,19 @@ export {
   type EnforceToolResultsSizeResult,
 } from '@/tool-result-size.js';
 
-// Agent types (read-only - use @octavus/cli for agent management)
-export type {
-  AgentFormat,
-  AgentSettings,
-  AgentPrompt,
-  Agent,
-  AgentDefinition,
+// Agent types
+export {
+  validationIssuesOf,
+  type AgentFormat,
+  type AgentSettings,
+  type AgentPrompt,
+  type AgentReference,
+  type Agent,
+  type AgentDefinition,
+  type AgentDefinitionInput,
+  type AgentUpdateInput,
+  type ValidationIssue,
+  type AgentValidationResult,
 } from '@/agent-types.js';
 
 // The wire contract, re-exported from @octavus/core so a consumer needs one package.

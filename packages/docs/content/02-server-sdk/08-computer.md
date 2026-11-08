@@ -32,11 +32,10 @@ const computer = new Computer({
 await computer.start();
 
 const client = new OctavusClient({
-  baseUrl: 'https://octavus.ai',
   apiKey: 'your-api-key',
 });
 
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: {
     'set-chat-title': async (args) => ({ title: args.title }),
   },
@@ -324,7 +323,7 @@ const customProvider: ToolProvider = {
   },
 };
 
-const session = client.agentSessions.attach(sessionId, {
+const session = client.sessions.attach(sessionId, {
   tools: { 'set-chat-title': titleHandler },
 });
 
@@ -385,7 +384,7 @@ async function startSession(sessionId: string) {
     apiKey: process.env.OCTAVUS_API_KEY!,
   });
 
-  const session = client.agentSessions.attach(sessionId, {
+  const session = client.sessions.attach(sessionId, {
     tools: {
       'set-chat-title': async (args) => {
         console.log('Chat title:', args.title);

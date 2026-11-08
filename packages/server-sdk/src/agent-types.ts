@@ -1,7 +1,72 @@
 import { z } from 'zod';
+import type { OctavusError } from '@octavus/core';
+
+// ---------------------------------------------------------------------------
+// Schemas
+// ---------------------------------------------------------------------------
+
+export const agentFormatSchema = z.enum(['interactive', 'worker']);
+
+const agentSettingsSchema = z.looseObject({
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  format: agentFormatSchema,
+});
+
+const agentPromptSchema = z.looseObject({
+  name: z.string(),
+  content: z.string(),
+});
+
+const agentReferenceSchema = z.looseObject({
+  name: z.string(),
+  description: z.string(),
+  content: z.string(),
+});
+
+export const agentSchema = z.looseObject({
+  slug: z.string(),
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  format: agentFormatSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  projectId: z.string(),
+});
+
+export const agentsResponseSchema = z.looseObject({
+  agents: z.array(agentSchema),
+});
+
+export const agentDefinitionSchema = z.looseObject({
+  settings: agentSettingsSchema,
+  protocol: z.string(),
+  prompts: z.array(agentPromptSchema),
+  references: z.array(agentReferenceSchema),
+  id: z.string(),
+});
+
+export const validationIssueSchema = z.looseObject({
+  message: z.string(),
+  path: z.string().optional(),
+  severity: z.enum(['error', 'warning', 'info']),
+  code: z.string().optional(),
+  suggestions: z.array(z.string()).optional(),
+});
+
+export const agentValidationResultSchema = z.looseObject({
+  valid: z.boolean(),
+  issues: z.array(validationIssueSchema),
+});
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 /** Agent format - interactive (chat) or worker (background task) */
-export type AgentFormat = 'interactive' | 'worker';
+export type AgentFormat = z.infer<typeof agentFormatSchema>;
 
 /** Agent settings */
 export interface AgentSettings {
@@ -17,9 +82,14 @@ export interface AgentPrompt {
   content: string;
 }
 
-/**
- * Agent summary returned from list endpoint
- */
+/** A reference document the agent loads on demand. */
+export interface AgentReference {
+  name: string;
+  description: string;
+  content: string;
+}
+
+/** Agent summary returned from the list endpoint */
 export interface Agent {
   /** Agent slug (human-readable identifier within project) */
   slug: string;
@@ -33,51 +103,64 @@ export interface Agent {
   projectId: string;
 }
 
-/**
- * Full agent definition returned from get endpoint
- */
+/** Full agent definition returned from the get, create, update, and archive endpoints */
 export interface AgentDefinition {
   settings: AgentSettings;
   protocol: string;
   prompts: AgentPrompt[];
+  references: AgentReference[];
   /** Agent ID - use this for API calls like createSession */
   id: string;
 }
 
-// Schemas
+/** A whole agent definition, as `create()` and `validate()` take it. */
+export interface AgentDefinitionInput {
+  settings: AgentSettings;
+  protocol: string;
+  prompts: AgentPrompt[];
+  references?: AgentReference[];
+}
 
-export const agentFormatSchema = z.enum(['interactive', 'worker']);
+/**
+ * A partial update of an agent: what is left out keeps its current value. The
+ * slug is the agent's identity and is not updated here.
+ */
+export interface AgentUpdateInput {
+  settings?: {
+    name: string;
+    description?: string | null;
+    format: AgentFormat;
+  };
+  protocol?: string;
+  prompts?: AgentPrompt[];
+  references?: AgentReference[];
+}
 
-const agentSettingsSchema = z.object({
-  slug: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  format: agentFormatSchema,
-});
+/** One diagnostic of a validated definition, at its severity. */
+export interface ValidationIssue {
+  message: string;
+  path?: string;
+  severity: 'error' | 'warning' | 'info';
+  /** The stable diagnostic code (`DISPLAY_MODE_REMOVED`, `UNDEFINED_SKILL`, ...). */
+  code?: string;
+  suggestions?: string[];
+}
 
-const agentPromptSchema = z.object({
-  name: z.string(),
-  content: z.string(),
-});
+/** The result of validating a definition: valid when no issue is an error. */
+export interface AgentValidationResult {
+  valid: boolean;
+  issues: ValidationIssue[];
+}
 
-export const agentSchema = z.object({
-  slug: z.string(),
-  id: z.string(),
-  name: z.string(),
-  description: z.string().nullable(),
-  format: agentFormatSchema,
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  projectId: z.string(),
-});
-
-export const agentsResponseSchema = z.object({
-  agents: z.array(agentSchema),
-});
-
-export const agentDefinitionSchema = z.object({
-  settings: agentSettingsSchema,
-  protocol: z.string(),
-  prompts: z.array(agentPromptSchema),
-  id: z.string(),
-});
+/**
+ * The validation issues a failed request carried: those of a definition the
+ * platform refused (`422` with the code `INVALID_PROTOCOL`, from `create()`
+ * and `update()`), each at its severity. Issues of another shape, such as a
+ * malformed request's, are left out.
+ */
+export function validationIssuesOf(error: OctavusError): ValidationIssue[] {
+  return (error.issues ?? []).flatMap((issue) => {
+    const parsed = validationIssueSchema.safeParse(issue);
+    return parsed.success ? [parsed.data] : [];
+  });
+}

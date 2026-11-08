@@ -105,11 +105,11 @@ export function createSocketHandler() {
       if (msg.type === 'trigger' || msg.type === 'continue' || msg.type === 'stop') {
         // Create session lazily on first trigger
         if (!session && msg.type === 'trigger') {
-          const sessionId = await octavus.agentSessions.create(AGENT_ID, {
+          const { id: sessionId } = await octavus.sessions.create(AGENT_ID, {
             COMPANY_NAME: 'Acme Corp',
           });
 
-          session = octavus.agentSessions.attach(sessionId, {
+          session = octavus.sessions.attach(sessionId, {
             tools: {
               'get-user-account': async () => {
                 return { name: 'Demo User', plan: 'pro' };
