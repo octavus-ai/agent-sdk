@@ -477,7 +477,7 @@ agent:
   agentic: true
 ```
 
-References are markdown files stored in the agent's `references/` directory. When enabled, the LLM can list available references and read their content using `octavus_reference_list` and `octavus_reference_read` tools.
+References are markdown files stored in the agent's `references/` directory. When enabled, the LLM can list available references and read their content using `octavus_reference_list` and `octavus_reference_read` tools. Both cards render in `stream` ("Listing references", "Reading reference: {name}"), so a read's card carries the reference's content.
 
 See [References](/docs/protocol/references) for full documentation.
 
@@ -493,7 +493,7 @@ agent:
   agentic: true
 ```
 
-When `imageModel` is configured, the `octavus_generate_image` tool becomes available. The LLM can decide when to generate images based on user requests. The tool supports both text-to-image generation and image editing/transformation using reference images.
+When `imageModel` is configured, the `octavus_generate_image` tool becomes available. The LLM can decide when to generate images based on user requests. The tool supports both text-to-image generation and image editing/transformation using reference images. Its card renders in `stream` ("Generating image", or "Editing image" with reference images) and carries the prompt and the result; the image itself arrives as a file part.
 
 ### Supported Image Providers
 
@@ -578,7 +578,7 @@ agent:
   agentic: true
 ```
 
-The tool generates a short clip (3 to 10 seconds, 720p) from a text prompt, and optionally from reference images: the first image is the starting frame (image-to-video), any further image is a subject or style reference. It supports `aspectRatio` (landscape `16:9` or portrait `9:16`) and an optional `durationSeconds`. Every clip comes with a soundtrack the model composes from the prompt, so describe the sound you want (dialogue, music, ambience); pass `generateAudio: false` for a silent clip. The clip is stored in Octavus storage and delivered into the conversation as a playable file, exactly like a generated image.
+The tool generates a short clip (3 to 10 seconds, 720p) from a text prompt, and optionally from reference images: the first image is the starting frame (image-to-video), any further image is a subject or style reference. It supports `aspectRatio` (landscape `16:9` or portrait `9:16`) and an optional `durationSeconds`. Every clip comes with a soundtrack the model composes from the prompt, so describe the sound you want (dialogue, music, ambience); pass `generateAudio: false` for a silent clip. The clip is stored in Octavus storage and delivered into the conversation as a playable file, exactly like a generated image. The tool's card renders in `stream` ("Generating video") with the prompt and the result.
 
 Video generation is Google-only today (Gemini Omni Flash). Generation runs a slow provider job (tens of seconds to a couple of minutes) inside the turn, so the tool call stays pending until the clip is ready. Cancelling the run abandons it without delivering a partial clip. Usage is token-metered: the clip is video output tokens (a fixed count per second of video), billed at the model's rate from the [model catalog](https://octavus.ai/pricing/models).
 
@@ -601,7 +601,7 @@ agent:
   agentic: true
 ```
 
-The tool turns a block of text into natural spoken audio and delivers it into the conversation as a playable audio file (with a download option) - the agent receives a reference (URL, format, size), never raw bytes. It supports an optional `voice`, an output `format` (default `mp3`), optional delivery `instructions`, and an optional `language`. The advertised voices and formats are narrowed to what the configured model supports, so the LLM only ever picks a valid option. Set `speechVoice` (a literal voice id or a variable reference) to fix the default voice used when the model does not specify one.
+The tool turns a block of text into natural spoken audio and delivers it into the conversation as a playable audio file (with a download option) - the agent receives a reference (URL, format, size), never raw bytes. It supports an optional `voice`, an output `format` (default `mp3`), optional delivery `instructions`, and an optional `language`. The advertised voices and formats are narrowed to what the configured model supports, so the LLM only ever picks a valid option. Set `speechVoice` (a literal voice id or a variable reference) to fix the default voice used when the model does not specify one. The tool's card renders in `stream` ("Generating audio") with the text and the result.
 
 | Provider | Models                                 |
 | -------- | -------------------------------------- |
@@ -621,7 +621,7 @@ agent:
   agentic: true
 ```
 
-The tool takes the URL of an audio (or video) file and returns its transcript as text - so transcription works regardless of whether the chat model can natively "hear" the file. It auto-detects the spoken language by default, accepts an optional `language` hint, and can return timestamped segments (`timestamps: true`) where the model supports them (for OpenAI, `whisper-1`). Short transcripts return inline; long transcripts are delivered as a downloadable transcript file with only a bounded preview returned, so a multi-hour transcript never floods the model context. A file with no recognizable speech (silence, music, sound effects) is a successful result with an empty transcript and `speechDetected: false`, not an error - and not a statement about whether the file has an audio track.
+The tool takes the URL of an audio (or video) file and returns its transcript as text - so transcription works regardless of whether the chat model can natively "hear" the file. It auto-detects the spoken language by default, accepts an optional `language` hint, and can return timestamped segments (`timestamps: true`) where the model supports them (for OpenAI, `whisper-1`). Short transcripts return inline; long transcripts are delivered as a downloadable transcript file with only a bounded preview returned, so a multi-hour transcript never floods the model context. A file with no recognizable speech (silence, music, sound effects) is a successful result with an empty transcript and `speechDetected: false`, not an error - and not a statement about whether the file has an audio track. The tool's card renders in `stream` ("Transcribing audio") with the arguments and the transcript it returned.
 
 | Provider | Models                                                     |
 | -------- | ---------------------------------------------------------- |
@@ -641,7 +641,7 @@ agent:
   agentic: true
 ```
 
-When `webSearch` is enabled, the `octavus_web_search` tool becomes available. The LLM can decide when to search the web based on the conversation. Search results include source URLs that are emitted as citations in the UI.
+When `webSearch` is enabled, the `octavus_web_search` tool becomes available. The LLM can decide when to search the web based on the conversation. Search results include source URLs that are emitted as citations in the UI. The tool's card renders in `stream` ("Searching the web") with the query and the results it found.
 
 This is a **provider-agnostic** built-in tool - it works with any LLM provider (Anthropic, Google, OpenAI, etc.).
 
@@ -685,7 +685,7 @@ agent:
   agentic: true
 ```
 
-When `viewImages` is enabled, the `octavus_view_image` tool becomes available. Give it the URL of an image - a message attachment (SMS/MMS, email, Slack), an image on a web page, or a file the agent produced - and the platform fetches it, verifies it is a real image, re-hosts it to storage, and attaches it to the conversation as vision. Only a compact confirmation is returned inline; the image arrives as a vision block on the next step, so context stays lean.
+When `viewImages` is enabled, the `octavus_view_image` tool becomes available. Give it the URL of an image - a message attachment (SMS/MMS, email, Slack), an image on a web page, or a file the agent produced - and the platform fetches it, verifies it is a real image, re-hosts it to storage, and attaches it to the conversation as vision. Only a compact confirmation is returned inline; the image arrives as a vision block on the next step, so context stays lean. The tool's card renders in `stream` ("Viewing image") with the URL and the confirmation; the image itself is a file part.
 
 This is a **provider-agnostic** built-in tool - the model's own multimodal understanding does the seeing, so no extra model or API key is required. Common web image formats are supported (PNG, JPEG, GIF, WebP). Viewing is an explicit, agentic decision: images are never auto-inserted into context, so a tool that surfaces an image only as a URL hands that URL to `octavus_view_image` when the agent decides to look.
 
