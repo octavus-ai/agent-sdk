@@ -87,7 +87,7 @@ The created session id reaches you through two channels:
 
 `start()` also accepts the same `tools`, `mcpServers`, `onToolResults`, and `rejectClientToolCalls` options as `attach()`.
 
-> The two-step `create()` + `attach()` flow is unchanged and fully supported. `start()` is additive - reach for it when you want to defer creation to the first message.
+> Both flows are fully supported: `create()` + `attach()` when you need the session up front, `start()` when creation can wait for the first message.
 
 ## Getting Session Messages
 

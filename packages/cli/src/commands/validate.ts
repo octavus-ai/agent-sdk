@@ -4,11 +4,11 @@
  */
 
 import type { Command } from 'commander';
-import type { ValidationIssue } from '@octavus/server-sdk';
 import { loadConfig } from '@/config.js';
 import { readAgentDefinition } from '@/agent-files.js';
 import { createClient } from '@/client.js';
 import { exitCode, reportError } from '@/errors.js';
+import { renderIssues } from '@/issues.js';
 import * as output from '@/output.js';
 
 interface ValidateOptions {
@@ -60,31 +60,11 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
       output.error(`Agent ${output.bold(definition.settings.slug)} has validation errors`);
     }
 
-    renderIssues(result.issues, 'error');
-    renderIssues(result.issues, 'warning');
-    renderIssues(result.issues, 'info');
+    renderIssues(result.issues);
   }
 
   // Only errors fail the command; warnings and info never block.
   if (!result.valid) {
     process.exit(1);
-  }
-}
-
-function renderIssues(issues: ValidationIssue[], severity: ValidationIssue['severity']): void {
-  for (const issue of issues) {
-    if (issue.severity !== severity) continue;
-    const location = issue.path ? ` (${output.gray(issue.path)})` : '';
-    const line = `  ${issue.message}${location}`;
-    if (severity === 'error') {
-      output.error(line);
-    } else if (severity === 'warning') {
-      output.warning(line);
-    } else {
-      output.info(line);
-    }
-    for (const suggestion of issue.suggestions ?? []) {
-      output.dim(`    ${suggestion}`);
-    }
   }
 }

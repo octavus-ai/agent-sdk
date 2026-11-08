@@ -12,8 +12,8 @@ export function createClient(config: CliConfig): OctavusClient {
 
 /** The agent with this slug in the project, or null when there is none. */
 export async function findAgentBySlug(client: OctavusClient, slug: string): Promise<Agent | null> {
-  const agents = await client.agents.list({ slug });
-  return agents.find((agent) => agent.slug === slug) ?? null;
+  const [agent] = await client.agents.list({ slug });
+  return agent ?? null;
 }
 
 /** The definition of the agent with this slug, or null when there is none. */

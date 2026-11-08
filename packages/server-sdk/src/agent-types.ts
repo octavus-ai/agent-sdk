@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { OctavusError } from '@octavus/core';
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -149,4 +150,17 @@ export interface ValidationIssue {
 export interface AgentValidationResult {
   valid: boolean;
   issues: ValidationIssue[];
+}
+
+/**
+ * The validation issues a failed request carried: those of a definition the
+ * platform refused (`422` with the code `INVALID_PROTOCOL`, from `create()`
+ * and `update()`), each at its severity. Issues of another shape, such as a
+ * malformed request's, are left out.
+ */
+export function validationIssuesOf(error: OctavusError): ValidationIssue[] {
+  return (error.issues ?? []).flatMap((issue) => {
+    const parsed = validationIssueSchema.safeParse(issue);
+    return parsed.success ? [parsed.data] : [];
+  });
 }

@@ -3,6 +3,8 @@
  * Handles environment variables and defaults.
  */
 
+import { DEFAULT_BASE_URL } from '@octavus/server-sdk';
+
 export interface CliConfig {
   apiKey: string;
   baseUrl: string;
@@ -28,7 +30,7 @@ export function loadConfig(): CliConfig {
     );
   }
 
-  const baseUrl = process.env.OCTAVUS_API_URL ?? 'https://octavus.ai';
+  const baseUrl = process.env.OCTAVUS_API_URL ?? DEFAULT_BASE_URL;
 
   return { apiKey, baseUrl };
 }

@@ -20,7 +20,7 @@ export interface ListAgentsOptions {
  *
  * Paths carry agent ids; a slug is a filter on the list. Reading needs the
  * agents or the sessions permission; creating, updating, archiving, and
- * validating need the agents permission (the `octavus` CLI is built on them).
+ * validating need the agents permission.
  */
 export class AgentsApi extends BaseApiClient {
   /** List the project's agents, newest first, optionally narrowed to one slug. */

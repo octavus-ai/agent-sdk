@@ -97,6 +97,15 @@ const created = await client.agents.create(definition);
 const updated = await client.agents.update(agentId, { protocol });
 const { valid, issues } = await client.agents.validate(definition);
 await client.agents.archive(agentId);
+
+// A definition the platform refuses fails with a 422 that carries its issues
+try {
+  await client.agents.update(agentId, { protocol });
+} catch (error) {
+  if (OctavusError.isInstance(error) && error.status === 422) {
+    for (const issue of validationIssuesOf(error)) console.error(issue.severity, issue.message);
+  }
+}
 ```
 
 ### Skills API

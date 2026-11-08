@@ -91,17 +91,18 @@ export {
 } from '@/tool-result-size.js';
 
 // Agent types
-export type {
-  AgentFormat,
-  AgentSettings,
-  AgentPrompt,
-  AgentReference,
-  Agent,
-  AgentDefinition,
-  AgentDefinitionInput,
-  AgentUpdateInput,
-  ValidationIssue,
-  AgentValidationResult,
+export {
+  validationIssuesOf,
+  type AgentFormat,
+  type AgentSettings,
+  type AgentPrompt,
+  type AgentReference,
+  type Agent,
+  type AgentDefinition,
+  type AgentDefinitionInput,
+  type AgentUpdateInput,
+  type ValidationIssue,
+  type AgentValidationResult,
 } from '@/agent-types.js';
 
 // The wire contract, re-exported from @octavus/core so a consumer needs one package.
