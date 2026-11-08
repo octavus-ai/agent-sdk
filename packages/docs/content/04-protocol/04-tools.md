@@ -9,7 +9,7 @@ Tools extend what agents can do. Octavus supports multiple types:
 
 1. **External Tools** - Defined in the protocol, implemented in your backend (this page)
 2. **MCP Tools** - Auto-discovered from MCP servers (see [MCP Servers](/docs/protocol/mcp-servers))
-3. **Built-in Tools** - Provider-agnostic tools managed by Octavus (web search, image generation)
+3. **Built-in Tools** - Provider-agnostic tools managed by Octavus (web search, image generation). They render in `stream`, with a title the platform supplies: their card shows the call's arguments and result, and your UI decides what of it to display.
 4. **Skills** - Code execution and knowledge packages (see [Skills](/docs/protocol/skills))
 
 This page covers external tools. For MCP-based tools from services like Figma, Sentry, or device capabilities like browser and filesystem, see [MCP Servers](/docs/protocol/mcp-servers). Built-in tools are enabled via agent config - see [Web Search](/docs/protocol/agent-config#web-search) and [Image Generation](/docs/protocol/agent-config#image-generation). For code execution, see [Skills](/docs/protocol/skills).
@@ -72,6 +72,8 @@ What each mode reveals is the same on the live stream and in the stored messages
 - Server-executed tools that should be visible: give them a human-readable `title` for the UI and keep `description` focused on instructing the model
 
 `title` is the default and the usual choice for server-side tools that should surface in the UI; `stream` is for tools where the user benefits from seeing the arguments and result.
+
+**Built-in tools:** the `octavus_*` tools the agent config enables (web search, image, video, and speech generation, transcription, image viewing, references, and the sandbox code and file tools) have no `display` of their own and render in `stream`, each with a title the platform supplies ("Searching the web", "Generating image", "Running code", ...). Their arguments and result reach your client, live and in the stored conversation, so your UI can show a search's query or a code run's output - or leave out what it does not want to show. The skill tools that target a skill follow that skill's `display` instead (see [Skills](/docs/protocol/skills#display-modes)).
 
 **Refresh and restore behavior:**
 

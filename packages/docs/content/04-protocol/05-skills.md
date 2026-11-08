@@ -54,7 +54,7 @@ skills:
 
 ### Display Modes
 
-The `display` setting on a skill applies to all tools under that skill namespace. The modes are the same three as for [tools](/docs/protocol/tools#display-modes). A skill's label resolves to `skills.<slug>.title`, then `onDemandSkills.title`, then the skill's own built-in `title` (from its `SKILL.md`); without any, the client derives a label from the tool name. The platform's own skill tools (reading a skill's instructions, running code, saving a file) carry titles of their own, so a `title`-mode skill reads as a sequence of labeled steps.
+The `display` setting on a skill applies to every tool call that targets that skill (reading its instructions, listing and running its scripts, installing it). The modes are the same three as for [tools](/docs/protocol/tools#display-modes). A skill's label resolves to `skills.<slug>.title`, then `onDemandSkills.title`, then the skill's own built-in `title` (from its `SKILL.md`); without any, the client derives a label from the tool name. The platform's own skill tools carry titles of their own ("Learning: {skill}", "Running code", "Saving {path}"), so a `title`-mode skill reads as a sequence of labeled steps. The sandbox code and file tools (`octavus_code_run`, `octavus_file_write`, `octavus_file_read`) target no skill, so no skill's `display` applies to them: they are built-in tools and render in `stream`.
 
 | Mode     | Behavior                                                                                                             |
 | -------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -110,17 +110,17 @@ This also works for named threads in interactive agents, allowing different thre
 
 When skills are enabled, the LLM has access to these tools:
 
-| Tool                  | Purpose                                         | Availability                   |
-| --------------------- | ----------------------------------------------- | ------------------------------ |
-| `octavus_skill_read`  | Read skill documentation (SKILL.md)             | All skills                     |
-| `octavus_skill_list`  | List available scripts in a skill               | All skills                     |
-| `octavus_skill_run`   | Execute a pre-built script from a skill         | All skills                     |
-| `octavus_skill_setup` | Install a skill on the device for file browsing | Device skills only             |
-| `octavus_code_run`    | Execute arbitrary Python/Bash code              | Sandbox skills (standard) only |
-| `octavus_file_write`  | Create files in the sandbox                     | Sandbox skills (standard) only |
-| `octavus_file_read`   | Read files from the sandbox                     | Sandbox skills (standard) only |
+| Tool                  | Purpose                                         | Availability                   | Display                        |
+| --------------------- | ----------------------------------------------- | ------------------------------ | ------------------------------ |
+| `octavus_skill_read`  | Read skill documentation (SKILL.md)             | All skills                     | The targeted skill's `display` |
+| `octavus_skill_list`  | List available scripts in a skill               | All skills                     | The targeted skill's `display` |
+| `octavus_skill_run`   | Execute a pre-built script from a skill         | All skills                     | The targeted skill's `display` |
+| `octavus_skill_setup` | Install a skill on the device for file browsing | Device skills only             | The targeted skill's `display` |
+| `octavus_code_run`    | Execute arbitrary Python/Bash code              | Sandbox skills (standard) only | `stream` (built-in tool)       |
+| `octavus_file_write`  | Create files in the sandbox                     | Sandbox skills (standard) only | `stream` (built-in tool)       |
+| `octavus_file_read`   | Read files from the sandbox                     | Sandbox skills (standard) only | `stream` (built-in tool)       |
 
-The LLM learns about available skills through system prompt injection and can use these tools to interact with skills.
+The LLM learns about available skills through system prompt injection and can use these tools to interact with skills. The tools that target a skill render as that skill's `display` says; the sandbox code and file tools target no skill and render in `stream` like every [built-in tool](/docs/protocol/tools#display-modes), so a code run's card carries the code and its output.
 
 Skills that have [secrets](#skill-secrets) configured run in **secure mode**, where only `octavus_skill_read`, `octavus_skill_list`, and `octavus_skill_run` are available. See [Skill Secrets](#skill-secrets) below.
 

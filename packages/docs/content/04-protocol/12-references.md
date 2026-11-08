@@ -113,6 +113,8 @@ When references are enabled, the agent has access to two tools:
 
 The agent also sees reference names and descriptions in its system prompt, so it knows what's available without calling `octavus_reference_list`.
 
+Both tools are [built-in tools](/docs/protocol/tools#display-modes) and render in `stream`: the list's card ("Listing references") carries the names and descriptions it returned, and a read's card ("Reading reference: {name}") carries the reference's content as text, or `{ success: false, error }` when the name matches no reference. Your UI decides whether to show that content to the end user; a reference is written for the agent, so leave it out when it should stay between you and the agent.
+
 ## Example
 
 ```yaml
