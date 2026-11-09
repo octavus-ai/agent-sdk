@@ -1,81 +1,23 @@
 /**
- * The wire types, inferred from the schemas in `schemas.ts` (the single
- * definition of every shape), plus the tool-provider interfaces the SDKs share.
+ * The wire types, plus the tool-provider interfaces the SDKs share. Each wire
+ * type is written out here and must equal what its schema in `schemas.ts`
+ * parses to (`schema-type-checks.ts` fails the type check otherwise), so the
+ * published types never depend on zod.
  *
  * Events are organized into two categories:
  * - Standard Events (====): Common streaming patterns for AI agents
  * - Octavus Events (----): Octavus-specific protocol events
  */
 
-import type { z } from 'zod';
-import type {
-  Wire,
-  displayModeSchema,
-  finishReasonSchema,
-  fileReferenceSchema,
-  todoItemStatusSchema,
-  todoItemSchema,
-  uiMessageSenderSchema,
-  startEventSchema,
-  finishEventSchema,
-  errorEventSchema,
-  textStartEventSchema,
-  textDeltaEventSchema,
-  textEndEventSchema,
-  reasoningStartEventSchema,
-  reasoningDeltaEventSchema,
-  reasoningEndEventSchema,
-  toolInputStartEventSchema,
-  toolInputDeltaEventSchema,
-  toolInputEndEventSchema,
-  toolInputAvailableEventSchema,
-  toolOutputAvailableEventSchema,
-  toolOutputErrorEventSchema,
-  sourceUrlEventSchema,
-  sourceDocumentEventSchema,
-  todoUpdateEventSchema,
-  blockStartEventSchema,
-  blockEndEventSchema,
-  stepStartEventSchema,
-  stepDiscardEventSchema,
-  persistedEventSchema,
-  pendingToolCallSchema,
-  toolResultSchema,
-  toolRequestEventSchema,
-  clientToolRequestEventSchema,
-  fileAvailableEventSchema,
-  workerStartEventSchema,
-  workerResultEventSchema,
-  workerInputStartEventSchema,
-  workerInputDeltaEventSchema,
-  workerInputReadyEventSchema,
-  workerExecutionCostSchema,
-  workerExecutionTokensSchema,
-  usageEventSchema,
-  streamEventSchema,
-  uiMessageStatusSchema,
-  uiPartStatusSchema,
-  uiToolCallStatusSchema,
-  uiOperationStatusSchema,
-  uiObjectStatusSchema,
-  uiWorkerStatusSchema,
-  uiTextPartSchema,
-  uiReasoningPartSchema,
-  uiToolCallPartSchema,
-  uiOperationPartSchema,
-  uiSourceUrlPartSchema,
-  uiSourceDocumentPartSchema,
-  uiFilePartSchema,
-  uiObjectPartSchema,
-  uiTodoItemSchema,
-  uiTodoPartSchema,
-  uiStepStartPartSchema,
-  uiUnknownPartSchema,
-  uiWorkerPartObjectSchema,
-  uiMessageObjectSchema,
-} from './schemas';
+/* eslint-disable @typescript-eslint/consistent-type-definitions -- the wire types are type aliases: a wire value keeps fields this version does not know, and an interface would stop it being assignable to `Record<string, unknown>` */
 
-export type { UnknownStreamEvent, StreamEventParseResult } from './schemas';
+import type {
+  BackupFailureInfo,
+  ErrorSource,
+  ErrorType,
+  ProviderErrorInfo,
+  ToolErrorInfo,
+} from '@/errors/types';
 
 /**
  * Display mode - what the client sees of an entity's execution (not whether
@@ -89,7 +31,7 @@ export type { UnknownStreamEvent, StreamEventParseResult } from './schemas';
  * - `stream` - everything, live. The default for workers and the
  *   `next-message` and `run-worker` blocks.
  */
-export type DisplayMode = z.infer<typeof displayModeSchema>;
+export type DisplayMode = 'hidden' | 'title' | 'stream';
 
 export type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 export type ToolHandlers = Record<string, ToolHandler>;
@@ -148,8 +90,8 @@ export interface ToolProvider {
 
 /**
  * An MCP server defined inline in the consumer's process.
- * Tools are Zod-typed and execute in the consumer's server via the
- * tool-request/continue pattern. The namespace prefixes all tool names
+ * Tools are typed by their schemas and execute in the consumer's server via
+ * the tool-request/continue pattern. The namespace prefixes all tool names
  * with `namespace__toolName` to avoid collisions.
  */
 export interface InlineMcpServer extends ToolProvider {
@@ -237,7 +179,15 @@ export function isDynamicMcpProvider(
  * bytes were in hand, so the runtime can tell whether an image fits a declared
  * `maxImageDimension` without fetching it.
  */
-export type FileReference = Wire<z.infer<typeof fileReferenceSchema>>;
+export type FileReference = {
+  id: string;
+  mediaType: string;
+  url: string;
+  filename?: string;
+  size?: number;
+  width?: number;
+  height?: number;
+};
 
 // =============================================================================
 // STANDARD EVENTS
@@ -255,7 +205,13 @@ export type FileReference = Wire<z.infer<typeof fileReferenceSchema>>;
  * session state before this execution (for retry rollback); `sessionId` lets a
  * create-and-trigger caller learn the new session id from the first event.
  */
-export type StartEvent = Wire<z.infer<typeof startEventSchema>>;
+export type StartEvent = {
+  type: 'start';
+  messageId?: string;
+  executionId?: string;
+  lastMessageId?: string;
+  sessionId?: string;
+};
 
 /**
  * Signals the end of a stream.
@@ -267,7 +223,11 @@ export type StartEvent = Wire<z.infer<typeof startEventSchema>>;
  * server SDK performs that continuation itself, so its consumers see one
  * uninterrupted stream.
  */
-export type FinishEvent = Wire<z.infer<typeof finishEventSchema>>;
+export type FinishEvent = {
+  type: 'finish';
+  finishReason: FinishReason;
+  executionId?: string;
+};
 
 /**
  * Error during streaming, with its classification (`errorType`), where it
@@ -275,9 +235,29 @@ export type FinishEvent = Wire<z.infer<typeof finishEventSchema>>;
  * the platform's stable `code`, the `requestId` to quote to support, and the
  * provider, tool, or backup-model details when they apply.
  */
-export type ErrorEvent = Wire<z.infer<typeof errorEventSchema>>;
+export type ErrorEvent = {
+  type: 'error';
+  errorType: ErrorType;
+  message: string;
+  retryable: boolean;
+  source: ErrorSource;
+  retryAfter?: number;
+  code?: string;
+  requestId?: string;
+  provider?: ProviderErrorInfo;
+  tool?: ToolErrorInfo;
+  backup?: BackupFailureInfo;
+};
 
-export type FinishReason = z.infer<typeof finishReasonSchema>;
+export type FinishReason =
+  | 'stop'
+  | 'tool-calls'
+  | 'client-tool-calls'
+  | 'continue'
+  | 'length'
+  | 'content-filter'
+  | 'error'
+  | 'other';
 
 // ================================= Text ======================================
 
@@ -286,17 +266,44 @@ export type FinishReason = z.infer<typeof finishReasonSchema>;
  * the text content is JSON matching a custom type and the client SDK parses it
  * as a structured object instead of displaying it as plain text.
  */
-export type TextStartEvent = Wire<z.infer<typeof textStartEventSchema>>;
+export type TextStartEvent = {
+  type: 'text-start';
+  id: string;
+  responseType?: string;
+  workerId?: string;
+};
 /** Incremental text content */
-export type TextDeltaEvent = Wire<z.infer<typeof textDeltaEventSchema>>;
+export type TextDeltaEvent = {
+  type: 'text-delta';
+  id: string;
+  delta: string;
+  workerId?: string;
+};
 /** End of text generation for a specific text part */
-export type TextEndEvent = Wire<z.infer<typeof textEndEventSchema>>;
+export type TextEndEvent = {
+  type: 'text-end';
+  id: string;
+  workerId?: string;
+};
 
 // =============================== Reasoning ===================================
 
-export type ReasoningStartEvent = Wire<z.infer<typeof reasoningStartEventSchema>>;
-export type ReasoningDeltaEvent = Wire<z.infer<typeof reasoningDeltaEventSchema>>;
-export type ReasoningEndEvent = Wire<z.infer<typeof reasoningEndEventSchema>>;
+export type ReasoningStartEvent = {
+  type: 'reasoning-start';
+  id: string;
+  workerId?: string;
+};
+export type ReasoningDeltaEvent = {
+  type: 'reasoning-delta';
+  id: string;
+  delta: string;
+  workerId?: string;
+};
+export type ReasoningEndEvent = {
+  type: 'reasoning-end';
+  id: string;
+  workerId?: string;
+};
 
 // ================================= Tool ======================================
 
@@ -305,31 +312,91 @@ export type ReasoningEndEvent = Wire<z.infer<typeof reasoningEndEventSchema>>;
  * `title` when it has one, and its `display`. Input streaming follows only in
  * `stream` mode.
  */
-export type ToolInputStartEvent = Wire<z.infer<typeof toolInputStartEventSchema>>;
+export type ToolInputStartEvent = {
+  type: 'tool-input-start';
+  toolCallId: string;
+  toolName: string;
+  /** The authored title of the tool, when it has one. The label is `title ?? label(toolName)`. */
+  title?: string;
+  display?: DisplayMode;
+  workerId?: string;
+};
 /** Incremental tool input/arguments (`stream` mode only) */
-export type ToolInputDeltaEvent = Wire<z.infer<typeof toolInputDeltaEventSchema>>;
+export type ToolInputDeltaEvent = {
+  type: 'tool-input-delta';
+  toolCallId: string;
+  inputTextDelta: string;
+  display?: DisplayMode;
+  workerId?: string;
+};
 /** Tool input streaming has ended */
-export type ToolInputEndEvent = Wire<z.infer<typeof toolInputEndEventSchema>>;
+export type ToolInputEndEvent = {
+  type: 'tool-input-end';
+  toolCallId: string;
+  workerId?: string;
+};
 /** Tool input is complete; `input` is `{}` unless the display mode is `stream`. */
-export type ToolInputAvailableEvent = Wire<z.infer<typeof toolInputAvailableEventSchema>>;
+export type ToolInputAvailableEvent = {
+  type: 'tool-input-available';
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+  display?: DisplayMode;
+  workerId?: string;
+};
 /** Tool output is available; `output` is `undefined` unless the display mode is `stream`. */
-export type ToolOutputAvailableEvent = Wire<z.infer<typeof toolOutputAvailableEventSchema>>;
+export type ToolOutputAvailableEvent = {
+  type: 'tool-output-available';
+  toolCallId: string;
+  output: unknown;
+  display?: DisplayMode;
+  workerId?: string;
+};
 /** Tool execution resulted in error. Emitted in every visible display mode. */
-export type ToolOutputErrorEvent = Wire<z.infer<typeof toolOutputErrorEventSchema>>;
+export type ToolOutputErrorEvent = {
+  type: 'tool-output-error';
+  toolCallId: string;
+  error: string;
+  display?: DisplayMode;
+  workerId?: string;
+};
 
 // ================================= Todo ======================================
 
-export type TodoItemStatus = z.infer<typeof todoItemStatusSchema>;
-export type TodoItem = Wire<z.infer<typeof todoItemSchema>>;
+export type TodoItemStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type TodoItem = {
+  id: string;
+  content: string;
+  status: TodoItemStatus;
+};
 /** Full TODO list update (carries resolved snapshot) */
-export type TodoUpdateEvent = Wire<z.infer<typeof todoUpdateEventSchema>>;
+export type TodoUpdateEvent = {
+  type: 'todo-update';
+  todos: TodoItem[];
+  workerId?: string;
+};
 
 // ================================ Source =====================================
 
 /** URL source from web search or similar tools */
-export type SourceUrlEvent = Wire<z.infer<typeof sourceUrlEventSchema>>;
+export type SourceUrlEvent = {
+  type: 'source';
+  sourceType: 'url';
+  id: string;
+  url: string;
+  title?: string;
+  workerId?: string;
+};
 /** Document source from file processing */
-export type SourceDocumentEvent = Wire<z.infer<typeof sourceDocumentEventSchema>>;
+export type SourceDocumentEvent = {
+  type: 'source';
+  sourceType: 'document';
+  id: string;
+  mediaType: string;
+  title: string;
+  filename?: string;
+  workerId?: string;
+};
 /** Source event - union of all source types */
 export type SourceEvent = SourceUrlEvent | SourceDocumentEvent;
 
@@ -343,9 +410,27 @@ export type SourceEvent = SourceUrlEvent | SourceDocumentEvent;
  * Protocol block execution started. `operation` is true for a block that
  * renders as an operation card; `title` is the block's authored title.
  */
-export type BlockStartEvent = Wire<z.infer<typeof blockStartEventSchema>>;
+export type BlockStartEvent = {
+  type: 'block-start';
+  blockId: string;
+  blockName: string;
+  blockType: string;
+  display: DisplayMode;
+  /** The block's authored title, when it has one. */
+  title?: string;
+  /** True when the block renders as an operation card. */
+  operation?: boolean;
+  outputToChat?: boolean;
+  thread?: string;
+  workerId?: string;
+};
 /** Protocol block execution completed */
-export type BlockEndEvent = Wire<z.infer<typeof blockEndEventSchema>>;
+export type BlockEndEvent = {
+  type: 'block-end';
+  blockId: string;
+  summary?: string;
+  workerId?: string;
+};
 
 // --------------------------------- Step --------------------------------------
 
@@ -357,7 +442,10 @@ export type BlockEndEvent = Wire<z.infer<typeof blockEndEventSchema>>;
  * built live matches the message reloaded from history. Carries no payload
  * and renders nothing. Not emitted for a block's first step.
  */
-export type StepStartEvent = Wire<z.infer<typeof stepStartEventSchema>>;
+export type StepStartEvent = {
+  type: 'step-start';
+  workerId?: string;
+};
 
 /**
  * The current step's partial output is abandoned: everything streamed since
@@ -370,7 +458,10 @@ export type StepStartEvent = Wire<z.infer<typeof stepStartEventSchema>>;
  * do not understand this event keep the abandoned output visible and simply
  * see the retried step appended after it.
  */
-export type StepDiscardEvent = Wire<z.infer<typeof stepDiscardEventSchema>>;
+export type StepDiscardEvent = {
+  type: 'step-discard';
+  workerId?: string;
+};
 
 // ------------------------------- Persisted -----------------------------------
 
@@ -383,7 +474,12 @@ export type StepDiscardEvent = Wire<z.infer<typeof stepDiscardEventSchema>>;
  * which the live stream still has to be applied; a replay that begins at a
  * marker rewinds only what was streamed after it. Carries no visible content.
  */
-export type PersistedEvent = Wire<z.infer<typeof persistedEventSchema>>;
+export type PersistedEvent = {
+  type: 'persisted';
+  executionId: string;
+  round: number;
+  messageId?: string;
+};
 
 // --------------------------------- Tool --------------------------------------
 
@@ -392,29 +488,83 @@ export type PersistedEvent = Wire<z.infer<typeof persistedEventSchema>>;
  * browser, or the agent's computer. Carries the call's `display`, so the
  * executor's own output events reveal only what the mode allows.
  */
-export type PendingToolCall = Wire<z.infer<typeof pendingToolCallSchema>>;
+export type PendingToolCall = {
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  /** The call's display mode; what the executor's own output events may reveal. */
+  display?: DisplayMode;
+  /** Thread name where this tool call originated (for workers with threads) */
+  thread?: string;
+  /** Worker ID if this tool call originated from a worker execution */
+  workerId?: string;
+  /**
+   * True when this pending call suspends the turn awaiting an external event
+   * (see `ToolSchema.suspend`) rather than a device/client tool execution. The
+   * resident executor must hold the call open and resolve it with the event
+   * delivered by the coordination hub, not reject or execute it locally.
+   */
+  suspend?: boolean;
+  /**
+   * For a suspending call, the identity of the interaction it awaits (set by
+   * the tool that opened the interaction). The resident executor matches the
+   * events it is handed against it, so an event from an interaction that already
+   * closed never resolves a park waiting on the next one. Absent when the
+   * opening tool declared no identity.
+   */
+  interactionId?: string;
+};
 
 /**
  * When this event is received, the stream will close. The executor runs the
  * tools it owns and submits their results on the execution's `continue`.
  */
-export type ToolRequestEvent = Wire<z.infer<typeof toolRequestEventSchema>>;
+export type ToolRequestEvent = {
+  type: 'tool-request';
+  toolCalls: PendingToolCall[];
+  workerId?: string;
+};
 
 /**
  * Request for client-side tool execution, emitted by the server SDK for the
  * calls no server handler claimed. The client runs them and submits only their
  * results through the consumer's `continue` passthrough.
  */
-export type ClientToolRequestEvent = Wire<z.infer<typeof clientToolRequestEventSchema>>;
+export type ClientToolRequestEvent = {
+  type: 'client-tool-request';
+  executionId: string;
+  toolCalls: PendingToolCall[];
+};
 
 /** A tool's result, submitted by the executor that ran it. */
-export type ToolResult = Wire<z.infer<typeof toolResultSchema>>;
+export type ToolResult = {
+  toolCallId: string;
+  result?: unknown;
+  error?: string;
+  /** Files produced by the tool (e.g., screenshots, generated images). */
+  files?: FileReference[];
+  /**
+   * True when the executor reduced the result to a preview because it was too
+   * large to send. The platform refuses a reduced result for a call whose
+   * result a `tool-call` block captures into a variable.
+   */
+  truncated?: boolean;
+};
 
 /**
  * File generated and available for download/display.
  * Emitted when a tool or skill produces a file output, in every display mode.
  */
-export type FileAvailableEvent = Wire<z.infer<typeof fileAvailableEventSchema>>;
+export type FileAvailableEvent = {
+  type: 'file-available';
+  id: string;
+  mediaType: string;
+  url: string;
+  filename?: string;
+  size?: number;
+  toolCallId?: string;
+  workerId?: string;
+};
 
 // --------------------------------- Worker ------------------------------------
 
@@ -422,13 +572,29 @@ export type FileAvailableEvent = Wire<z.infer<typeof fileAvailableEventSchema>>;
  * Worker execution has started. Carries the worker's identity (`workerSlug`),
  * its authored `title`, and its `display`; `input` only in `stream` mode.
  */
-export type WorkerStartEvent = Wire<z.infer<typeof workerStartEventSchema>>;
+export type WorkerStartEvent = {
+  type: 'worker-start';
+  workerId: string;
+  workerSlug: string;
+  /** The worker's authored title, when it has one. */
+  title?: string;
+  display?: DisplayMode;
+  /** Worker input values; present only when the display mode is `stream`. */
+  input?: Record<string, unknown>;
+};
 
 /**
  * Worker execution completed. `output` is present only in `stream` mode; an
  * `error` is reported in every visible mode.
  */
-export type WorkerResultEvent = Wire<z.infer<typeof workerResultEventSchema>>;
+export type WorkerResultEvent = {
+  type: 'worker-result';
+  workerId: string;
+  /** The worker's output value; present only when the display mode is `stream`. */
+  output?: unknown;
+  error?: string;
+  cancelled?: boolean;
+};
 
 /**
  * Early signal that a worker invocation is starting and its input will stream
@@ -438,13 +604,27 @@ export type WorkerResultEvent = Wire<z.infer<typeof workerResultEventSchema>>;
  * Lets the client create the `UIWorkerPart` immediately, then populate its
  * input via the subsequent `worker-input-delta` and `worker-input-ready` events.
  * The runtime still emits the regular `worker-start` event when execution
- * begins, so clients that don't handle this event continue to work unchanged.
+ * begins, so a client that does not handle this event works without it.
  */
-export type WorkerInputStartEvent = Wire<z.infer<typeof workerInputStartEventSchema>>;
+export type WorkerInputStartEvent = {
+  type: 'worker-input-start';
+  workerId: string;
+  workerSlug: string;
+  title?: string;
+  display?: DisplayMode;
+};
 /** Incremental worker input arguments streamed as the LLM generates them (`stream` mode). */
-export type WorkerInputDeltaEvent = Wire<z.infer<typeof workerInputDeltaEventSchema>>;
+export type WorkerInputDeltaEvent = {
+  type: 'worker-input-delta';
+  workerId: string;
+  delta: string;
+};
 /** Worker input is complete and execution is starting (`stream` mode). */
-export type WorkerInputReadyEvent = Wire<z.infer<typeof workerInputReadyEventSchema>>;
+export type WorkerInputReadyEvent = {
+  type: 'worker-input-ready';
+  workerId: string;
+  input: Record<string, unknown>;
+};
 
 // --------------------------------- Usage -------------------------------------
 
@@ -455,14 +635,29 @@ export type WorkerInputReadyEvent = Wire<z.infer<typeof workerInputReadyEventSch
  * (BYOK) was used; `estimatedProviderFee` is then what the models would have
  * cost on Octavus keys.
  */
-export type WorkerExecutionCost = Wire<z.infer<typeof workerExecutionCostSchema>>;
+export type WorkerExecutionCost = {
+  currency: string;
+  bandwidthFee: number;
+  providerFee: number;
+  totalFee: number;
+  byok: boolean;
+  estimatedProviderFee?: number;
+};
 /** Token totals for a worker execution, summed across all steps. */
-export type WorkerExecutionTokens = Wire<z.infer<typeof workerExecutionTokensSchema>>;
+export type WorkerExecutionTokens = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
 /**
  * Per-execution usage and cost summary, emitted once when a worker execution
  * completes (after `worker-result` / `finish`, before the stream closes).
  */
-export type UsageEvent = Wire<z.infer<typeof usageEventSchema>>;
+export type UsageEvent = {
+  type: 'usage';
+  cost: WorkerExecutionCost;
+  tokens: WorkerExecutionTokens;
+};
 
 // =============================================================================
 // Union of All Stream Events
@@ -474,57 +669,200 @@ export type UsageEvent = Wire<z.infer<typeof usageEventSchema>>;
  * and the server SDK forwards: switch on `type` with a `default` branch that
  * ignores the value, never an exhaustiveness check.
  */
-export type StreamEvent = Wire<z.infer<typeof streamEventSchema>>;
+export type StreamEvent =
+  | StartEvent
+  | FinishEvent
+  | ErrorEvent
+  | TextStartEvent
+  | TextDeltaEvent
+  | TextEndEvent
+  | ReasoningStartEvent
+  | ReasoningDeltaEvent
+  | ReasoningEndEvent
+  | ToolInputStartEvent
+  | ToolInputDeltaEvent
+  | ToolInputEndEvent
+  | ToolInputAvailableEvent
+  | ToolOutputAvailableEvent
+  | ToolOutputErrorEvent
+  | SourceEvent
+  | TodoUpdateEvent
+  | BlockStartEvent
+  | BlockEndEvent
+  | StepStartEvent
+  | StepDiscardEvent
+  | PersistedEvent
+  | ToolRequestEvent
+  | ClientToolRequestEvent
+  | FileAvailableEvent
+  | WorkerStartEvent
+  | WorkerResultEvent
+  | WorkerInputStartEvent
+  | WorkerInputDeltaEvent
+  | WorkerInputReadyEvent
+  | UsageEvent;
+
+/** An event whose `type` this version of the contract does not know. */
+export type UnknownStreamEvent = {
+  type: string;
+};
+
+/** One reason a value is not a valid wire shape: the failing path and its message. */
+export interface WireParseIssue {
+  readonly path: readonly PropertyKey[];
+  readonly message: string;
+}
+
+/** Why a value is not a valid wire shape: each failing path and its message. */
+export interface WireParseError extends Error {
+  readonly issues: readonly WireParseIssue[];
+}
+
+export type StreamEventParseResult =
+  /** An event this contract knows, with any extra fields kept. */
+  | { kind: 'event'; event: StreamEvent }
+  /** An event of a type this contract does not know: forward it, or ignore it. */
+  | { kind: 'unknown'; event: UnknownStreamEvent }
+  /** Not an event: no string `type`, or a known type whose fields do not validate. */
+  | { kind: 'invalid'; error: WireParseError };
+
+/** The result of `safeParseUIMessage` and `safeParseUIMessages`. */
+export type WireParseResult<T> =
+  | { success: true; data: T; error?: undefined }
+  | { success: false; data?: undefined; error: WireParseError };
 
 // =============================================================================
 // UI Message Types (Client-facing - used by SDKs and consumer apps)
 // =============================================================================
 
-export type UIMessageStatus = z.infer<typeof uiMessageStatusSchema>;
-export type UIPartStatus = z.infer<typeof uiPartStatusSchema>;
-export type UIToolCallStatus = z.infer<typeof uiToolCallStatusSchema>;
-export type UIOperationStatus = z.infer<typeof uiOperationStatusSchema>;
-export type UIObjectStatus = z.infer<typeof uiObjectStatusSchema>;
-export type UIWorkerStatus = z.infer<typeof uiWorkerStatusSchema>;
+export type UIMessageStatus = 'streaming' | 'done';
+export type UIPartStatus = 'streaming' | 'done';
+export type UIToolCallStatus = 'pending' | 'running' | 'done' | 'error' | 'cancelled';
+export type UIOperationStatus = 'running' | 'done' | 'cancelled';
+export type UIObjectStatus = 'streaming' | 'done' | 'error';
+export type UIWorkerStatus = 'running' | 'done' | 'error' | 'cancelled';
 
 /** Text content in a UI message */
-export type UITextPart = Wire<z.infer<typeof uiTextPartSchema>>;
+export type UITextPart = {
+  type: 'text';
+  text: string;
+  status: UIPartStatus;
+  thread?: string;
+  providerMetadata?: Record<string, unknown>;
+};
 /** Reasoning/thinking content in a UI message */
-export type UIReasoningPart = Wire<z.infer<typeof uiReasoningPartSchema>>;
+export type UIReasoningPart = {
+  type: 'reasoning';
+  text: string;
+  status: UIPartStatus;
+  thread?: string;
+  providerMetadata?: Record<string, unknown>;
+};
 /**
  * Tool call in a UI message. The card's label is `getPartLabel(part)`: the
  * authored `title`, else a label for `toolName`. `args` is `{}` and `result`
  * absent unless `display` is `stream`.
  */
-export type UIToolCallPart = Wire<z.infer<typeof uiToolCallPartSchema>>;
+export type UIToolCallPart = {
+  type: 'tool-call';
+  toolCallId: string;
+  toolName: string;
+  /** The tool's authored title, when it has one. See `getPartLabel`. */
+  title?: string;
+  /** The arguments; `{}` unless the display mode is `stream`. */
+  args: Record<string, unknown>;
+  /** The result; present only when the display mode is `stream`. */
+  result?: unknown;
+  error?: string;
+  status: UIToolCallStatus;
+  display?: DisplayMode;
+  thread?: string;
+  providerMetadata?: Record<string, unknown>;
+};
 /**
  * A protocol block that renders as an operation card (e.g. `generate-image`,
  * `serialize-thread`). `name` is the block's name; the label is
  * `getPartLabel(part)`.
  */
-export type UIOperationPart = Wire<z.infer<typeof uiOperationPartSchema>>;
+export type UIOperationPart = {
+  type: 'operation';
+  operationId: string;
+  /** The block's name, as authored in the protocol. */
+  name: string;
+  /** The block type, e.g. `generate-image`. */
+  operationType: string;
+  /** The block's authored title, when it has one. See `getPartLabel`. */
+  title?: string;
+  display?: DisplayMode;
+  status: UIOperationStatus;
+  thread?: string;
+};
 /** URL source part (from web search results) */
-export type UISourceUrlPart = Wire<z.infer<typeof uiSourceUrlPartSchema>>;
+export type UISourceUrlPart = {
+  type: 'source';
+  sourceType: 'url';
+  id: string;
+  url: string;
+  title?: string;
+  thread?: string;
+};
 /** Document source part (from file processing) */
-export type UISourceDocumentPart = Wire<z.infer<typeof uiSourceDocumentPartSchema>>;
+export type UISourceDocumentPart = {
+  type: 'source';
+  sourceType: 'document';
+  id: string;
+  mediaType: string;
+  title: string;
+  filename?: string;
+  thread?: string;
+};
 /** Source part - union of all source types */
 export type UISourcePart = UISourceUrlPart | UISourceDocumentPart;
 /** File attachment part, generated by skill execution, image generation, code execution, etc. */
-export type UIFilePart = Wire<z.infer<typeof uiFilePartSchema>>;
+export type UIFilePart = {
+  type: 'file';
+  id: string;
+  mediaType: string;
+  url: string;
+  filename?: string;
+  size?: number;
+  toolCallId?: string;
+  thread?: string;
+};
 /**
  * Structured object part in a UI message, used when the agent response is a
  * typed object. Client applications can render custom UI based on `typeName`.
  */
-export type UIObjectPart = Wire<z.infer<typeof uiObjectPartSchema>>;
+export type UIObjectPart = {
+  type: 'object';
+  id: string;
+  typeName: string;
+  partial?: unknown;
+  object?: unknown;
+  status: UIObjectStatus;
+  error?: string;
+  thread?: string;
+};
 /** Todo item in a UI message (mirrors TodoItem for client consumption) */
-export type UITodoItem = Wire<z.infer<typeof uiTodoItemSchema>>;
+export type UITodoItem = {
+  id: string;
+  content: string;
+  status: TodoItemStatus;
+};
 /** Todo list part in a UI message, an evolving task list the agent updates in real time. */
-export type UITodoPart = Wire<z.infer<typeof uiTodoPartSchema>>;
+export type UITodoPart = {
+  type: 'todo';
+  todos: UITodoItem[];
+  status: UIPartStatus;
+  thread?: string;
+};
 /**
  * Step boundary marker between LLM steps in a multi-step agentic response.
  * Carries no payload and is not rendered.
  */
-export type UIStepStartPart = Wire<z.infer<typeof uiStepStartPartSchema>>;
+export type UIStepStartPart = {
+  type: 'step-start';
+};
 
 /**
  * A part whose `type` this version of the contract does not know. Kept in
@@ -532,15 +870,29 @@ export type UIStepStartPart = Wire<z.infer<typeof uiStepStartPartSchema>>;
  * `restore`; not a member of `UIMessagePart`, so renderers that switch on
  * `type` skip it in their `default` branch.
  */
-export type UIUnknownPart = Wire<z.infer<typeof uiUnknownPartSchema>>;
+export type UIUnknownPart = {
+  type: string;
+};
 
 /**
  * Worker execution in a UI message: a nested worker agent execution with its
  * own parts. The label is `getPartLabel(part)`; `input`, `output`, and nested
  * `parts` are present only when `display` is `stream`.
  */
-export type UIWorkerPart = Omit<Wire<z.infer<typeof uiWorkerPartObjectSchema>>, 'parts'> & {
+export type UIWorkerPart = {
+  type: 'worker';
+  workerId: string;
+  workerSlug: string;
+  /** The worker's authored title, when it has one. See `getPartLabel`. */
+  title?: string;
+  display?: DisplayMode;
+  /** Worker input values; present only when the display mode is `stream`. */
+  input?: Record<string, unknown>;
   parts: UIMessagePart[];
+  /** Worker output value; present only when the display mode is `stream`. */
+  output?: unknown;
+  error?: string;
+  status: UIWorkerStatus;
 };
 
 /**
@@ -569,13 +921,22 @@ export type UIMessagePart =
  * the UI can attribute each message to its author (name + avatar). Assistant
  * messages never carry a sender.
  */
-export type UIMessageSender = Wire<z.infer<typeof uiMessageSenderSchema>>;
+export type UIMessageSender = {
+  id?: string;
+  name?: string;
+  image?: string;
+};
 
 /**
  * UI Message - the client-facing message format. All complexity is handled by
- * the SDK, this is what consumers render and persist. `createdAt` is an ISO
- * 8601 timestamp.
+ * the SDK, this is what consumers render and persist.
  */
-export type UIMessage = Omit<Wire<z.infer<typeof uiMessageObjectSchema>>, 'parts'> & {
+export type UIMessage = {
+  id: string;
+  role: 'user' | 'assistant';
   parts: UIMessagePart[];
+  status: UIMessageStatus;
+  /** When the message was created, as an ISO 8601 timestamp. */
+  createdAt: string;
+  sender?: UIMessageSender;
 };

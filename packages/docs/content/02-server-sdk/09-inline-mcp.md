@@ -75,17 +75,19 @@ const github = createInlineMcpServer('github', {
 });
 ```
 
+`parameters` and `output` take any schema that implements [Standard JSON Schema](https://standardschema.dev), such as [Zod](https://zod.dev) schemas from zod 4.2 on. Your schemas don't need to come from the same copy of zod as the Server SDK.
+
 The factory:
 
 1. Validates the namespace and each tool name (see [naming rules](#naming-rules)).
-2. Converts each Zod schema to JSON Schema once at creation time.
+2. Converts each tool's schemas to JSON Schema once at creation time.
 3. Returns an `InlineMcpServer` exposing `toolSchemas()` and `toolHandlers()`.
 
 The resulting tool names are namespaced: `github__get-pr-overview`, `github__list-issues`.
 
 ## Why `defineInlineMcpTool`
 
-`defineInlineMcpTool()` is a no-op at runtime, but it preserves Zod type inference. Without the wrapper, TypeScript collapses the per-tool generic when the tools are placed in a record literal, leaving `args` typed as `unknown`:
+`defineInlineMcpTool()` is a no-op at runtime, but it preserves the schema's type inference. Without the wrapper, TypeScript collapses the per-tool generic when the tools are placed in a record literal, leaving `args` typed as `unknown`:
 
 ```typescript
 // Without defineInlineMcpTool - args ends up as `unknown`
@@ -107,11 +109,11 @@ tools: {
 }
 ```
 
-The handler also receives Zod-validated arguments. Invalid inputs throw before reaching your code, with the failed paths and messages joined into the error.
+The handler also receives validated arguments. Invalid inputs throw before reaching your code, with the failed paths and messages joined into the error.
 
 ## Declaring an Output Schema
 
-`defineInlineMcpTool()` accepts an optional `output` Zod schema. When provided, two things happen:
+`defineInlineMcpTool()` accepts an optional `output` schema. When provided, two things happen:
 
 1. The schema is converted to JSON Schema and forwarded to the LLM as `outputSchema`. Providers that support structured tool outputs (e.g. OpenAI strict mode) can use it to validate the tool result they reason over.
 2. Handler return values are validated against the schema at runtime. A handler returning a malformed result throws before the result reaches the LLM, with the failed paths and messages joined into the error.
@@ -137,7 +139,7 @@ The handler also receives Zod-validated arguments. Invalid inputs throw before r
 }),
 ```
 
-Omitting `output` preserves the previous behavior - the handler return type is unconstrained and the LLM sees no `outputSchema` on the tool.
+Without `output`, the handler return type is unconstrained and the LLM sees no `outputSchema` on the tool.
 
 ## Per-Tool Titles
 
@@ -221,7 +223,7 @@ For static credentials (one tenant per deployment), build the server once at mod
 ## How Tool Calls Flow
 
 1. The agent emits a `tool-request` event for `github__get-pr-overview` (or another inline-MCP-namespaced tool).
-2. The Server SDK looks up the handler registered by `createInlineMcpServer()` and runs it. Zod validates `args` against the tool's schema; a validation failure becomes a tool error sent back to the LLM.
+2. The Server SDK looks up the handler registered by `createInlineMcpServer()` and runs it. `args` is validated against the tool's `parameters` schema; a validation failure becomes a tool error sent back to the LLM.
 3. The handler returns; the SDK posts the result back to the platform via the same continuation request used for ordinary server tools.
 4. The platform feeds the result to the LLM and streams the next response chunk.
 

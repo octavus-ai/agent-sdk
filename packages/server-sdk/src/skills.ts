@@ -34,7 +34,7 @@ const skillSecretsResponseSchema = z.looseObject({
 // Types
 // ---------------------------------------------------------------------------
 
-export type SkillVisibility = z.infer<typeof skillVisibilitySchema>;
+export type SkillVisibility = 'ORGANIZATION' | 'PUBLIC';
 
 /** A skill secret: its name and when it was last set, never its value. */
 export interface SkillSecret {

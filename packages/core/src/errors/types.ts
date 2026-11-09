@@ -1,16 +1,10 @@
 /**
- * Error classification types, inferred from the wire schemas so an error event
- * and an `OctavusError` describe an error the same way.
+ * Error classification types, shared by error events and `OctavusError` so both
+ * describe an error the same way. Each must equal what its wire schema parses
+ * to (`schema-type-checks.ts`).
  */
-import type { z } from 'zod';
-import type {
-  Wire,
-  errorTypeSchema,
-  errorSourceSchema,
-  providerErrorInfoSchema,
-  toolErrorInfoSchema,
-  backupFailureInfoSchema,
-} from '@/stream/schemas';
+
+/* eslint-disable @typescript-eslint/consistent-type-definitions -- the wire types are type aliases: a wire value keeps fields this version does not know, and an interface would stop it being assignable to `Record<string, unknown>` */
 
 /**
  * Error type classification:
@@ -23,10 +17,26 @@ import type {
  * - `execution_error`, `tool_error`, `protocol_error`
  * - `internal_error`, `unknown_error`
  */
-export type ErrorType = z.infer<typeof errorTypeSchema>;
+export type ErrorType =
+  | 'authentication_error'
+  | 'permission_error'
+  | 'validation_error'
+  | 'not_found_error'
+  | 'conflict_error'
+  | 'rate_limit_error'
+  | 'quota_exceeded_error'
+  | 'provider_error'
+  | 'provider_overloaded'
+  | 'provider_timeout'
+  | 'unsupported_error'
+  | 'execution_error'
+  | 'tool_error'
+  | 'protocol_error'
+  | 'internal_error'
+  | 'unknown_error';
 
 /** Where the error originated: the platform, an LLM provider, a tool, or the client. */
-export type ErrorSource = z.infer<typeof errorSourceSchema>;
+export type ErrorSource = 'platform' | 'provider' | 'tool' | 'client';
 
 /**
  * Provider information for provider errors: the provider and model, its HTTP
@@ -34,10 +44,21 @@ export type ErrorSource = z.infer<typeof errorSourceSchema>;
  * body when it carries detail beyond the normalized message, and the upstream
  * deployment a gateway reported.
  */
-export type ProviderErrorInfo = Wire<z.infer<typeof providerErrorInfoSchema>>;
+export type ProviderErrorInfo = {
+  name: string;
+  model?: string;
+  statusCode?: number;
+  errorType?: string;
+  requestId?: string;
+  details?: string;
+  upstream?: string;
+};
 
 /** Tool information for tool errors. */
-export type ToolErrorInfo = Wire<z.infer<typeof toolErrorInfoSchema>>;
+export type ToolErrorInfo = {
+  name: string;
+  callId?: string;
+};
 
 /**
  * How the configured backup model failed when it was tried after the primary
@@ -47,7 +68,14 @@ export type ToolErrorInfo = Wire<z.infer<typeof toolErrorInfoSchema>>;
  * backup whose provider account is out of credits looks like a plain primary
  * failure without it.
  */
-export type BackupFailureInfo = Wire<z.infer<typeof backupFailureInfoSchema>>;
+export type BackupFailureInfo = {
+  model: string;
+  errorType: ErrorType;
+  message: string;
+  code?: string;
+  provider?: ProviderErrorInfo;
+  attempts?: number;
+};
 
 /**
  * Options for creating an OctavusError.

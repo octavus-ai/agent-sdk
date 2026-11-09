@@ -6,23 +6,11 @@ import { BaseApiClient } from '@/base-api-client.js';
 // =============================================================================
 
 /**
- * Schema for a single file upload request
- */
-export const fileUploadRequestSchema = z.object({
-  filename: z.string().min(1).max(255),
-  mediaType: z.string().min(1),
-  size: z.number().int().positive(),
-});
-
-/**
  * Schema for a single file upload response
  */
 export const fileUploadInfoSchema = z.looseObject({
-  /** File ID to reference in messages */
   id: z.string(),
-  /** Presigned PUT URL for uploading to S3 */
   uploadUrl: z.url(),
-  /** Presigned GET URL for downloading after upload */
   downloadUrl: z.url(),
 });
 
@@ -41,9 +29,24 @@ const viewUrlResponseSchema = z.looseObject({
 // Types
 // =============================================================================
 
-export type FileUploadRequest = z.infer<typeof fileUploadRequestSchema>;
-export type FileUploadInfo = z.infer<typeof fileUploadInfoSchema>;
-export type UploadUrlsResponse = z.infer<typeof uploadUrlsResponseSchema>;
+export interface FileUploadRequest {
+  filename: string;
+  mediaType: string;
+  size: number;
+}
+
+export interface FileUploadInfo {
+  /** File ID to reference in messages */
+  id: string;
+  /** Presigned PUT URL for uploading to S3 */
+  uploadUrl: string;
+  /** Presigned GET URL for downloading after upload */
+  downloadUrl: string;
+}
+
+export interface UploadUrlsResponse {
+  files: FileUploadInfo[];
+}
 
 // =============================================================================
 // API
