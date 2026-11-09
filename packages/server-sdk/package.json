@@ -55,6 +55,7 @@
   },
   "dependencies": {
     "@octavus/core": "workspace:^",
+    "@standard-schema/spec": "^1.1.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {

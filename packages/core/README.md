@@ -79,16 +79,21 @@ if (isOtherThread(part)) {
 }
 ```
 
-### Zod Schemas
+### Parsing
 
-Validation schemas for runtime type checking:
+The parse helpers read untrusted input tolerantly:
 
 ```typescript
-import { safeParseStreamEvent, safeParseUIMessage } from '@octavus/core';
+import { safeParseStreamEvent, safeParseUIMessages } from '@octavus/core';
 
 const result = safeParseStreamEvent(data);
-if (result.success) {
-  handleEvent(result.data);
+if (result.kind === 'event') {
+  handleEvent(result.event);
+}
+
+const stored = safeParseUIMessages(json);
+if (stored.success) {
+  render(stored.data);
 }
 ```
 

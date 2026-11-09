@@ -1,7 +1,8 @@
 /**
  * The wire contract: every stream event, UI message part, and request/response
  * shape the platform and the SDKs exchange, defined once as Zod schemas. The
- * TypeScript types in `types.ts` are inferred from these schemas.
+ * TypeScript types in `types.ts` are written out by hand and must equal what
+ * these schemas parse to (`schema-type-checks.ts`).
  *
  * The contract is additive, so the parsers are tolerant: every object keeps
  * the fields it does not know, every enum falls back to a defined value when it
@@ -16,7 +17,15 @@
  */
 
 import { z } from 'zod';
-import type { StreamEvent, UIMessage, UIMessagePart, UIWorkerPart } from './types';
+import type {
+  FileReference,
+  StreamEvent,
+  StreamEventParseResult,
+  UIMessage,
+  UIMessagePart,
+  UIWorkerPart,
+  WireParseResult,
+} from './types';
 
 // =============================================================================
 // Tolerance
@@ -89,9 +98,11 @@ type StripIndexSignature<T> = {
 
 /**
  * The type a wire schema describes, without the index signatures its loose
- * objects infer: the exported types name the known fields only, while the
- * parsers keep whatever else arrives. Applied through arrays and nested
- * objects; a plain record (`Record<string, unknown>`) is left as it is.
+ * objects infer: the known fields only, while the parsers keep whatever else
+ * arrives. It is what the exported types are checked against
+ * (`schema-type-checks.ts`), and what code composing the schemas gets from
+ * them. Applied through arrays and nested objects; a plain record
+ * (`Record<string, unknown>`) is left as it is.
  */
 export type Wire<T> = T extends readonly (infer U)[]
   ? Wire<U>[]
@@ -312,7 +323,6 @@ export const toolInputStartEventSchema = z.looseObject({
   type: z.literal('tool-input-start'),
   toolCallId: z.string(),
   toolName: z.string(),
-  /** The authored title of the tool, when it has one. The label is `title ?? label(toolName)`. */
   title: z.string().optional(),
   display: displayModeSchema.optional(),
   workerId: z.string().optional(),
@@ -403,9 +413,7 @@ export const blockStartEventSchema = z.looseObject({
   blockName: z.string(),
   blockType: z.string(),
   display: displayModeSchema,
-  /** The block's authored title, when it has one. */
   title: z.string().optional(),
-  /** True when the block renders as an operation card. */
   operation: z.boolean().optional(),
   outputToChat: z.boolean().optional(),
   thread: z.string().optional(),
@@ -446,26 +454,10 @@ export const pendingToolCallSchema = z.looseObject({
   toolCallId: z.string(),
   toolName: z.string(),
   args: z.record(z.string(), z.unknown()),
-  /** The call's display mode; what the executor's own output events may reveal. */
   display: displayModeSchema.optional(),
-  /** Thread name where this tool call originated (for workers with threads) */
   thread: z.string().optional(),
-  /** Worker ID if this tool call originated from a worker execution */
   workerId: z.string().optional(),
-  /**
-   * True when this pending call suspends the turn awaiting an external event
-   * (see `ToolSchema.suspend`) rather than a device/client tool execution. The
-   * resident executor must hold the call open and resolve it with the event
-   * delivered by the coordination hub, not reject or execute it locally.
-   */
   suspend: z.boolean().optional(),
-  /**
-   * For a suspending call, the identity of the interaction it awaits (set by
-   * the tool that opened the interaction). The resident executor matches the
-   * events it is handed against it, so an event from an interaction that already
-   * closed never resolves a park waiting on the next one. Absent when the
-   * opening tool declared no identity.
-   */
   interactionId: z.string().optional(),
 });
 
@@ -474,13 +466,7 @@ export const toolResultSchema = z.looseObject({
   toolCallId: z.string(),
   result: z.unknown().optional(),
   error: z.string().optional(),
-  /** Files produced by the tool (e.g., screenshots, generated images). */
   files: z.array(fileReferenceSchema).optional(),
-  /**
-   * True when the executor reduced the result to a preview because it was too
-   * large to send. The platform refuses a reduced result for a call whose
-   * result a `tool-call` block captures into a variable.
-   */
   truncated: z.boolean().optional(),
 });
 
@@ -513,17 +499,14 @@ export const workerStartEventSchema = z.looseObject({
   type: z.literal('worker-start'),
   workerId: z.string(),
   workerSlug: z.string(),
-  /** The worker's authored title, when it has one. */
   title: z.string().optional(),
   display: displayModeSchema.optional(),
-  /** Worker input values; present only when the display mode is `stream`. */
   input: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const workerResultEventSchema = z.looseObject({
   type: z.literal('worker-result'),
   workerId: z.string(),
-  /** The worker's output value; present only when the display mode is `stream`. */
   output: z.unknown().optional(),
   error: z.string().optional(),
   cancelled: z.boolean().optional(),
@@ -658,17 +641,6 @@ const streamEventSchemaByType: ReadonlyMap<string, z.ZodType> = new Map(
   ),
 );
 
-/** An event whose `type` this version of the contract does not know. */
-export type UnknownStreamEvent = Wire<z.infer<typeof unknownStreamEventSchema>>;
-
-export type StreamEventParseResult =
-  /** An event this contract knows, with any extra fields kept. */
-  | { kind: 'event'; event: StreamEvent }
-  /** An event of a type this contract does not know: forward it, or ignore it. */
-  | { kind: 'unknown'; event: UnknownStreamEvent }
-  /** Not an event: no string `type`, or a known type whose fields do not validate. */
-  | { kind: 'invalid'; error: z.ZodError };
-
 /**
  * Parse one stream event tolerantly: a known `type` validates against its
  * schema (keeping unknown fields), an unknown `type` is kept as an unknown
@@ -742,11 +714,8 @@ export const uiToolCallPartSchema = z.looseObject({
   type: z.literal('tool-call'),
   toolCallId: z.string(),
   toolName: z.string(),
-  /** The tool's authored title, when it has one. See `getPartLabel`. */
   title: z.string().optional(),
-  /** The arguments; `{}` unless the display mode is `stream`. */
   args: z.record(z.string(), z.unknown()),
-  /** The result; present only when the display mode is `stream`. */
   result: z.unknown().optional(),
   error: z.string().optional(),
   status: uiToolCallStatusSchema,
@@ -758,11 +727,8 @@ export const uiToolCallPartSchema = z.looseObject({
 export const uiOperationPartSchema = z.looseObject({
   type: z.literal('operation'),
   operationId: z.string(),
-  /** The block's name, as authored in the protocol. */
   name: z.string(),
-  /** The block type, e.g. `generate-image`. */
   operationType: z.string(),
-  /** The block's authored title, when it has one. See `getPartLabel`. */
   title: z.string().optional(),
   display: displayModeSchema.optional(),
   status: uiOperationStatusSchema,
@@ -881,13 +847,10 @@ export const uiWorkerPartObjectSchema = z.looseObject({
   type: uiWorkerPartTypeSchema,
   workerId: z.string(),
   workerSlug: z.string(),
-  /** The worker's authored title, when it has one. See `getPartLabel`. */
   title: z.string().optional(),
   display: displayModeSchema.optional(),
-  /** Worker input values; present only when the display mode is `stream`. */
   input: z.record(z.string(), z.unknown()).optional(),
   parts: z.array(nestedUiMessagePartSchema),
-  /** Worker output value; present only when the display mode is `stream`. */
   output: z.unknown().optional(),
   error: z.string().optional(),
   status: uiWorkerStatusSchema,
@@ -899,6 +862,11 @@ export const uiWorkerPartObjectSchema = z.looseObject({
  * switches on `type` with a `default` branch.
  */
 export const uiWorkerPartSchema = uiWorkerPartObjectSchema as unknown as z.ZodType<UIWorkerPart>;
+
+/** The schema of each part this version of the contract knows; `UIMessagePart` names the same parts. */
+export type KnownUiPartSchema =
+  | (typeof nestedUiPartSchemas)[number]
+  | typeof uiWorkerPartObjectSchema;
 
 /**
  * Every UI message part: the known parts, plus an unknown part for a type this
@@ -920,7 +888,6 @@ export const uiMessageObjectSchema = z.looseObject({
   role: z.enum(['user', 'assistant']),
   parts: z.array(uiMessagePartUnionSchema),
   status: uiMessageStatusSchema,
-  /** When the message was created, as an ISO 8601 timestamp. */
   createdAt: z.string(),
   sender: uiMessageSenderSchema.optional(),
 });
@@ -932,11 +899,11 @@ export const uiMessageObjectSchema = z.looseObject({
  */
 export const uiMessageSchema = uiMessageObjectSchema as unknown as z.ZodType<UIMessage>;
 
-export function safeParseUIMessage(data: unknown) {
+export function safeParseUIMessage(data: unknown): WireParseResult<UIMessage> {
   return uiMessageSchema.safeParse(data);
 }
 
-export function safeParseUIMessages(data: unknown) {
+export function safeParseUIMessages(data: unknown): WireParseResult<UIMessage[]> {
   return z.array(uiMessageSchema).safeParse(data);
 }
 
@@ -947,17 +914,13 @@ export function safeParseUIMessages(data: unknown) {
 /**
  * Type guard to check if a value is a FileReference object.
  */
-export function isFileReference(
-  value: unknown,
-): value is Wire<z.infer<typeof fileReferenceSchema>> {
+export function isFileReference(value: unknown): value is FileReference {
   return fileReferenceSchema.safeParse(value).success;
 }
 
 /**
  * Type guard to check if a value is an array of FileReference objects.
  */
-export function isFileReferenceArray(
-  value: unknown,
-): value is Wire<z.infer<typeof fileReferenceSchema>>[] {
+export function isFileReferenceArray(value: unknown): value is FileReference[] {
   return z.array(fileReferenceSchema).safeParse(value).success;
 }

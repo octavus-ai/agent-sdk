@@ -93,6 +93,9 @@ export type {
   StreamEvent,
   UnknownStreamEvent,
   StreamEventParseResult,
+  WireParseResult,
+  WireParseError,
+  WireParseIssue,
   // UI messages
   UIMessage,
   UIMessageStatus,

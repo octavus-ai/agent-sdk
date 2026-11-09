@@ -1,4 +1,4 @@
-import { type z, toJSONSchema } from 'zod';
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
 import type { DisplayMode, InlineMcpServer, ToolHandler, ToolSchema } from '@octavus/core';
 
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
@@ -9,9 +9,17 @@ const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
  */
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
+/**
+ * A schema an inline MCP tool takes: one that validates values (Standard
+ * Schema) and converts itself to JSON Schema (Standard JSON Schema), as every
+ * Zod schema does from zod 4.2. The SDK calls the schema's own methods, so it
+ * never depends on the consumer's copy or version of the schema library.
+ */
+type InlineMcpToolSchema = StandardSchemaV1 & StandardJSONSchemaV1;
+
 interface InlineMcpToolDefinition<
-  T extends z.ZodType = z.ZodType,
-  O extends z.ZodType = z.ZodType,
+  T extends InlineMcpToolSchema = InlineMcpToolSchema,
+  O extends InlineMcpToolSchema = InlineMcpToolSchema,
 > {
   description: string;
   /**
@@ -27,7 +35,8 @@ interface InlineMcpToolDefinition<
   display?: DisplayMode;
   parameters: T;
   output?: O;
-  handler: (args: z.infer<T>) => Promise<z.infer<O>>;
+  /** A method, so a tools record can hold tools whose arguments differ. */
+  handler(args: StandardSchemaV1.InferOutput<T>): Promise<StandardSchemaV1.InferOutput<O>>;
 }
 
 interface InlineMcpServerConfig {
@@ -50,11 +59,40 @@ function validateToolName(toolName: string, namespace: string): void {
   }
 }
 
-function formatZodIssues(error: z.ZodError): string {
-  return error.issues
+function isInlineMcpToolSchema(value: unknown): value is InlineMcpToolSchema {
+  if ((typeof value !== 'object' && typeof value !== 'function') || value === null) return false;
+  if (!('~standard' in value)) return false;
+  const standard = value['~standard'] as Partial<InlineMcpToolSchema['~standard']> | undefined;
+  return (
+    typeof standard?.validate === 'function' && typeof standard.jsonSchema?.output === 'function'
+  );
+}
+
+/**
+ * Converts on the output side, the shape the handler receives: a defaulted
+ * field stays required and `additionalProperties: false` is kept, both of
+ * which the input side would lose.
+ */
+function toolJsonSchema(
+  schema: unknown,
+  field: 'parameters' | 'output',
+  namespacedName: string,
+): Record<string, unknown> {
+  if (!isInlineMcpToolSchema(schema)) {
+    throw new Error(
+      `Invalid ${field} schema for MCP tool "${namespacedName}". Must implement Standard JSON Schema, as Zod schemas do from zod 4.2.`,
+    );
+  }
+  return schema['~standard'].jsonSchema.output({ target: 'draft-2020-12' });
+}
+
+function formatIssues(issues: readonly StandardSchemaV1.Issue[]): string {
+  return issues
     .map((issue) => {
-      const path = issue.path.length > 0 ? issue.path.join('.') : '<root>';
-      return `${path}: ${issue.message}`;
+      const path = (issue.path ?? []).map((segment) =>
+        String(typeof segment === 'object' ? segment.key : segment),
+      );
+      return `${path.length > 0 ? path.join('.') : '<root>'}: ${issue.message}`;
     })
     .join('; ');
 }
@@ -63,16 +101,19 @@ function formatZodIssues(error: z.ZodError): string {
  * Define a single inline MCP tool with type-safe handler arguments.
  *
  * Wrapping each tool in `defineInlineMcpTool()` is what gives the handler
- * its inferred argument type from the Zod schema. Without this wrapper,
+ * its inferred argument type from the schema. Without this wrapper,
  * TypeScript collapses the per-tool generic when the tools are placed in
  * a record literal, leaving `args` typed as `unknown`.
  *
- * Optionally pass an `output` Zod schema to declare the tool's return shape.
+ * `parameters` and `output` take any schema that implements Standard JSON
+ * Schema, such as a Zod schema (zod 4.2 or newer).
+ *
+ * Optionally pass an `output` schema to declare the tool's return shape.
  * When set, the schema is forwarded to the LLM as `outputSchema` (used by
  * providers that support structured tool outputs, e.g. OpenAI strict mode)
  * and handler return values are validated at runtime - a handler that
- * returns a malformed result throws before reaching the LLM. Omitting
- * `output` preserves the previous unconstrained-return behavior.
+ * returns a malformed result throws before reaching the LLM. Without
+ * `output`, the return value is unconstrained.
  *
  * @example
  * ```typescript
@@ -97,30 +138,31 @@ function formatZodIssues(error: z.ZodError): string {
  * });
  * ```
  */
-export function defineInlineMcpTool<T extends z.ZodType, O extends z.ZodType = z.ZodType>(
-  def: InlineMcpToolDefinition<T, O>,
-): InlineMcpToolDefinition<T, O> {
+export function defineInlineMcpTool<
+  T extends InlineMcpToolSchema,
+  O extends InlineMcpToolSchema = InlineMcpToolSchema,
+>(def: InlineMcpToolDefinition<T, O>): InlineMcpToolDefinition<T, O> {
   return def;
 }
 
 /**
- * Create an inline MCP server with Zod-typed tools.
+ * Create an inline MCP server from typed tool definitions.
  *
  * Tools are namespaced with `namespace__toolName` and execute in the consumer's
- * process via the tool-request/continue pattern. Zod schemas are converted to
- * JSON Schema once at creation time.
+ * process via the tool-request/continue pattern. Each tool's schemas are
+ * converted to JSON Schema once at creation time.
  *
  * Note on naming: the protocol declares these MCP servers with `source: consumer`
- * (the consumer owns the integration). "Inline" refers to where execution happens
- * (in-process via the consumer's SDK), distinguishing this from a future
- * `createRemoteMcpServer()` where the consumer hosts an HTTP MCP endpoint.
+ * (the consumer owns the integration). "Inline" refers to where execution happens:
+ * in-process, via the consumer's SDK, rather than at an HTTP MCP endpoint the
+ * consumer hosts.
  *
  * Wrap each tool entry in `defineInlineMcpTool()` so the handler argument types
- * are inferred from the Zod schema. Without the wrapper TypeScript collapses
+ * are inferred from the schema. Without the wrapper TypeScript collapses
  * the per-tool generic and `args` ends up typed as `unknown`.
  *
  * @param namespace - Unique namespace for this MCP server (e.g., 'github', 'gong')
- * @param config - Tool definitions with Zod schemas and handlers
+ * @param config - Tool definitions with their schemas and handlers
  *
  * @example
  * ```typescript
@@ -158,9 +200,9 @@ export function createInlineMcpServer(
     validateToolName(toolName, namespace);
     const namespacedName = `${namespace}__${toolName}`;
 
-    const inputJsonSchema = toJSONSchema(def.parameters) as Record<string, unknown>;
+    const inputJsonSchema = toolJsonSchema(def.parameters, 'parameters', namespacedName);
     const outputJsonSchema = def.output
-      ? (toJSONSchema(def.output) as Record<string, unknown>)
+      ? toolJsonSchema(def.output, 'output', namespacedName)
       : undefined;
 
     schemas.push({
@@ -172,24 +214,23 @@ export function createInlineMcpServer(
       ...(def.display !== undefined ? { display: def.display } : {}),
     });
 
-    const zodSchema = def.parameters;
-    const outputZodSchema = def.output;
+    const { parameters, output } = def;
     handlers[namespacedName] = async (args: Record<string, unknown>) => {
-      const parsed = zodSchema.safeParse(args);
-      if (!parsed.success) {
+      const parsed = await parameters['~standard'].validate(args);
+      if (parsed.issues) {
         throw new Error(
-          `Invalid arguments for "${namespacedName}": ${formatZodIssues(parsed.error)}`,
+          `Invalid arguments for "${namespacedName}": ${formatIssues(parsed.issues)}`,
         );
       }
-      const result = await def.handler(parsed.data);
-      if (outputZodSchema) {
-        const validated = outputZodSchema.safeParse(result);
-        if (!validated.success) {
+      const result = await def.handler(parsed.value);
+      if (output) {
+        const validated = await output['~standard'].validate(result);
+        if (validated.issues) {
           throw new Error(
-            `Invalid output from "${namespacedName}": ${formatZodIssues(validated.error)}`,
+            `Invalid output from "${namespacedName}": ${formatIssues(validated.issues)}`,
           );
         }
-        return validated.data;
+        return validated.value;
       }
       return result;
     };

@@ -58,7 +58,7 @@ export const agentValidationResultSchema = z.looseObject({
 // ---------------------------------------------------------------------------
 
 /** Agent format - interactive (chat) or worker (background task) */
-export type AgentFormat = z.infer<typeof agentFormatSchema>;
+export type AgentFormat = 'interactive' | 'worker';
 
 /** Agent prompt */
 export interface AgentPrompt {

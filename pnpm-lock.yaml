@@ -112,6 +112,10 @@ importers:
         version: 5.9.3
 
   packages/core:
+    dependencies:
+      zod:
+        specifier: ^4.3.5
+        version: 4.3.5
     devDependencies:
       tsup:
         specifier: ^8.3.5
@@ -119,9 +123,6 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
-      zod:
-        specifier: ^4.3.5
-        version: 4.3.5
 
   packages/docs:
     dependencies:
@@ -169,6 +170,9 @@ importers:
       '@octavus/core':
         specifier: workspace:^
         version: link:../core
+      '@standard-schema/spec':
+        specifier: ^1.1.0
+        version: 1.1.0
       zod:
         specifier: ^4.3.5
         version: 4.3.5
@@ -569,6 +573,9 @@ packages:
     resolution: {integrity: sha512-xNO+fksQhsAckRtDSPWaMeT1uIM+JrDRXlerpnWNXhn1TdB3YZ6uKBMBTKP0eX9XtYEP978hHk1f8332i2AW8Q==}
     cpu: [x64]
     os: [win32]
+
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -2248,6 +2255,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.55.2':
     optional: true
+
+  '@standard-schema/spec@1.1.0': {}
 
   '@tybys/wasm-util@0.10.1':
     dependencies:

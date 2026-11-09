@@ -52,7 +52,7 @@ const executionLogsResponseSchema = z.looseObject({
 // ---------------------------------------------------------------------------
 
 /** Whether the platform still holds the session's state. */
-export type SessionStatus = z.infer<typeof sessionStatusSchema>;
+export type SessionStatus = 'active' | 'expired';
 
 /**
  * A session: its agent, when it was created, and whether its state is still

@@ -187,6 +187,9 @@ export type {
   StreamEvent,
   UnknownStreamEvent,
   StreamEventParseResult,
+  WireParseResult,
+  WireParseError,
+  WireParseIssue,
   // UI Message Types (for client SDK and consumer apps)
   UIMessageStatus,
   UIPartStatus,

@@ -5,23 +5,9 @@ import { BaseApiClient } from '@/base-api-client.js';
 // Schemas
 // =============================================================================
 
-/**
- * Schema for a mint request. `agentId` is required (ephemeral tokens are always
- * agent-bound); `sessionId` narrows to a single session (the tightest scope);
- * `ttlSeconds` requests a lifetime, clamped server-side to a maximum.
- */
-export const mintTokenRequestSchema = z.object({
-  agentId: z.string().min(1),
-  sessionId: z.string().min(1).optional(),
-  ttlSeconds: z.number().int().positive().optional(),
-});
-
 export const mintTokenResponseSchema = z.looseObject({
-  /** The scoped, short-lived bearer token (an `oct_et_*` string). */
   token: z.string(),
-  /** Unique token id, usable to revoke it early. */
   jti: z.string(),
-  /** ISO-8601 expiry. */
   expiresAt: z.string(),
 });
 
@@ -29,8 +15,25 @@ export const mintTokenResponseSchema = z.looseObject({
 // Types
 // =============================================================================
 
-export type MintTokenRequest = z.infer<typeof mintTokenRequestSchema>;
-export type MintTokenResponse = z.infer<typeof mintTokenResponseSchema>;
+/**
+ * A mint request. `agentId` is required (ephemeral tokens are always
+ * agent-bound); `sessionId` narrows to a single session (the tightest scope);
+ * `ttlSeconds` requests a lifetime, clamped server-side to a maximum.
+ */
+export interface MintTokenRequest {
+  agentId: string;
+  sessionId?: string;
+  ttlSeconds?: number;
+}
+
+export interface MintTokenResponse {
+  /** The scoped, short-lived bearer token (an `oct_et_*` string). */
+  token: string;
+  /** Unique token id, usable to revoke it early. */
+  jti: string;
+  /** ISO-8601 expiry. */
+  expiresAt: string;
+}
 
 // =============================================================================
 // API
