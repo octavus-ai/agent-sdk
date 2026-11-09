@@ -119,6 +119,12 @@ export interface StreamExecutionConfig {
    * known.
    */
   url: (leg: { executionId?: string }) => string;
+  /**
+   * Extra request headers for a leg, merged over the client's own. Resolved
+   * on every POST like `url`, so a header that belongs to one leg only (the
+   * idempotency key of a deferred start's first leg) is sent on that leg alone.
+   */
+  headers?: (leg: { executionId?: string }) => Record<string, string> | undefined;
   /** Build the request body for this execution */
   buildBody: (state: {
     executionId?: string;
@@ -325,7 +331,10 @@ export async function* executeStream(
         try {
           response = await fetch(config.url({ executionId }), {
             method: 'POST',
-            headers: await config.config.getHeaders(),
+            headers: {
+              ...(await config.config.getHeaders()),
+              ...config.headers?.({ executionId }),
+            },
             body: JSON.stringify(body),
             signal: attemptController.signal,
           });

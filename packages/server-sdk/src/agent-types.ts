@@ -7,13 +7,6 @@ import type { OctavusError } from '@octavus/core';
 
 export const agentFormatSchema = z.enum(['interactive', 'worker']);
 
-const agentSettingsSchema = z.looseObject({
-  slug: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  format: agentFormatSchema,
-});
-
 const agentPromptSchema = z.looseObject({
   name: z.string(),
   content: z.string(),
@@ -27,26 +20,24 @@ const agentReferenceSchema = z.looseObject({
 });
 
 export const agentSchema = z.looseObject({
-  slug: z.string(),
   id: z.string(),
+  slug: z.string(),
   name: z.string(),
   description: z.string().nullable(),
   format: agentFormatSchema,
+  projectId: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
-  projectId: z.string(),
 });
 
 export const agentsResponseSchema = z.looseObject({
   agents: z.array(agentSchema),
 });
 
-export const agentDefinitionSchema = z.looseObject({
-  settings: agentSettingsSchema,
+export const agentDefinitionSchema = agentSchema.extend({
   protocol: z.string(),
   prompts: z.array(agentPromptSchema),
   references: z.array(agentReferenceSchema),
-  id: z.string(),
 });
 
 export const validationIssueSchema = z.looseObject({
@@ -69,14 +60,6 @@ export const agentValidationResultSchema = z.looseObject({
 /** Agent format - interactive (chat) or worker (background task) */
 export type AgentFormat = z.infer<typeof agentFormatSchema>;
 
-/** Agent settings */
-export interface AgentSettings {
-  slug: string;
-  name: string;
-  description?: string;
-  format: AgentFormat;
-}
-
 /** Agent prompt */
 export interface AgentPrompt {
   name: string;
@@ -93,48 +76,47 @@ export interface AgentReference {
   content: string;
 }
 
-/** Agent summary returned from the list endpoint */
+/** An agent as the list returns it: the agent without its definition. */
 export interface Agent {
-  /** Agent slug (human-readable identifier within project) */
-  slug: string;
   /** Agent ID - use this for API calls */
   id: string;
+  /** Agent slug (human-readable identifier within project) */
+  slug: string;
   name: string;
   description: string | null;
   format: AgentFormat;
+  projectId: string;
   createdAt: string;
   updatedAt: string;
-  projectId: string;
 }
 
-/** Full agent definition returned from the get, create, update, and archive endpoints */
-export interface AgentDefinition {
-  settings: AgentSettings;
+/** An agent as get, create, update, and archive return it: the agent with its definition. */
+export interface AgentDefinition extends Agent {
   protocol: string;
   prompts: AgentPrompt[];
   references: AgentReference[];
-  /** Agent ID - use this for API calls like createSession */
-  id: string;
 }
 
 /** A whole agent definition, as `create()` and `validate()` take it. */
 export interface AgentDefinitionInput {
-  settings: AgentSettings;
+  slug: string;
+  name: string;
+  description?: string;
+  format: AgentFormat;
   protocol: string;
   prompts: AgentPrompt[];
   references?: AgentReference[];
 }
 
 /**
- * A partial update of an agent: what is left out keeps its current value. The
- * slug is the agent's identity and is not updated here.
+ * A partial update of an agent: what is left out keeps its current value, and
+ * `description: null` clears it. The slug is the agent's identity and is not
+ * updated here.
  */
 export interface AgentUpdateInput {
-  settings?: {
-    name: string;
-    description?: string | null;
-    format: AgentFormat;
-  };
+  name?: string;
+  description?: string | null;
+  format?: AgentFormat;
   protocol?: string;
   prompts?: AgentPrompt[];
   references?: AgentReference[];
@@ -145,7 +127,7 @@ export interface ValidationIssue {
   message: string;
   path?: string;
   severity: 'error' | 'warning' | 'info';
-  /** The stable diagnostic code (`DISPLAY_MODE_REMOVED`, `UNDEFINED_SKILL`, ...). */
+  /** The stable diagnostic code (`UNDEFINED_SKILL`, `MODEL_NOT_SUPPORTED`, `MISSING_DISPLAY_TITLE`, ...). */
   code?: string;
   suggestions?: string[];
 }

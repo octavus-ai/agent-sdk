@@ -79,15 +79,15 @@ Every error, on every endpoint, is one flat body:
 }
 ```
 
-| Field        | Description                                                                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `error`      | A readable message                                                                                                                          |
-| `code`       | The stable machine-readable code (`NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_PROTOCOL`, `UNKNOWN_TOOL_CALL`, `AGENT_BUSY`, ...)              |
-| `type`       | The classification, the same vocabulary as a stream `error` event's `errorType` (`validation_error`, `not_found_error`, `rate_limit_error`) |
-| `retryable`  | Whether the same request can succeed if retried                                                                                             |
-| `requestId`  | The request's ID, an opaque string; quote it when contacting support                                                                        |
-| `issues`     | Present on a validation failure (`400`) or an invalid agent definition (`422`): the structured issues                                       |
-| `retryAfter` | Present on a `429` or `503`: seconds to wait, also sent as the `Retry-After` header                                                         |
+| Field        | Description                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error`      | A readable message                                                                                                                                |
+| `code`       | The stable machine-readable code (`NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_PROTOCOL`, `UNKNOWN_TOOL_CALL`, `SESSION_EXPIRED`, `AGENT_BUSY`, ...) |
+| `type`       | The classification, the same vocabulary as a stream `error` event's `errorType` (`validation_error`, `not_found_error`, `rate_limit_error`)       |
+| `retryable`  | Whether the same request can succeed if retried                                                                                                   |
+| `requestId`  | The request's ID, an opaque string; quote it when contacting support                                                                              |
+| `issues`     | Present on a validation failure (`400`) or an invalid agent definition (`422`): the structured issues                                             |
+| `retryAfter` | Present on a `429` or `503`: seconds to wait, also sent as the `Retry-After` header                                                               |
 
 An endpoint may add fields that describe the error's data (a `409 AGENT_BUSY` names the thread holding the agent). Unknown fields are to be ignored.
 
@@ -97,21 +97,21 @@ Every response, success or error, carries the request's ID in the `Request-Id` h
 
 ## HTTP Status Codes
 
-| Code | Description                                                         |
-| ---- | ------------------------------------------------------------------- |
-| 200  | Success                                                             |
-| 201  | Created                                                             |
-| 400  | Bad Request - Invalid parameters (`issues` lists them)              |
-| 401  | Unauthorized - Missing or invalid API key                           |
-| 402  | Payment Required - A plan limit was reached                         |
-| 403  | Forbidden - Insufficient permissions                                |
-| 404  | Not Found                                                           |
-| 409  | Conflict - The state does not allow the request (a busy agent)      |
-| 422  | Unprocessable - The agent definition is invalid (`issues` says why) |
-| 426  | Upgrade Required - This client version is no longer supported       |
-| 429  | Too Many Requests - Honor `Retry-After`                             |
-| 500  | Internal Server Error                                               |
-| 503  | Service Unavailable - Honor `Retry-After`                           |
+| Code | Description                                                                                               |
+| ---- | --------------------------------------------------------------------------------------------------------- |
+| 200  | Success                                                                                                   |
+| 201  | Created                                                                                                   |
+| 400  | Bad Request - Invalid parameters (`issues` lists them)                                                    |
+| 401  | Unauthorized - Missing or invalid API key                                                                 |
+| 402  | Payment Required - A plan limit was reached                                                               |
+| 403  | Forbidden - Insufficient permissions                                                                      |
+| 404  | Not Found                                                                                                 |
+| 409  | Conflict - The state does not allow the request (an expired session, a busy agent)                        |
+| 422  | Unprocessable - The agent definition is invalid (`issues` says why)                                       |
+| 426  | Upgrade Required - The path prefix is no longer served (see [Versioning](/docs/api-reference/versioning)) |
+| 429  | Too Many Requests - Honor `Retry-After`                                                                   |
+| 500  | Internal Server Error                                                                                     |
+| 503  | Service Unavailable - Honor `Retry-After`                                                                 |
 
 ## Service Status
 
@@ -126,9 +126,9 @@ Current status, active incidents, planned maintenance, and incident history are 
 | POST   | `/api/v1/sessions`                                      | Create a session                                 |
 | POST   | `/api/v1/sessions/start`                                | Create a session and run its first trigger (SSE) |
 | GET    | `/api/v1/sessions/:id`                                  | Get a session (`active` or `expired`)            |
-| DELETE | `/api/v1/sessions/:id`                                  | Clear a session's state                          |
+| POST   | `/api/v1/sessions/:id/clear`                            | Clear a session's state (it becomes `expired`)   |
 | GET    | `/api/v1/sessions/:id/ui-messages`                      | The conversation as UI messages                  |
-| POST   | `/api/v1/sessions/:id/trigger`                          | Run a trigger (SSE)                              |
+| POST   | `/api/v1/sessions/:id/executions`                       | Start an execution: run a trigger (SSE)          |
 | POST   | `/api/v1/sessions/:id/executions/:executionId/continue` | Continue a paused execution (SSE)                |
 | POST   | `/api/v1/sessions/:id/restore`                          | Restore an expired session from stored messages  |
 | GET    | `/api/v1/sessions/:id/logs`                             | The execution log                                |
@@ -153,7 +153,7 @@ Current status, active incidents, planned maintenance, and incident history are 
 | Method | Endpoint                     | Description                                        |
 | ------ | ---------------------------- | -------------------------------------------------- |
 | POST   | `/api/v1/skills`             | Upload a skill bundle (create or update the skill) |
-| PUT    | `/api/v1/skills/:id/secrets` | Set a skill's secrets                              |
+| PATCH  | `/api/v1/skills/:id/secrets` | Set some of a skill's secrets                      |
 
 ### Tokens
 
@@ -176,13 +176,13 @@ The [Workforce API](/docs/workforce-agents/api-reference) (`/api/v1/workforce/..
 
 ## Streaming
 
-The trigger endpoint returns Server-Sent Events (SSE):
+The execution endpoints return Server-Sent Events (SSE):
 
 ```bash
 curl -N -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"triggerName": "user-message", "input": {"USER_MESSAGE": "Hello"}}' \
-  https://octavus.ai/api/v1/sessions/SESSION_ID/trigger
+  https://octavus.ai/api/v1/sessions/SESSION_ID/executions
 ```
 
 Response format:

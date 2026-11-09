@@ -45,6 +45,6 @@ If you read the wire yourself, follow the same rules.
 
 Every error is the one [error body](/docs/api-reference/overview#error-response): `error`, `code`, `type`, `retryable`, `requestId`, plus `issues` and `retryAfter` when they apply. The `code` set and the `type` set grow; neither shrinks. Every response carries `Request-Id`, and a stream `error` event the platform raises carries the same `requestId`. The SDK surfaces both as `OctavusError`.
 
-## Unsupported clients
+## Retired prefixes
 
-A client version the platform no longer serves is answered with `426` (type `unsupported_error`); on a stream, the same arrives as an `error` event with `errorType: 'unsupported_error'`. Treat it as a prompt to update, not as a transient failure.
+Nothing a request carries identifies the SDK or its version: the path prefix is the only thing the platform reads. When a prefix is eventually retired, every request to it is answered with `426` (type `unsupported_error`, not retryable), and on a stream the same arrives as an `error` event with `errorType: 'unsupported_error'`. Treat it as a prompt to move to the current prefix, not as a transient failure. `v1` is the current prefix and keeps being served after a `v2` exists.

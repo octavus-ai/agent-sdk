@@ -146,8 +146,10 @@ export interface DeferredStartConfig {
   /** Immutable session input, captured at the moment of the first trigger. */
   input?: Record<string, unknown>;
   /**
-   * Idempotency key so a transient retry of the first request resolves to the
-   * same session instead of creating a duplicate. Auto-generated when omitted.
+   * Idempotency key, sent as the `Idempotency-Key` header of the first request
+   * (the one that creates the session), so a transient retry of it resolves to
+   * the same session instead of creating a duplicate. Auto-generated when
+   * omitted.
    */
   idempotencyKey?: string;
   /**
@@ -398,17 +400,26 @@ export class AgentSession {
         config: this.config,
         getToolHandlers: () => this.toolHandlers,
         // Resolved on each POST: a continuation (a tool round, or the resume
-        // of a yielded leg) posts to the execution it continues; a trigger to
-        // the session; the first leg of a deferred start to the
-        // create-and-trigger endpoint, before a session exists.
+        // of a yielded leg) posts to the execution it continues; a trigger
+        // starts an execution on the session; the first leg of a deferred
+        // start posts to the create-and-trigger endpoint, before a session
+        // exists.
         url: ({ executionId }) => {
           if (executionId && this.sessionId) {
             return `${this.config.baseUrl}/api/v1/sessions/${this.sessionId}/executions/${executionId}/continue`;
           }
           return this.sessionId
-            ? `${this.config.baseUrl}/api/v1/sessions/${this.sessionId}/trigger`
+            ? `${this.config.baseUrl}/api/v1/sessions/${this.sessionId}/executions`
             : `${this.config.baseUrl}/api/v1/sessions/start`;
         },
+        // The idempotency key rides on the first leg of a deferred start, the
+        // one request that creates the session.
+        headers: ({ executionId }) =>
+          this.idempotencyKey !== undefined &&
+          this.sessionId === undefined &&
+          executionId === undefined
+            ? { 'Idempotency-Key': this.idempotencyKey }
+            : undefined,
         buildBody: ({ executionId, toolResults }) =>
           this.buildRequestBody(payload, executionId, toolResults),
         onResponse: this.deferredStart
@@ -461,7 +472,6 @@ export class AgentSession {
 
       const body: Record<string, unknown> = { agentId: this.deferredStart.agentId, trigger };
       if (this.deferredStart.input !== undefined) body.input = this.deferredStart.input;
-      if (this.idempotencyKey !== undefined) body.idempotencyKey = this.idempotencyKey;
       return body;
     }
 
@@ -479,7 +489,7 @@ export class AgentSession {
   /**
    * Latch the server-assigned session id for a deferred start so continuations
    * and later triggers target the per-session endpoint, firing `onSessionCreated`
-   * exactly once. The id reaches us on two channels: the `X-Octavus-Session-Id`
+   * exactly once. The id reaches us on two channels: the `Octavus-Session-Id`
    * response header (read before the body, so it wins in the normal HTTP case)
    * and the first `start` event's `sessionId` (a fallback for when the header is
    * unavailable). Whichever arrives first latches; the guard makes the other a
@@ -493,7 +503,7 @@ export class AgentSession {
 
   private latchSessionIdFromHeader(response: Response): void {
     if (this.sessionId) return;
-    const id = response.headers.get('X-Octavus-Session-Id');
+    const id = response.headers.get('Octavus-Session-Id');
     if (id) this.latchSessionId(id);
   }
 

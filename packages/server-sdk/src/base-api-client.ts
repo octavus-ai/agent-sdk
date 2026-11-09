@@ -90,15 +90,6 @@ export abstract class BaseApiClient {
     return await this.readJson(response, schema);
   }
 
-  protected async httpPut<T>(path: string, body: unknown, schema: ZodType<T>): Promise<T> {
-    const response = await fetch(this.url(path), {
-      method: 'PUT',
-      headers: await this.config.getHeaders(),
-      body: JSON.stringify(body),
-    });
-    return await this.readJson(response, schema);
-  }
-
   protected async httpDelete<T>(path: string, schema: ZodType<T>): Promise<T> {
     const response = await fetch(this.url(path), {
       method: 'DELETE',

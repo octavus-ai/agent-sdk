@@ -41,21 +41,21 @@ const { error, status } = useOctavusChat({
 
 ### Error Types
 
-| Type                   | Description           | Typical Response    |
-| ---------------------- | --------------------- | ------------------- |
-| `rate_limit_error`     | Too many requests     | Show retry timer    |
-| `quota_exceeded_error` | Usage quota exceeded  | Show upgrade prompt |
-| `authentication_error` | Invalid API key       | Check configuration |
-| `permission_error`     | No access to resource | Check permissions   |
-| `validation_error`     | Invalid request       | Fix request data    |
-| `not_found_error`      | Unknown session/agent | Start over          |
-| `conflict_error`       | State refuses request | Wait or reload      |
-| `provider_error`       | LLM provider issue    | Retry or show error |
-| `provider_overloaded`  | Provider at capacity  | Retry with backoff  |
-| `provider_timeout`     | Provider timed out    | Retry               |
-| `tool_error`           | Tool execution failed | Show tool error     |
-| `unsupported_error`    | Client too old        | Prompt an update    |
-| `internal_error`       | Platform error        | Show generic error  |
+| Type                   | Description           | Typical Response                            |
+| ---------------------- | --------------------- | ------------------------------------------- |
+| `rate_limit_error`     | Too many requests     | Show retry timer                            |
+| `quota_exceeded_error` | Usage quota exceeded  | Show upgrade prompt                         |
+| `authentication_error` | Invalid API key       | Check configuration                         |
+| `permission_error`     | No access to resource | Check permissions                           |
+| `validation_error`     | Invalid request       | Fix request data                            |
+| `not_found_error`      | Unknown session/agent | Start over                                  |
+| `conflict_error`       | State refuses request | Wait, reload, or restore an expired session |
+| `provider_error`       | LLM provider issue    | Retry or show error                         |
+| `provider_overloaded`  | Provider at capacity  | Retry with backoff                          |
+| `provider_timeout`     | Provider timed out    | Retry                                       |
+| `tool_error`           | Tool execution failed | Show tool error                             |
+| `unsupported_error`    | Retired API prefix    | Update the client                           |
+| `internal_error`       | Platform error        | Show generic error                          |
 
 The list grows over time; a value this version does not know is read as `unknown_error`.
 

@@ -42,22 +42,22 @@ async function runValidate(agentPath: string, options: ValidateOptions): Promise
   const definition = await readAgentDefinition(agentPath);
 
   if (!options.quiet && !options.json) {
-    output.info(`Validating ${output.bold(definition.settings.slug)}...`);
+    output.info(`Validating ${output.bold(definition.slug)}...`);
   }
 
   const result = await client.agents.validate(definition);
 
   if (options.json) {
     output.json({
-      slug: definition.settings.slug,
+      slug: definition.slug,
       valid: result.valid,
       issues: result.issues,
     });
   } else {
     if (result.valid) {
-      output.success(`Agent ${output.bold(definition.settings.slug)} is valid`);
+      output.success(`Agent ${output.bold(definition.slug)} is valid`);
     } else {
-      output.error(`Agent ${output.bold(definition.settings.slug)} has validation errors`);
+      output.error(`Agent ${output.bold(definition.slug)} has validation errors`);
     }
 
     renderIssues(result.issues);
