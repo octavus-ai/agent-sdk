@@ -110,8 +110,10 @@ export interface StartSessionOptions extends SessionAttachOptions {
   /** Immutable session input, captured at the first trigger (not at this call). */
   input?: Record<string, unknown>;
   /**
-   * Idempotency key so a transient retry of the first request resolves to the
-   * same session instead of creating a duplicate. Auto-generated if omitted.
+   * Idempotency key, sent as the `Idempotency-Key` header of the request that
+   * creates the session, so a transient retry of it resolves to the same
+   * session instead of creating a duplicate. 1-255 printable ASCII characters
+   * with no spaces; auto-generated if omitted.
    */
   idempotencyKey?: string;
   /**
@@ -183,11 +185,11 @@ export class SessionsApi extends BaseApiClient {
 
   /**
    * Clear the session's state from the server. The session becomes `expired`
-   * and can be restored with `restoreFromUiMessages()`. Idempotent: succeeds when the state
-   * was already gone.
+   * and can be restored with `restoreFromUiMessages()`. Idempotent: succeeds
+   * when the state was already gone.
    */
   async clear(sessionId: string): Promise<Session> {
-    return await this.httpDelete(`/api/v1/sessions/${sessionId}`, sessionSchema);
+    return await this.httpPost(`/api/v1/sessions/${sessionId}/clear`, {}, sessionSchema);
   }
 
   /**

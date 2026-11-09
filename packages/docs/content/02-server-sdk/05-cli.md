@@ -82,6 +82,8 @@ Each project has its own agents, so you'll get different agent IDs per environme
 
 Sync an agent definition to the platform. Creates the agent if it doesn't exist, or updates it if it does. Either way the whole definition is validated on the platform - schema, semantic rules, and the skills, workers, MCP servers, and models it references - so a sync never deploys an agent the web editor would refuse; a definition with errors fails the command and changes nothing.
 
+The directory is the whole definition: after a sync the agent has exactly the prompts, references, and `settings.json` fields the directory has, so a prompt file you delete, a reference you remove, or a `description` you drop from `settings.json` is removed from the agent too. Only the slug stays put, as the agent's identity.
+
 ```bash
 octavus sync ./agents/my-agent
 ```

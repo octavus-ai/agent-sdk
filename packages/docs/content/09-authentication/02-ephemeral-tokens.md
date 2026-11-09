@@ -51,7 +51,7 @@ Or call the API directly:
 curl -N -H "Authorization: Bearer oct_et_..." \
   -H "Content-Type: application/json" \
   -d '{"triggerName":"user-message","input":{"USER_MESSAGE":"Hello"}}' \
-  https://octavus.ai/api/v1/sessions/SESSION_ID/trigger
+  https://octavus.ai/api/v1/sessions/SESSION_ID/executions
 ```
 
 ## Lifetime and scope rules

@@ -64,3 +64,11 @@ export const EXECUTION_NOT_RESUMABLE_CODE = 'EXECUTION_NOT_RESUMABLE';
  * call the execution did not request. Returned with HTTP 400.
  */
 export const UNKNOWN_TOOL_CALL_CODE = 'UNKNOWN_TOOL_CALL';
+
+/**
+ * The platform's error code for an operation that needs a session's live state
+ * (a new execution, an upload) on a session whose state has expired or been
+ * cleared. Returned with HTTP 409: the session exists and reads `expired`;
+ * restore it from the messages you stored, or start a new one.
+ */
+export const SESSION_EXPIRED_CODE = 'SESSION_EXPIRED';

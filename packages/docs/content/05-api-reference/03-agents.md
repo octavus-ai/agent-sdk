@@ -26,17 +26,18 @@ Read endpoints work with either permission since both the CLI (for sync) and Ser
 
 ## The agent resource
 
-Every endpoint that reads, creates, or changes an agent returns its definition:
+Every endpoint that reads, creates, or changes an agent returns the agent, one flat object: its fields, then its definition (the protocol, the prompts, and the references). The list returns the same object without the definition.
 
 ```json
 {
   "id": "cm5xvz7k80001abcd",
-  "settings": {
-    "slug": "support-chat",
-    "name": "Support Chat",
-    "description": "Customer support agent",
-    "format": "interactive"
-  },
+  "slug": "support-chat",
+  "name": "Support Chat",
+  "description": "Customer support agent",
+  "format": "interactive",
+  "projectId": "cm5xvz7k80000proj",
+  "createdAt": "2024-01-10T08:00:00.000Z",
+  "updatedAt": "2024-01-15T10:00:00.000Z",
   "protocol": "input:\n  COMPANY_NAME: { type: string }\n...",
   "prompts": [
     {
@@ -61,7 +62,7 @@ Every endpoint that reads, creates, or changes an agent returns its definition:
 
 ## List Agents
 
-Get the project's agents, newest first.
+Get the project's agents, newest first: each is the [agent](#the-agent-resource) without its `protocol`, `prompts`, and `references`.
 
 ```
 GET /api/v1/agents
@@ -85,9 +86,9 @@ GET /api/v1/agents?slug=support-chat
       "name": "Support Chat",
       "description": "Customer support agent",
       "format": "interactive",
-      "createdAt": "2024-01-10T08:00:00Z",
-      "updatedAt": "2024-01-15T10:00:00Z",
-      "projectId": "cm5xvz7k80000proj"
+      "projectId": "cm5xvz7k80000proj",
+      "createdAt": "2024-01-10T08:00:00.000Z",
+      "updatedAt": "2024-01-15T10:00:00.000Z"
     }
   ]
 }
@@ -131,7 +132,7 @@ POST /api/v1/agents/validate
 
 ### Request Body
 
-The same shape as [Create Agent](#create-agent) (`settings`, `protocol`, `prompts`, optional `references`).
+The same shape as [Create Agent](#create-agent) (`slug`, `name`, optional `description`, `format`, `protocol`, `prompts`, optional `references`).
 
 ### Response
 
@@ -155,7 +156,7 @@ The same shape as [Create Agent](#create-agent) (`settings`, `protocol`, `prompt
 | `valid`  | boolean | `true` when no issue is an error. Warnings and info never affect `valid`.                                                  |
 | `issues` | array   | Every diagnostic at its severity (`error` / `warning` / `info`) with a machine-readable `code` and optional `suggestions`. |
 
-Filter the issues by `code` to act on them programmatically: the retired display values are `DISPLAY_MODE_REMOVED`, removed protocol fields `REMOVED_FIELD`, a missing skill `UNDEFINED_SKILL`.
+Filter the issues by `code` to act on them programmatically: a skill the protocol names but the organization does not have is `UNDEFINED_SKILL`, a model the catalog does not serve `MODEL_NOT_SUPPORTED`, a tool shown by its name for want of a `title` `MISSING_DISPLAY_TITLE`.
 
 ### Example
 
@@ -164,7 +165,9 @@ curl -X POST https://octavus.ai/api/v1/agents/validate \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "settings": { "slug": "my-agent", "name": "My Agent", "format": "interactive" },
+    "slug": "my-agent",
+    "name": "My Agent",
+    "format": "interactive",
     "protocol": "agent:\n  model: anthropic/claude-sonnet-4-5\n  system: system",
     "prompts": [{ "name": "system", "content": "You are a helpful assistant." }]
   }'
@@ -182,12 +185,10 @@ POST /api/v1/agents
 
 ```json
 {
-  "settings": {
-    "slug": "support-chat",
-    "name": "Support Chat",
-    "description": "Customer support agent",
-    "format": "interactive"
-  },
+  "slug": "support-chat",
+  "name": "Support Chat",
+  "description": "Customer support agent",
+  "format": "interactive",
   "protocol": "input:\n  COMPANY_NAME: { type: string }\n...",
   "prompts": [
     {
@@ -205,19 +206,19 @@ POST /api/v1/agents
 }
 ```
 
-| Field                  | Type   | Required | Description                                                                                                 |
-| ---------------------- | ------ | -------- | ----------------------------------------------------------------------------------------------------------- |
-| `settings.slug`        | string | Yes      | URL-safe identifier                                                                                         |
-| `settings.name`        | string | Yes      | Display name                                                                                                |
-| `settings.description` | string | No       | Agent description                                                                                           |
-| `settings.format`      | string | Yes      | `interactive` or `worker`                                                                                   |
-| `protocol`             | string | Yes      | YAML protocol definition                                                                                    |
-| `prompts`              | array  | Yes      | Prompt files                                                                                                |
-| `references`           | array  | No       | Reference documents (`name`, `description`, `content`, and an optional `title`, the label of the read card) |
+| Field         | Type   | Required | Description                                                                                                 |
+| ------------- | ------ | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `slug`        | string | Yes      | URL-safe identifier (lowercase letters, digits, dashes; up to 50 characters)                                |
+| `name`        | string | Yes      | Display name (up to 100 characters)                                                                         |
+| `description` | string | No       | Agent description (up to 500 characters)                                                                    |
+| `format`      | string | Yes      | `interactive` or `worker`                                                                                   |
+| `protocol`    | string | Yes      | YAML protocol definition                                                                                    |
+| `prompts`     | array  | Yes      | Prompt files                                                                                                |
+| `references`  | array  | No       | Reference documents (`name`, `description`, `content`, and an optional `title`, the label of the read card) |
 
 ### Response
 
-`201` with the [agent](#the-agent-resource). `409` with the code `CONFLICT` when an agent with the slug already exists in the project.
+`201` with the [agent](#the-agent-resource) and its path in the `Location` header. `409` with the code `CONFLICT` when an agent with the slug already exists in the project.
 
 ### Example
 
@@ -226,11 +227,9 @@ curl -X POST https://octavus.ai/api/v1/agents \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "settings": {
-      "slug": "my-agent",
-      "name": "My Agent",
-      "format": "interactive"
-    },
+    "slug": "my-agent",
+    "name": "My Agent",
+    "format": "interactive",
     "protocol": "agent:\n  model: anthropic/claude-sonnet-4-5\n  system: system",
     "prompts": [
       { "name": "system", "content": "You are a helpful assistant." }
@@ -240,7 +239,7 @@ curl -X POST https://octavus.ai/api/v1/agents \
 
 ## Update Agent
 
-Update an existing agent. All fields are optional; what is left out keeps its current value. The definition the update produces is validated as fully as a create, so an update can never deploy an agent a create would refuse: an invalid one is `422` with its issues, and nothing is saved. The slug is the agent's identity and is not updated here.
+Update an existing agent. Every field is optional on its own; what is left out keeps its current value, and `description: null` clears it. `prompts` and `references` replace the whole list. The definition the update produces is validated as fully as a create, so an update can never deploy an agent a create would refuse: an invalid one is `422` with its issues, and nothing is saved. The slug is the agent's identity and is not updated here.
 
 ```
 PATCH /api/v1/agents/:id
@@ -250,11 +249,9 @@ PATCH /api/v1/agents/:id
 
 ```json
 {
-  "settings": {
-    "name": "Support Chat",
-    "description": "Customer support agent",
-    "format": "interactive"
-  },
+  "name": "Support Chat",
+  "description": "Customer support agent",
+  "format": "interactive",
   "protocol": "input:\n  COMPANY_NAME: { type: string }\n...",
   "prompts": [
     {
@@ -271,6 +268,15 @@ PATCH /api/v1/agents/:id
   ]
 }
 ```
+
+| Field         | Type           | Required | Description                                           |
+| ------------- | -------------- | -------- | ----------------------------------------------------- |
+| `name`        | string         | No       | Display name                                          |
+| `description` | string \| null | No       | Agent description; `null` clears it                   |
+| `format`      | string         | No       | `interactive` or `worker`                             |
+| `protocol`    | string         | No       | YAML protocol definition                              |
+| `prompts`     | array          | No       | The whole list of prompt files, replacing the current |
+| `references`  | array          | No       | The whole list of references, replacing the current   |
 
 ### Response
 
@@ -329,7 +335,7 @@ POST /api/v1/agents/:id/executions
 
 ### Response
 
-The same `text/event-stream` as a [session trigger](/docs/api-reference/sessions#trigger-session). The `start` event names the execution; a `worker-result` event carries the output before `finish`, and a `usage` event the execution's cost and tokens. An execution that pauses for tools ends with `tool-request` and `finish: tool-calls`; one that reaches its time budget ends with `finish: continue`. Either is resumed with [Continue Worker Execution](#continue-worker-execution).
+The same `text/event-stream` as a [session execution](/docs/api-reference/sessions#start-execution). The `start` event names the execution; a `worker-result` event carries the output before `finish`, and a `usage` event the execution's cost and tokens. An execution that pauses for tools ends with `tool-request` and `finish: tool-calls`; one that reaches its time budget ends with `finish: continue`. Either is resumed with [Continue Worker Execution](#continue-worker-execution).
 
 ## Continue Worker Execution
 

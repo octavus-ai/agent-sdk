@@ -36,6 +36,8 @@ npm install @octavus/server-sdk
 npm install @octavus/react
 ```
 
+The packages type their messages and events with [Zod](https://zod.dev) 4 and declare `zod` as a peer dependency at `^4.3.5`; npm and pnpm install it for you when your project has none. A project that already depends on `zod` needs 4.3.5 or newer, so one copy serves your code and the SDK alike.
+
 ## Backend Setup
 
 ### 1. Initialize the Client

@@ -29,7 +29,7 @@ Every endpoint that creates or changes a session returns the session:
 | `status`    | string | `active` while the platform holds the session's state; `expired` once that state has aged out (24 hours idle) or been cleared |
 | `createdAt` | string | ISO 8601                                                                                                                      |
 
-An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the UI messages you stored.
+An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the UI messages you stored. Its reads keep working and answer empty ([Get UI Messages](#get-ui-messages), [Get Logs](#get-logs)), and its files stay viewable ([File View URL](#file-view-url)). What needs the live state - [starting an execution](#start-execution) or [requesting upload URLs](#uploads) - answers `409` with the code `SESSION_EXPIRED`, which tells an expired session apart from one that does not exist (`404`): restore it, or create a new one.
 
 ## Create Session
 
@@ -59,7 +59,7 @@ POST /api/v1/sessions
 
 ### Response
 
-`201` with the [session](#the-session-resource).
+`201` with the [session](#the-session-resource), and its path in the `Location` header.
 
 ### Example
 
@@ -78,7 +78,7 @@ curl -X POST https://octavus.ai/api/v1/sessions \
 
 ## Start Session
 
-Create a session and run its first trigger in one streaming request. The response is the trigger's event stream (see [Trigger Session](#trigger-session)); the created session's ID is in the `X-Octavus-Session-Id` response header and on the first `start` event.
+Create a session and run its first trigger in one streaming request. The response is the execution's event stream (see [Start Execution](#start-execution)); the created session's ID is in the `Octavus-Session-Id` response header and on the first `start` event.
 
 ```
 POST /api/v1/sessions/start
@@ -90,7 +90,6 @@ POST /api/v1/sessions/start
 {
   "agentId": "cm5xvz7k80001abcd",
   "input": { "COMPANY_NAME": "Acme Corp" },
-  "idempotencyKey": "chat-8f2c41d0",
   "trigger": {
     "triggerName": "user-message",
     "input": { "USER_MESSAGE": "Hello" }
@@ -98,12 +97,21 @@ POST /api/v1/sessions/start
 }
 ```
 
-| Field            | Type   | Required | Description                                                                                                                           |
-| ---------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `agentId`        | string | Yes      | Agent ID                                                                                                                              |
-| `input`          | object | No       | The session's input variables                                                                                                         |
-| `idempotencyKey` | string | No       | A retried start with the same key resolves to the session the first request created instead of creating another (1-200 chars)         |
-| `trigger`        | object | Yes      | The first trigger: `triggerName`, `input`, `sender`, `userMessageId`, `dynamicToolSchemas`, as on [Trigger Session](#trigger-session) |
+| Field     | Type   | Required | Description                                                                                                                           |
+| --------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `agentId` | string | Yes      | Agent ID                                                                                                                              |
+| `input`   | object | No       | The session's input variables                                                                                                         |
+| `trigger` | object | Yes      | The first trigger: `triggerName`, `input`, `sender`, `userMessageId`, `dynamicToolSchemas`, as on [Start Execution](#start-execution) |
+
+### Idempotency
+
+Send an `Idempotency-Key` header with a value unique to the conversation, such as your chat id (1-255 printable ASCII characters, no spaces):
+
+```
+Idempotency-Key: chat-8f2c41d0
+```
+
+A retried start under the same key resolves to the session the first request created instead of creating another, and runs its trigger on that session: a request whose response was lost leaves one session behind, not two, and its trigger runs as a turn on it. A key is remembered for 10 minutes. A retry that arrives while the first request is still creating the session fails with `409 SESSION_START_IN_PROGRESS`; retry after a moment.
 
 ## Get Session
 
@@ -240,10 +248,10 @@ curl -X POST https://octavus.ai/api/v1/sessions/:sessionId/restore \
 
 ## Clear Session
 
-Clear the session's state. The session becomes `expired` and can be restored afterwards with [Restore Session](#restore-session). Idempotent: clearing an already expired session succeeds.
+Clear the session's state, the mirror of [Restore Session](#restore-session): the session's record stays, it becomes `expired`, and it can be restored afterwards. Idempotent: clearing an already expired session succeeds.
 
 ```
-DELETE /api/v1/sessions/:sessionId
+POST /api/v1/sessions/:sessionId/clear
 ```
 
 ### Response
@@ -253,16 +261,16 @@ The [session](#the-session-resource), with `status: "expired"`.
 ### Example
 
 ```bash
-curl -X DELETE https://octavus.ai/api/v1/sessions/:sessionId \
+curl -X POST https://octavus.ai/api/v1/sessions/:sessionId/clear \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-## Trigger Session
+## Start Execution
 
-Run a trigger on the session: start a new turn and stream it as Server-Sent Events.
+Start an execution on the session: run a trigger, which starts a new turn, and stream it as Server-Sent Events. The `start` event names the execution, and a [continuation](#continue-execution) addresses it.
 
 ```
-POST /api/v1/sessions/:sessionId/trigger
+POST /api/v1/sessions/:sessionId/executions
 ```
 
 ### Request Body
@@ -290,7 +298,7 @@ POST /api/v1/sessions/:sessionId/trigger
 Returns `text/event-stream` with SSE events:
 
 ```
-data: {"type":"start","executionId":"exec_123","sessionId":"cm5xyz123abc456def","messageId":"msg-123"}
+data: {"type":"start","executionId":"3f1c9b2e-6d4a-4c8e-9f0b-2a7d5e8c1b4f","sessionId":"cm5xyz123abc456def","messageId":"msg-123"}
 
 data: {"type":"block-start","blockId":"b1","blockName":"Add user message","blockType":"add-message","display":"hidden"}
 
@@ -360,7 +368,7 @@ The list grows over time. Read an event of an unknown `type` as one to ignore or
 ### Example
 
 ```bash
-curl -N -X POST https://octavus.ai/api/v1/sessions/:sessionId/trigger \
+curl -N -X POST https://octavus.ai/api/v1/sessions/:sessionId/executions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -401,7 +409,7 @@ POST /api/v1/sessions/:sessionId/executions/:executionId/continue
 | `toolResults[].error`      | string  | No       | Why the tool failed, instead of a result                                       |
 | `toolResults[].files`      | array   | No       | `FileReference`s the tool produced                                             |
 | `toolResults[].truncated`  | boolean | No       | True when you reduced the result to a preview because it was too large to send |
-| `dynamicToolSchemas`       | array   | No       | As on [Trigger Session](#trigger-session)                                      |
+| `dynamicToolSchemas`       | array   | No       | As on [Start Execution](#start-execution)                                      |
 
 ### Tool Continuation
 
@@ -410,7 +418,7 @@ When the agent calls tools the platform does not run itself, the stream carries 
 ```
 data: {"type":"tool-request","toolCalls":[{"toolCallId":"tc_123","toolName":"get-user-account","args":{"userId":"user-123"},"display":"title"}]}
 
-data: {"type":"finish","finishReason":"tool-calls","executionId":"exec_123"}
+data: {"type":"finish","finishReason":"tool-calls","executionId":"3f1c9b2e-6d4a-4c8e-9f0b-2a7d5e8c1b4f"}
 ```
 
 Each pending call carries its `toolCallId`, `toolName`, `args`, and `display` (what your own output events may reveal), plus `thread` and `workerId` when it came from a sub-agent or a thread. Run the tools and send the results back on this endpoint. The platform routes each result by the call it recorded when it issued it: a result for a call the execution did not request is refused with `400` and the code `UNKNOWN_TOOL_CALL`, a second result for a call that already has one is ignored, and so is a result re-sent for a call the execution already applied, so a continuation retried after a dropped connection is safe.
@@ -474,7 +482,7 @@ An expired session has no log: `{ "entries": [], "total": 0, "truncated": false 
 
 ## Uploads
 
-Get presigned URLs for uploading files to a session. Files are uploaded directly to S3; the session must be active.
+Get presigned URLs for uploading files to a session. Files are uploaded directly to S3; the session must be active (an expired one is `409 SESSION_EXPIRED`).
 
 ```
 POST /api/v1/sessions/:sessionId/uploads
@@ -543,7 +551,7 @@ POST /api/v1/sessions/:sessionId/uploads
 
 ## File View URL
 
-A short-lived view URL for a file the session produced, to render it inline (in a sandboxed frame) without exposing the storage URL.
+A short-lived view URL for a file the session produced, to render it inline (in a sandboxed frame) without exposing the storage URL. The files outlive the session's state, so this works for an expired session too.
 
 ```
 POST /api/v1/sessions/:sessionId/files/view-url

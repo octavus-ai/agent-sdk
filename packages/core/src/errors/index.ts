@@ -24,4 +24,5 @@ export {
   isTransientTransportError,
   EXECUTION_NOT_RESUMABLE_CODE,
   UNKNOWN_TOOL_CALL_CODE,
+  SESSION_EXPIRED_CODE,
 } from './transport';

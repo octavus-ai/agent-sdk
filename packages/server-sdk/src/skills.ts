@@ -21,8 +21,13 @@ export const skillSchema = z.looseObject({
   updatedAt: z.string(),
 });
 
+const skillSecretSchema = z.looseObject({
+  name: z.string(),
+  updatedAt: z.string(),
+});
+
 const skillSecretsResponseSchema = z.looseObject({
-  updated: z.array(z.string()),
+  secrets: z.array(skillSecretSchema),
 });
 
 // ---------------------------------------------------------------------------
@@ -30,6 +35,12 @@ const skillSecretsResponseSchema = z.looseObject({
 // ---------------------------------------------------------------------------
 
 export type SkillVisibility = z.infer<typeof skillVisibilitySchema>;
+
+/** A skill secret: its name and when it was last set, never its value. */
+export interface SkillSecret {
+  name: string;
+  updatedAt: string;
+}
 
 /** A skill, as the platform stores it. */
 export interface Skill {
@@ -83,16 +94,17 @@ export class SkillsApi extends BaseApiClient {
   }
 
   /**
-   * Set a skill's secrets (name to plaintext value); each is created or
-   * updated. Returns the names that were set.
+   * Set some of a skill's secrets (name to plaintext value); each is created
+   * or updated, and every other secret is left as it is. Returns the skill's
+   * secrets after the merge, by name.
    */
-  async setSecrets(skillId: string, secrets: Record<string, string>): Promise<string[]> {
-    const { updated } = await this.httpPut(
+  async setSecrets(skillId: string, secrets: Record<string, string>): Promise<SkillSecret[]> {
+    const response = await this.httpPatch(
       `/api/v1/skills/${skillId}/secrets`,
       { secrets },
       skillSecretsResponseSchema,
     );
-    return updated;
+    return response.secrets;
   }
 }
 

@@ -51,13 +51,13 @@ async function runGet(slug: string, options: GetOptions): Promise<void> {
 
   // Print agent details
   output.separator();
-  output.success(`Agent: ${output.bold(agent.settings.name)}`);
+  output.success(`Agent: ${output.bold(agent.name)}`);
   output.separator();
-  output.keyValue('Slug', agent.settings.slug);
+  output.keyValue('Slug', agent.slug);
   output.keyValue('ID', agent.id);
-  output.keyValue('Format', agent.settings.format);
-  if (agent.settings.description) {
-    output.keyValue('Description', agent.settings.description);
+  output.keyValue('Format', agent.format);
+  if (agent.description) {
+    output.keyValue('Description', agent.description);
   }
   output.separator();
   output.keyValue(

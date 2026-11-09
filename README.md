@@ -4,14 +4,15 @@ Official JavaScript/TypeScript SDKs for building applications with [Octavus AI](
 
 ## Packages
 
-| Package                                        | Description                        | npm                                                                                                           |
-| ---------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [`@octavus/core`](./packages/core)             | Shared types and utilities         | [![npm](https://img.shields.io/npm/v/@octavus/core)](https://www.npmjs.com/package/@octavus/core)             |
-| [`@octavus/server-sdk`](./packages/server-sdk) | Server SDK for backend integration | [![npm](https://img.shields.io/npm/v/@octavus/server-sdk)](https://www.npmjs.com/package/@octavus/server-sdk) |
-| [`@octavus/client-sdk`](./packages/client-sdk) | Framework-agnostic client SDK      | [![npm](https://img.shields.io/npm/v/@octavus/client-sdk)](https://www.npmjs.com/package/@octavus/client-sdk) |
-| [`@octavus/react`](./packages/react)           | React hooks and bindings           | [![npm](https://img.shields.io/npm/v/@octavus/react)](https://www.npmjs.com/package/@octavus/react)           |
-| [`@octavus/cli`](./packages/cli)               | CLI for agent management           | [![npm](https://img.shields.io/npm/v/@octavus/cli)](https://www.npmjs.com/package/@octavus/cli)               |
-| [`@octavus/docs`](./packages/docs)             | Documentation content              | [![npm](https://img.shields.io/npm/v/@octavus/docs)](https://www.npmjs.com/package/@octavus/docs)             |
+| Package                                        | Description                            | npm                                                                                                           |
+| ---------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [`@octavus/core`](./packages/core)             | Shared types and utilities             | [![npm](https://img.shields.io/npm/v/@octavus/core)](https://www.npmjs.com/package/@octavus/core)             |
+| [`@octavus/server-sdk`](./packages/server-sdk) | Server SDK for backend integration     | [![npm](https://img.shields.io/npm/v/@octavus/server-sdk)](https://www.npmjs.com/package/@octavus/server-sdk) |
+| [`@octavus/client-sdk`](./packages/client-sdk) | Framework-agnostic client SDK          | [![npm](https://img.shields.io/npm/v/@octavus/client-sdk)](https://www.npmjs.com/package/@octavus/client-sdk) |
+| [`@octavus/react`](./packages/react)           | React hooks and bindings               | [![npm](https://img.shields.io/npm/v/@octavus/react)](https://www.npmjs.com/package/@octavus/react)           |
+| [`@octavus/cli`](./packages/cli)               | CLI for agent management               | [![npm](https://img.shields.io/npm/v/@octavus/cli)](https://www.npmjs.com/package/@octavus/cli)               |
+| [`@octavus/computer`](./packages/computer)     | Browser, filesystem, and shell via MCP | [![npm](https://img.shields.io/npm/v/@octavus/computer)](https://www.npmjs.com/package/@octavus/computer)     |
+| [`@octavus/docs`](./packages/docs)             | Documentation content                  | [![npm](https://img.shields.io/npm/v/@octavus/docs)](https://www.npmjs.com/package/@octavus/docs)             |
 
 ## Quick Start
 

@@ -74,16 +74,16 @@ The created session id reaches you through two channels:
 
 ### Retry safety
 
-`start()` sends a client-supplied `idempotencyKey` (auto-generated if you omit it). A transient retry of the first request resolves to the same session instead of creating a duplicate or double-counting session usage, so it is safe to retry. Using a stable, meaningful key such as your `chatId` guarantees one session per chat even across retries or double submits.
+`start()` sends an `idempotencyKey` (auto-generated if you omit it) as the `Idempotency-Key` header of the request that creates the session. A transient retry of the first request resolves to the same session instead of creating a duplicate or double-counting session usage, and runs its trigger on that session, so it is safe to retry. Using a stable, meaningful key such as your `chatId` guarantees one session per chat even across retries or double submits. A key is 1-255 printable ASCII characters with no spaces.
 
 ### Start Options
 
-| Option             | Type                          | Description                                                       |
-| ------------------ | ----------------------------- | ----------------------------------------------------------------- |
-| `agentId`          | `string`                      | Agent to start a session for                                      |
-| `input`            | `Record<string, unknown>`     | Immutable session input, captured at the first trigger            |
-| `idempotencyKey`   | `string`                      | Makes a retried start resolve to the same session; auto-generated |
-| `onSessionCreated` | `(sessionId: string) => void` | Called with the session id as soon as it is assigned              |
+| Option             | Type                          | Description                                                                                        |
+| ------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| `agentId`          | `string`                      | Agent to start a session for                                                                       |
+| `input`            | `Record<string, unknown>`     | Immutable session input, captured at the first trigger                                             |
+| `idempotencyKey`   | `string`                      | Sent as the `Idempotency-Key` header: a retried start resolves to the same session; auto-generated |
+| `onSessionCreated` | `(sessionId: string) => void` | Called with the session id as soon as it is assigned                                               |
 
 `start()` also accepts the same `tools`, `mcpServers`, `onToolResults`, and `rejectClientToolCalls` options as `attach()`.
 
@@ -446,7 +446,7 @@ if (session.status === 'expired') {
 }
 ```
 
-A trigger on an expired session fails with `404`; restore it first, or create a new one.
+A trigger on an expired session fails with `409` and the code `SESSION_EXPIRED` (`SESSION_EXPIRED_CODE`), never `404`, so a session you cleared or that aged out is told apart from one that does not exist; restore it first, or create a new one.
 
 ## Persisting Chat History
 

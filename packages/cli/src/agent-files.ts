@@ -9,8 +9,8 @@ import { z } from 'zod';
 import { parse as parseYaml } from 'yaml';
 import { resolveEntryKind, BrokenSymlinkError } from '@/dir-entries.js';
 
-/** Agent settings from settings.json */
-export interface AgentSettings {
+/** The agent's own fields, as `settings.json` holds them. */
+interface AgentSettings {
   slug: string;
   name: string;
   description?: string;
@@ -32,13 +32,16 @@ export interface AgentReference {
   content: string;
 }
 
-/** Complete agent definition read from filesystem */
-export interface AgentDefinition {
-  settings: AgentSettings;
+/**
+ * The agent definition read from a directory: the fields of `settings.json`
+ * beside the protocol, prompts, and references, the one flat shape the
+ * platform takes.
+ */
+export type AgentDefinition = AgentSettings & {
   protocol: string;
   prompts: AgentPrompt[];
   references: AgentReference[];
-}
+};
 
 const agentSettingsSchema = z.object({
   slug: z.string().min(1, 'Slug is required'),
@@ -97,7 +100,7 @@ export async function readAgentDefinition(agentPath: string): Promise<AgentDefin
   const referencesPath = path.join(resolvedPath, 'references');
   const references = await readReferences(referencesPath);
 
-  return { settings, protocol, prompts, references };
+  return { ...settings, protocol, prompts, references };
 }
 
 async function readSettings(filePath: string): Promise<AgentSettings> {

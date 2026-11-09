@@ -24,6 +24,7 @@ export {
 export {
   SkillsApi,
   type Skill,
+  type SkillSecret,
   type SkillVisibility,
   type SkillSyncOptions,
   type SkillSyncResult,
@@ -94,7 +95,6 @@ export {
 export {
   validationIssuesOf,
   type AgentFormat,
-  type AgentSettings,
   type AgentPrompt,
   type AgentReference,
   type Agent,
@@ -258,6 +258,7 @@ export {
   isTransientTransportError,
   EXECUTION_NOT_RESUMABLE_CODE,
   UNKNOWN_TOOL_CALL_CODE,
+  SESSION_EXPIRED_CODE,
   // Utilities
   generateId,
   isAbortError,

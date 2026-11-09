@@ -328,17 +328,18 @@ An `error` event the platform itself raises also carries the `requestId` of the 
 
 ### Error Types
 
-| Type                   | Description                                 |
-| ---------------------- | ------------------------------------------- |
-| `rate_limit_error`     | Too many requests                           |
-| `authentication_error` | Invalid API key                             |
-| `validation_error`     | Invalid input or agent definition           |
-| `not_found_error`      | The session, agent, or execution is unknown |
-| `provider_error`       | LLM provider issue                          |
-| `provider_overloaded`  | Provider at capacity                        |
-| `tool_error`           | Tool execution failed                       |
-| `unsupported_error`    | This client version is no longer supported  |
-| `internal_error`       | Platform error                              |
+| Type                   | Description                                                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `rate_limit_error`     | Too many requests                                                                                                                      |
+| `authentication_error` | Invalid API key                                                                                                                        |
+| `validation_error`     | Invalid input or agent definition                                                                                                      |
+| `not_found_error`      | The session, agent, or execution is unknown                                                                                            |
+| `conflict_error`       | The state refuses the request: an expired session (`SESSION_EXPIRED`), an execution that cannot be resumed (`EXECUTION_NOT_RESUMABLE`) |
+| `provider_error`       | LLM provider issue                                                                                                                     |
+| `provider_overloaded`  | Provider at capacity                                                                                                                   |
+| `tool_error`           | Tool execution failed                                                                                                                  |
+| `unsupported_error`    | The API prefix is no longer served                                                                                                     |
+| `internal_error`       | Platform error                                                                                                                         |
 
 The list grows over time; an unknown value is read as `unknown_error`.
 

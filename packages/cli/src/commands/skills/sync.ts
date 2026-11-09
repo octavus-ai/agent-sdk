@@ -86,8 +86,8 @@ async function runSkillSync(skillPath: string, options: SkillSyncOptions): Promi
       output.info(`Pushing ${Object.keys(envSecrets).length} secret(s)...`);
     }
 
-    const updated = await client.skills.setSecrets(skill.id, envSecrets);
-    secretCount = updated.length;
+    await client.skills.setSecrets(skill.id, envSecrets);
+    secretCount = Object.keys(envSecrets).length;
 
     if (!options.quiet && !options.json) {
       output.success(`${secretCount} secret(s) updated`);

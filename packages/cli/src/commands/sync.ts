@@ -42,20 +42,20 @@ async function runSync(agentPath: string, options: SyncOptions): Promise<void> {
   const definition = await readAgentDefinition(agentPath);
 
   if (!options.quiet && !options.json) {
-    output.info(`Syncing ${output.bold(definition.settings.slug)}...`);
+    output.info(`Syncing ${output.bold(definition.slug)}...`);
   }
 
   const result = await syncAgent(client, definition);
 
   if (options.json) {
     output.json({
-      slug: definition.settings.slug,
+      slug: definition.slug,
       agentId: result.agentId,
       created: result.created,
     });
   } else {
     const action = result.created ? 'Created' : 'Updated';
-    output.success(`${action}: ${output.bold(definition.settings.slug)}`);
+    output.success(`${action}: ${output.bold(definition.slug)}`);
     output.keyValue('Agent ID', result.agentId);
   }
 }
@@ -69,16 +69,16 @@ async function syncAgent(
   client: OctavusClient,
   definition: AgentDefinition,
 ): Promise<{ agentId: string; created: boolean }> {
-  const existing = await findAgentBySlug(client, definition.settings.slug);
+  const existing = await findAgentBySlug(client, definition.slug);
 
   if (existing) {
-    // The slug is the agent's identity and travels in the lookup, not the update.
-    const { slug: _slug, ...settings } = definition.settings;
+    // The slug is the agent's identity and travels in the lookup, not the
+    // update. The directory is the whole truth: a description it no longer
+    // has is cleared, not kept.
+    const { slug: _slug, description, ...update } = definition;
     const updated = await client.agents.update(existing.id, {
-      settings,
-      protocol: definition.protocol,
-      prompts: definition.prompts,
-      references: definition.references,
+      ...update,
+      description: description ?? null,
     });
     return { agentId: updated.id, created: false };
   }
