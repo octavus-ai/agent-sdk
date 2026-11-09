@@ -449,15 +449,13 @@ function Chat({ sessionId, initialMessages }: ChatProps) {
 }
 ```
 
-On your backend, use `sessions.getUiMessages()` to fetch the UI transcript:
+On your backend, use `sessions.getUiMessages()` to fetch UI-ready messages:
 
 ```typescript
 // Server-side
 const messages = await client.sessions.getUiMessages(sessionId);
 // UIMessage[] ready for the client's `initialMessages`
 ```
-
-The transcript shows what the person saw. To continue a conversation after its session has expired, the backend stores the model history instead; see [Server SDK Sessions](/docs/server-sdk/sessions#the-two-records-of-a-conversation).
 
 ## Callbacks
 

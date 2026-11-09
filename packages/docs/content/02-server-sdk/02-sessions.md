@@ -89,53 +89,21 @@ The created session id reaches you through two channels:
 
 > Both flows are fully supported: `create()` + `attach()` when you need the session up front, `start()` when creation can wait for the first message.
 
-## The Two Records of a Conversation
+## Getting Session Messages
 
-A conversation has two audiences, and the API keeps a record for each:
-
-- **The UI transcript** (`getUiMessages()`) is what the person saw: the visible messages, each part revealing what its [display mode](/docs/protocol/tools#display-modes) allows, identical to what the live stream built. It is what you hand to the client's `initialMessages` after a page refresh and what you store to show an old conversation.
-- **The model history** (`getModelHistory()`) is what the model produced: every message and every tool call in the order the model made them, whatever the UI showed, plus everything else a continuation needs. It is what you store to continue a conversation after its session has [expired](#session-expiration), and what `restoreFromModelHistory()` takes.
-
-The two differ exactly where display modes hide things: a `hidden` tool call is absent from the transcript and present in the history; a `title`-mode call is a labeled card in the transcript and a full call with its arguments and result in the history; a `stream` call carries its arguments and result in both. Display decides what people see; the history is the model's regardless.
-
-## Getting the UI Transcript
-
-To rebuild the conversation on page load, read the UI transcript:
+To restore a conversation on page load, use `getUiMessages()` to retrieve the conversation as UI-ready messages:
 
 ```typescript
 const messages = await client.sessions.getUiMessages(sessionId);
 
-console.log(messages.length); // UIMessage[] ready for the frontend
+console.log(messages.length); // UIMessage[] ready for frontend
 ```
 
 The returned messages can be passed directly to the client SDK's `initialMessages` option. An expired session has no messages (an empty array); read the session's `status` with `get()` to tell the two apart.
 
-## Getting the Model History
-
-The model history is a versioned, signed document the platform produces and you store as it is:
-
-```typescript
-const modelHistory = await client.sessions.getModelHistory(sessionId, {
-  toolResults: 'full',
-});
-
-console.log(modelHistory.version, modelHistory.toolResults); // 1, 'full'
-```
-
-`toolResults` is required: it decides how much of each tool result the record keeps, and every consumer chooses knowingly.
-
-| Mode      | What the record keeps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `full`    | Every tool result as the session stored it (already bounded by the agent's `maxToolOutputTokens`). The conversation continues exactly as if the session had never expired. The largest record.                                                                                                                                                                                                                                                                                                                                    |
-| `trimmed` | Every tool result replaced by the placeholder the platform uses for a result it no longer holds. Everything else is intact: the text, every tool call with its arguments, the reasoning and provider markers, the hidden calls, the sub-agent delegations with their output (a sub-agent's own tool results are replaced the same way), the threads, the compaction summary. The model sees every call it made and re-makes one when it needs the data. The smallest record that restores a conversation faithfully in structure. |
-
-The record covers settled turns only. While a turn is running or paused for tools, the read is refused with `409` and the code `TURN_IN_PROGRESS`. A turn has settled at the stream's `finish` - except a `finish` with `client-tool-calls`, which pauses the turn for the browser's tools; the continuation that carries their results ends with the `finish` that settles it. Once the session's state has expired, the read is refused with `409` and the code `SESSION_EXPIRED` rather than answered with an empty record, so a read that comes too late never overwrites the record you stored.
-
-Store the document unchanged. It is readable JSON, so you can inspect what you are keeping, but it is signed over its content: a record that was edited, or that the platform no longer reads, is refused on restore. The fields beyond `version`, `sessionId`, `agentId`, `createdAt`, `toolResults`, and `signature` are the platform's own and not part of the SDK's contract.
-
 ## The Session
 
-`get()` returns the session: the agent it belongs to, when it was created, and whether its state is still `active` or has `expired`. `create()`, `restoreFromModelHistory()`, `restoreFromUiMessages()`, and `clear()` return the same shape.
+`get()` returns the session: the agent it belongs to, when it was created, and whether its state is still `active` or has `expired`. `create()`, `restoreFromUiMessages()`, and `clear()` return the same shape.
 
 ```typescript
 const session = await client.sessions.get(sessionId);
@@ -157,7 +125,7 @@ interface Session {
 }
 ```
 
-The conversation itself is read with `getUiMessages()` (what the person saw) and `getModelHistory()` (what the model produced); the full execution record (every tool call, model request, and error) with `getLogs()`.
+The conversation itself is read with `getUiMessages()`; the full execution record (every tool call, model request, and error) with `getLogs()`.
 
 ## Getting Execution Logs
 
@@ -400,9 +368,7 @@ conn.on('data', async (rawData: string) => {
     await session.handleSocketMessage(msg as SocketMessage, {
       onEvent: (event) => conn.write(JSON.stringify(event)),
       onFinish: async () => {
-        // Streaming is over: store the model history (and the UI transcript),
-        // unless the last `finish` was `client-tool-calls` - the turn is then
-        // paused for the browser's tools and settles on the continuation
+        // Fetch and persist messages to your database for restoration
       },
     });
   }
@@ -449,8 +415,7 @@ flowchart TD
 
     D -.- D1["`**client.sessions.get()**
     Check session status
-    **getUiMessages()** for the transcript
-    **getModelHistory()** for the model's record`"]
+    **getUiMessages()** for the conversation`"]
 
     E -.- E1["`Sessions expire after
     24 hours (configurable)`"]
@@ -459,8 +424,8 @@ flowchart TD
     Programmatically clear state
     Session becomes expired`"]
 
-    F -.- F1["`**client.sessions.restoreFromModelHistory()**
-    Restore from the stored model history
+    F -.- F1["`**client.sessions.restoreFromUiMessages()**
+    Restore from stored messages
     Or create new session`"]
 ```
 
@@ -483,35 +448,26 @@ if (session.status === 'expired') {
 
 A trigger on an expired session fails with `404`; restore it first, or create a new one.
 
-## Persisting a Conversation
+## Persisting Chat History
 
-Decide what you want to be able to do with an old conversation, and store the record that does it:
-
-- **Show it** - store the UI transcript (`getUiMessages()`). Enough for a read-only view of an old conversation, and the input for `initialMessages`.
-- **Continue it** - store the model history (`getModelHistory()`), after each settled turn, overwriting the previous record. Store the UI transcript as well if you also show old conversations.
-
-Store the records after each turn settles:
+To enable session restoration, store the chat messages in your own database after each interaction:
 
 ```typescript
-// After each turn settles (a `finish` other than `client-tool-calls`), store both records
-const [uiMessages, modelHistory] = await Promise.all([
-  client.sessions.getUiMessages(sessionId),
-  client.sessions.getModelHistory(sessionId, { toolResults: 'trimmed' }),
-]);
+// After each trigger completes, save messages
+const messages = await client.sessions.getUiMessages(sessionId);
 
 await db.chats.update({
   where: { id: chatId },
   data: {
     sessionId,
-    uiMessages, // UIMessage[] as JSON, to show the conversation
-    modelHistory, // the signed document as JSON, unchanged, to continue it
+    messages, // Store UIMessage[] as JSON
   },
 });
 ```
 
-Pick the `toolResults` mode by what the continuation should remember: `trimmed` keeps the record small and the model re-fetches what it needs; `full` keeps every result so the conversation continues exactly as it was.
+> **Store the full `UIMessage[]` array.** It preserves every message part (text, tool calls, files, and so on) the restore rebuilds from.
 
-> **Store the model history unchanged.** It is signed over its content, and a record that was edited is refused on restore. A JSON column is fine; what matters is that the value you hand back is the value you were given.
+The messages carry what their [display modes](/docs/protocol/tools#display-modes) revealed, and a restore rebuilds the model's history from exactly that: a `stream` tool call comes back with its arguments and result; a `title` call comes back as the call alone, with a placeholder where its result was, so the model knows the tool ran and nothing more; a `hidden` call is not in the messages and is gone. The same holds for a sub-agent: a streamed one comes back with its output, a `title` one without it, and a hidden one is gone. Set `display: stream` on the tools and workers whose results the model should still have after a restore.
 
 ## Restoring Sessions
 
@@ -532,18 +488,18 @@ if (session.status === 'active') {
   };
 }
 
-// 3. Session expired - restore from the stored model history
-if (chat.modelHistory) {
-  const restored = await client.sessions.restoreFromModelHistory(
+// 3. Session expired - restore from stored messages
+if (chat.messages && chat.messages.length > 0) {
+  const restored = await client.sessions.restoreFromUiMessages(
     chat.sessionId,
-    chat.modelHistory,
+    chat.messages,
     { COMPANY_NAME: 'Acme Corp' }, // Optional: same input as create()
   );
 
-  // The session is active again, with the conversation as the model left it
+  // The session is active again
   return {
     sessionId: restored.id,
-    messages: chat.uiMessages,
+    messages: chat.messages,
   };
 }
 
@@ -558,19 +514,7 @@ return {
 };
 ```
 
-`restoreFromModelHistory()` returns the session, `active` again; a session whose state was still live is returned as it is. The system prompt is rebuilt from the agent's current definition and the `input` you pass, so a protocol edit applies to a restored conversation too. A record that fails verification is refused with `400` and one of `MODEL_HISTORY_SIGNATURE_INVALID` (the record was changed), `MODEL_HISTORY_VERSION_UNSUPPORTED` (the platform no longer reads its version; read the session's history again while it is active), or `MODEL_HISTORY_MISMATCH` (the record belongs to another session or agent).
-
-### Restoring from the UI transcript
-
-A conversation of which only the UI transcript was kept can still be restored with `restoreFromUiMessages()`:
-
-```typescript
-const restored = await client.sessions.restoreFromUiMessages(chat.sessionId, chat.uiMessages, {
-  COMPANY_NAME: 'Acme Corp',
-});
-```
-
-This is a best-effort restore, because the transcript is a projection shaped by display modes and the model gets back only what it revealed: a `hidden` tool call is gone; a `title`-mode call comes back without its arguments or result (the model knows a tool of that name ran, nothing more); a sub-agent delegation and its output are gone; the named threads, the compaction summary, and the variables are not carried. A `stream` call comes back whole. It is fully supported for conversations stored this way, and marked `@deprecated` in the SDK so new code reaches for the model history instead.
+`restoreFromUiMessages()` returns the session, `active` again; a session whose state was still live is returned as it is.
 
 ## Complete Example
 
@@ -597,14 +541,14 @@ async function getOrCreateSession(chatId: string, agentId: string, input: Record
       return { sessionId: session.id, messages };
     }
 
-    // Restore the expired session from the stored model history
-    if (chat.modelHistory) {
-      const restored = await client.sessions.restoreFromModelHistory(
+    // Restore the expired session from the stored messages
+    if (chat.messages?.length > 0) {
+      const restored = await client.sessions.restoreFromUiMessages(
         chat.sessionId,
-        chat.modelHistory,
+        chat.messages,
         input,
       );
-      return { sessionId: restored.id, messages: chat.uiMessages };
+      return { sessionId: restored.id, messages: chat.messages };
     }
   }
 
@@ -614,8 +558,8 @@ async function getOrCreateSession(chatId: string, agentId: string, input: Record
   // Save to database
   await db.chats.upsert({
     where: { id: chatId },
-    create: { id: chatId, sessionId, uiMessages: [], modelHistory: null },
-    update: { sessionId, uiMessages: [], modelHistory: null },
+    create: { id: chatId, sessionId, messages: [] },
+    update: { sessionId, messages: [] },
   });
 
   return { sessionId, messages: [] };
@@ -631,7 +575,7 @@ const session = await client.sessions.clear(sessionId);
 console.log(session.status); // 'expired'
 ```
 
-After clearing, the session is `expired`. You can then restore it with `restoreFromModelHistory()` or create a new session.
+After clearing, the session is `expired`. You can then restore it with `restoreFromUiMessages()` or create a new session.
 
 This is idempotent - calling `clear()` on an already expired session succeeds without error.
 

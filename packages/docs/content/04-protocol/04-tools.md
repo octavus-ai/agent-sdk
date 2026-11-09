@@ -77,7 +77,7 @@ What each mode reveals is the same on the live stream and in the stored messages
 
 **Refresh and restore behavior:**
 
-A `stream` tool's arguments and result are part of the UI transcript and come back on refresh. A `title` tool's card comes back with its label and status, and never its arguments or result. Display never changes what the model remembers: the [model history](/docs/server-sdk/sessions#the-two-records-of-a-conversation) carries every call with its arguments whatever its mode, and the consumer chooses whether it keeps the results. A restore from the UI transcript alone gives a call stored without its result a placeholder, so the model sees a complete history.
+A `stream` tool's arguments and result are part of the stored conversation and come back on refresh and on restore. A `title` tool's card comes back with its label and status, and never its arguments or result. On a restore from stored `UIMessage[]`, a tool call stored without its result is given a placeholder so the model sees a complete history; set `display: stream` on the tools whose results the model should still have after a restore.
 
 ## Parameters
 

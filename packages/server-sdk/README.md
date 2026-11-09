@@ -70,16 +70,11 @@ const session = await client.sessions.create(agentId, input);
 // Get a session (status is 'active' or 'expired')
 const current = await client.sessions.get(session.id);
 
-// The UI transcript: the conversation as the UI renders it
+// Get the conversation as UI-ready messages
 const messages = await client.sessions.getUiMessages(session.id);
 
-// The model history: the model's record, to store after each turn
-const modelHistory = await client.sessions.getModelHistory(session.id, {
-  toolResults: 'trimmed',
-});
-
-// Restore an expired session from the stored model history
-await client.sessions.restoreFromModelHistory(session.id, storedModelHistory, input);
+// Restore an expired session from stored messages
+await client.sessions.restoreFromUiMessages(session.id, storedMessages, input);
 
 // Clear session state (the session becomes expired)
 await client.sessions.clear(session.id);
@@ -237,7 +232,7 @@ const events = session.trigger('user-message', input, {
 
 ### Active Sessions
 
-Sessions remain active for 24 hours (configurable). Use `getUiMessages()` for UI display and store `getModelHistory()` after each turn to be able to continue the conversation later.
+Sessions remain active for 24 hours (configurable). Use `getUiMessages()` for UI display, and store the messages to restore the session later.
 
 ### Expired Sessions
 
@@ -247,8 +242,8 @@ When session state expires:
 const session = await client.sessions.get(sessionId);
 
 if (session.status === 'expired') {
-  // Restore from the model history you stored
-  await client.sessions.restoreFromModelHistory(sessionId, storedModelHistory);
+  // Restore from your stored messages
+  await client.sessions.restoreFromUiMessages(sessionId, storedMessages);
 }
 ```
 

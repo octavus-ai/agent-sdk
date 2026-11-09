@@ -56,7 +56,7 @@ const { id: sessionId } = await client.sessions.create('clxyz123abc456', {
   PRODUCT_NAME: 'Widget Pro',
 });
 
-// Get the conversation as the UI renders it (for `initialMessages` after a refresh)
+// Get the conversation as UI-ready messages (for session restore)
 const messages = await client.sessions.getUiMessages(sessionId);
 ```
 
@@ -176,23 +176,10 @@ class SessionsApi {
   // Get a session (agent, creation time, active or expired)
   async get(sessionId: string): Promise<Session>;
 
-  // The UI transcript: the conversation as the UI renders it (empty once the session expired)
+  // Get the conversation as UI-ready messages (empty once the session expired)
   async getUiMessages(sessionId: string): Promise<UIMessage[]>;
 
-  // The model history: the model's record, signed, to store and restore from
-  async getModelHistory(
-    sessionId: string,
-    options: { toolResults: 'full' | 'trimmed' },
-  ): Promise<ModelHistory>;
-
-  // Restore an expired session from the stored model history (the faithful restore)
-  async restoreFromModelHistory(
-    sessionId: string,
-    modelHistory: ModelHistory,
-    input?: Record<string, unknown>,
-  ): Promise<Session>;
-
-  // Restore an expired session from the stored UI transcript (best effort)
+  // Restore an expired session from stored messages
   async restoreFromUiMessages(
     sessionId: string,
     uiMessages: UIMessage[],

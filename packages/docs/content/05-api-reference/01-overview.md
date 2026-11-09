@@ -121,21 +121,19 @@ Current status, active incidents, planned maintenance, and incident history are 
 
 ### Sessions
 
-| Method | Endpoint                                                | Description                                                      |
-| ------ | ------------------------------------------------------- | ---------------------------------------------------------------- |
-| POST   | `/api/v1/sessions`                                      | Create a session                                                 |
-| POST   | `/api/v1/sessions/start`                                | Create a session and run its first trigger (SSE)                 |
-| GET    | `/api/v1/sessions/:id`                                  | Get a session (`active` or `expired`)                            |
-| DELETE | `/api/v1/sessions/:id`                                  | Clear a session's state                                          |
-| GET    | `/api/v1/sessions/:id/ui-messages`                      | The UI transcript: the conversation as UI messages               |
-| GET    | `/api/v1/sessions/:id/model-history`                    | The model history, signed, to store and restore from             |
-| POST   | `/api/v1/sessions/:id/trigger`                          | Run a trigger (SSE)                                              |
-| POST   | `/api/v1/sessions/:id/executions/:executionId/continue` | Continue a paused execution (SSE)                                |
-| POST   | `/api/v1/sessions/:id/restore`                          | Restore an expired session from its model history                |
-| POST   | `/api/v1/sessions/:id/restore-from-ui-messages`         | Restore an expired session from stored UI messages (best effort) |
-| GET    | `/api/v1/sessions/:id/logs`                             | The execution log                                                |
-| POST   | `/api/v1/sessions/:id/uploads`                          | Presigned upload URLs for files                                  |
-| POST   | `/api/v1/sessions/:id/files/view-url`                   | A view URL for a file the session produced                       |
+| Method | Endpoint                                                | Description                                      |
+| ------ | ------------------------------------------------------- | ------------------------------------------------ |
+| POST   | `/api/v1/sessions`                                      | Create a session                                 |
+| POST   | `/api/v1/sessions/start`                                | Create a session and run its first trigger (SSE) |
+| GET    | `/api/v1/sessions/:id`                                  | Get a session (`active` or `expired`)            |
+| DELETE | `/api/v1/sessions/:id`                                  | Clear a session's state                          |
+| GET    | `/api/v1/sessions/:id/ui-messages`                      | The conversation as UI messages                  |
+| POST   | `/api/v1/sessions/:id/trigger`                          | Run a trigger (SSE)                              |
+| POST   | `/api/v1/sessions/:id/executions/:executionId/continue` | Continue a paused execution (SSE)                |
+| POST   | `/api/v1/sessions/:id/restore`                          | Restore an expired session from stored messages  |
+| GET    | `/api/v1/sessions/:id/logs`                             | The execution log                                |
+| POST   | `/api/v1/sessions/:id/uploads`                          | Presigned upload URLs for files                  |
+| POST   | `/api/v1/sessions/:id/files/view-url`                   | A view URL for a file the session produced       |
 
 ### Agents
 
