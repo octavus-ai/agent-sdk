@@ -26,7 +26,7 @@ export const sessionSchema = z.looseObject({
 });
 
 const sessionUiMessagesResponseSchema = z.looseObject({
-  messages: z.array(uiMessageSchema),
+  uiMessages: z.array(uiMessageSchema),
 });
 
 /**
@@ -148,20 +148,21 @@ export class SessionsApi extends BaseApiClient {
    * expired.
    */
   async getUiMessages(sessionId: string): Promise<UIMessage[]> {
-    const { messages } = await this.httpGet(
+    const { uiMessages } = await this.httpGet(
       `/api/v1/sessions/${sessionId}/ui-messages`,
       sessionUiMessagesResponseSchema,
     );
-    return messages;
+    return uiMessages;
   }
 
   /**
    * Restore an expired session from the UI messages you stored (the
    * `UIMessage[]` that `getUiMessages()` returned). The messages carry what
    * their display modes revealed: a `stream` tool call comes back with its
-   * arguments and result, a `title` call as the call alone, and a `hidden`
-   * call not at all - so set `display: stream` on the tools whose results the
-   * model should still have after a restore.
+   * arguments and result, a `title` call with empty arguments and a
+   * placeholder result, and a `hidden` call not at all - so set
+   * `display: stream` on the tools whose results the model should still have
+   * after a restore.
    *
    * @param sessionId - The session ID to restore
    * @param uiMessages - The stored `UIMessage[]`

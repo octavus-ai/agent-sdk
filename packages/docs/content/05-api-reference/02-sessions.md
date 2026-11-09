@@ -130,7 +130,7 @@ The session's conversation as the UI renders it. Each trigger produces one assis
 
 A turn that is paused for tools - waiting for your server or client to continue it - is still in progress: its message has `status: "streaming"`, and its tool calls and sub-agent cards that await a result read `running`. A tool call a finished turn never resolved reads `cancelled`.
 
-An expired session has no messages: the response is `{ "messages": [] }`. Read [Get Session](#get-session) for the status.
+An expired session has no messages: the response is `{ "uiMessages": [] }`. Read [Get Session](#get-session) for the status.
 
 > **Note**: For an agent configured with [context management](/docs/protocol/context-management) (`maxToolOutputTokens` and/or `contextManagement`), the messages reflect the agent's **bounded working memory**, not a byte-complete transcript: tool results are the bounded previews and, once the session has compacted, older turns are represented by the running summary. For the complete, untruncated history - every tool result at full size - read the session's [execution log](#get-logs), which is the durable record.
 
@@ -190,7 +190,7 @@ The list grows over time; keep a part of an unknown `type` and skip it when rend
 
 ## Restore Session
 
-Restore an expired session from the UI messages you stored ([Get UI Messages](#get-ui-messages)), so a conversation continues after the server-side state has expired. The messages carry what their [display modes](/docs/protocol/tools#display-modes) revealed, and the restore rebuilds the model's history from that: a `stream` tool call comes back with its arguments and result, a `title` call as the call alone with a placeholder for its result, and a `hidden` call not at all.
+Restore an expired session from the UI messages you stored ([Get UI Messages](#get-ui-messages)), so a conversation continues after the server-side state has expired. The messages carry what their [display modes](/docs/protocol/tools#display-modes) revealed, and the restore rebuilds the model's history from that: a `stream` tool call comes back with its arguments and result, a `title` call with empty arguments and a placeholder result, and a `hidden` call not at all.
 
 ```
 POST /api/v1/sessions/:sessionId/restore
