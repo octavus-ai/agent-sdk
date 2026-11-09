@@ -26,6 +26,8 @@ export interface AgentPrompt {
 /** Agent reference from references/*.md */
 export interface AgentReference {
   name: string;
+  /** The label of the reference's read card, from the file's frontmatter `title`. */
+  title?: string;
   description: string;
   content: string;
 }
@@ -61,7 +63,7 @@ export class AgentFileError extends Error {
  *   - settings.json (required)
  *   - protocol.yaml (required)
  *   - prompts/**\/*.md (optional, supports nested directories)
- *   - references/*.md (optional, YAML frontmatter with description)
+ *   - references/*.md (optional, YAML frontmatter with a description and an optional title)
  */
 export async function readAgentDefinition(agentPath: string): Promise<AgentDefinition> {
   const resolvedPath = path.resolve(agentPath);
@@ -176,6 +178,7 @@ async function readPrompts(
 const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
 
 const referenceFrontmatterSchema = z.object({
+  title: z.string().trim().min(1, 'Title cannot be empty').optional(),
   description: z.string().min(1, 'Description is required'),
 });
 
@@ -211,6 +214,7 @@ async function readReferences(referencesDir: string): Promise<AgentReference[]> 
 
       references.push({
         name,
+        ...(result.data.title ? { title: result.data.title } : {}),
         description: result.data.description,
         content: match[2]!.trim(),
       });

@@ -41,6 +41,7 @@ my-agent/
 
 ```markdown
 ---
+title: Learning the API guidelines
 description: >
   API design guidelines including naming conventions,
   error handling patterns, and pagination standards.
@@ -57,7 +58,9 @@ Use lowercase with dashes for URL paths...
 All errors return a standard error envelope...
 ```
 
-The `description` field is required. It tells the agent what the reference contains so it can decide when to fetch it.
+The `description` field is required. It tells the agent what the reference contains so it can decide when to fetch it; it is written for the model and never shown to a person.
+
+The `title` field is optional. It is the label of the card a person sees when the agent reads the reference, in every visible display mode - here "Learning the API guidelines" instead of the runtime's "Reading reference: api-guidelines". It never reaches the model. Keep it a short label (at most 60 characters), as a skill's `title` in its `SKILL.md`.
 
 ### Naming Convention
 
@@ -102,6 +105,19 @@ steps:
 
 Different threads can have different references.
 
+### Display
+
+The list of names is the shorthand. To set how the reference tools render in a scope, write the field as an object with the names and a `display`:
+
+```yaml
+agent:
+  references:
+    names: [api-guidelines, error-codes]
+    display: stream
+```
+
+The same object form works on `start-thread.references`. Each scope sets its own display; there is no inheritance between the agent and its threads, as with every other per-scope setting. Without a `display`, the reference tools render as labels (`title`): the card shows which reference was read - the reference's own `title`, else "Reading reference: {name}" - and its status, but not the document. A reference is written for the agent, and a read's result is a whole document, so by default it stays between you and the agent and never rides along on a refresh or in a stored conversation. Set `display: stream` to show the document on the card, live and on reload, or `display: hidden` to show no card at all.
+
 ## Reference Tools
 
 When references are enabled, the agent has access to two tools:
@@ -113,7 +129,7 @@ When references are enabled, the agent has access to two tools:
 
 The agent also sees reference names and descriptions in its system prompt, so it knows what's available without calling `octavus_reference_list`.
 
-Both tools are [built-in tools](/docs/protocol/tools#display-modes) and render in `stream`: the list's card ("Listing references") carries the names and descriptions it returned, and a read's card ("Reading reference: {name}") carries the reference's content as text, or `{ success: false, error }` when the name matches no reference. Your UI decides whether to show that content to the end user; a reference is written for the agent, so leave it out when it should stay between you and the agent.
+Both tools are [built-in tools](/docs/protocol/tools#display-modes); they are the one built-in whose display the protocol sets, through the scope's `references` field above. In `title` (the default) the list's card reads "Listing references" and a read's card reads the reference's `title`, else "Reading reference: {name}", each with its status. In `stream` the list's card carries the names and descriptions it returned and a read's card carries the reference's content as text, or `{ success: false, error }` when the name matches no reference.
 
 ## Example
 
@@ -171,6 +187,8 @@ The CLI and platform validate references during sync and deployment:
 - **Unused references** - A reference file exists but isn't listed in any `agent.references` or `start-thread.references`
 - **Invalid names** - Names that don't follow the `lowercase-with-dashes` convention
 - **Missing description** - Reference files without the required `description` in frontmatter
+- **Invalid title** - A frontmatter `title` that is empty or longer than 60 characters
+- **Removed display values** - A `references.display` of `name` or `description`, which are not display modes
 
 ## References vs Skills
 

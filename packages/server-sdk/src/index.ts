@@ -14,6 +14,9 @@ export {
   type StartSessionOptions,
   type GetLogsOptions,
   type ExecutionLogs,
+  type GetModelHistoryOptions,
+  type ModelHistory,
+  type ModelHistoryToolResults,
 } from '@/sessions.js';
 export {
   FilesApi,

@@ -70,11 +70,16 @@ const session = await client.sessions.create(agentId, input);
 // Get a session (status is 'active' or 'expired')
 const current = await client.sessions.get(session.id);
 
-// Get the conversation as UI-ready messages
-const messages = await client.sessions.getMessages(session.id);
+// The UI transcript: the conversation as the UI renders it
+const messages = await client.sessions.getUiMessages(session.id);
 
-// Restore an expired session from stored messages
-await client.sessions.restore(session.id, storedMessages, input);
+// The model history: the model's record, to store after each turn
+const modelHistory = await client.sessions.getModelHistory(session.id, {
+  toolResults: 'trimmed',
+});
+
+// Restore an expired session from the stored model history
+await client.sessions.restoreFromModelHistory(session.id, storedModelHistory, input);
 
 // Clear session state (the session becomes expired)
 await client.sessions.clear(session.id);
@@ -212,7 +217,7 @@ Every failed request throws an `OctavusError` - the same class the stream's `err
 import { OctavusError } from '@octavus/server-sdk';
 
 try {
-  await client.sessions.getMessages(sessionId);
+  await client.sessions.getUiMessages(sessionId);
 } catch (error) {
   if (OctavusError.isInstance(error) && error.status === 404) {
     // start a new session
@@ -232,7 +237,7 @@ const events = session.trigger('user-message', input, {
 
 ### Active Sessions
 
-Sessions remain active for 24 hours (configurable). Use `getMessages()` for UI display.
+Sessions remain active for 24 hours (configurable). Use `getUiMessages()` for UI display and store `getModelHistory()` after each turn to be able to continue the conversation later.
 
 ### Expired Sessions
 
@@ -242,8 +247,8 @@ When session state expires:
 const session = await client.sessions.get(sessionId);
 
 if (session.status === 'expired') {
-  // Restore from your stored messages
-  await client.sessions.restore(sessionId, storedMessages);
+  // Restore from the model history you stored
+  await client.sessions.restoreFromModelHistory(sessionId, storedModelHistory);
 }
 ```
 

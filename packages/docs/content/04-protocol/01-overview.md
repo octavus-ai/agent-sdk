@@ -151,6 +151,16 @@ References are markdown files with YAML frontmatter that the agent can fetch on 
 - **Tools**: `lowercase-with-dashes`
 - **Triggers**: `lowercase-with-dashes`
 
+## `display`, `title`, and `description`
+
+Three fields recur across the protocol, and each has one job:
+
+- **`display` is for the UI.** It decides what reaches a person, live and on reload, under one [reveal rule](/docs/protocol/tools#display-modes): `hidden` shows nothing, `title` a labeled card with its status and errors, `stream` the arguments, results, and nested activity too. It never changes what the model sees or what a tool runs with. It exists on tools, MCP servers and their per-tool schemas, skills, the on-demand catalogs, workers, handler steps, and a scope's `references`.
+- **`title` is for the UI.** It is the label a person sees wherever a card or a status can show one, in every visible mode, and it never reaches the model. On tools, MCP servers, skills (in `SKILL.md` and as a protocol override), the on-demand catalogs, workers, and references (in the file's frontmatter). On a handler step it labels what the step produces: the card of an operation block (`generate-image`, `transcribe-audio`), the tool or worker card a `tool-call` or `run-worker` step relabels, and for `next-message` the `block-start` event's `title`, which a UI may show as a status line while the model generates. The infrastructure blocks (`add-message`, `start-thread`, `serialize-thread`) are hidden by default and have nothing to label; a `title` on them is accepted and does nothing.
+- **`description` documents an entity for whoever consumes it, and that is never the end user.** Where the model is handed the entity, the consumer is the model and the description is prompt text: a tool and its parameters, a worker (the delegation the parent sees), a skill, an MCP server and its tools, a reference (listed in the system prompt), the on-demand catalogs. Where the model never sees the entity, the consumer is the developer: a trigger's `description` and its inputs' descriptions are the agent's API documentation, and a handler step's `description` is an annotation carried into the session trace. Same word, same job, as a `description` in an OpenAPI document.
+
+The validator adds an info-level hint when a visible step or a streaming tool has a `description` and no `title`: the description is not shown, so add a `title` for the label.
+
 ## Variables in Prompts
 
 Reference variables with `{{VARIABLE_NAME}}`:

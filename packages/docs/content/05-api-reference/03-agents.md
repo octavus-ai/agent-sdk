@@ -51,6 +51,7 @@ Every endpoint that reads, creates, or changes an agent returns its definition:
   "references": [
     {
       "name": "api-guidelines",
+      "title": "Learning the API guidelines",
       "description": "API design guidelines and conventions",
       "content": "# API Guidelines\n\nUse lowercase with dashes..."
     }
@@ -204,15 +205,15 @@ POST /api/v1/agents
 }
 ```
 
-| Field                  | Type   | Required | Description                                      |
-| ---------------------- | ------ | -------- | ------------------------------------------------ |
-| `settings.slug`        | string | Yes      | URL-safe identifier                              |
-| `settings.name`        | string | Yes      | Display name                                     |
-| `settings.description` | string | No       | Agent description                                |
-| `settings.format`      | string | Yes      | `interactive` or `worker`                        |
-| `protocol`             | string | Yes      | YAML protocol definition                         |
-| `prompts`              | array  | Yes      | Prompt files                                     |
-| `references`           | array  | No       | Reference documents (name, description, content) |
+| Field                  | Type   | Required | Description                                                                                                 |
+| ---------------------- | ------ | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `settings.slug`        | string | Yes      | URL-safe identifier                                                                                         |
+| `settings.name`        | string | Yes      | Display name                                                                                                |
+| `settings.description` | string | No       | Agent description                                                                                           |
+| `settings.format`      | string | Yes      | `interactive` or `worker`                                                                                   |
+| `protocol`             | string | Yes      | YAML protocol definition                                                                                    |
+| `prompts`              | array  | Yes      | Prompt files                                                                                                |
+| `references`           | array  | No       | Reference documents (`name`, `description`, `content`, and an optional `title`, the label of the read card) |
 
 ### Response
 

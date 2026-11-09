@@ -268,7 +268,7 @@ await send(
 );
 ```
 
-This `sender` is for instant local display only. For attribution that persists and is visible to other participants, set the authoritative sender server-side on the trigger (see [Server SDK Sessions](/docs/server-sdk/sessions)). The persisted value comes back on `message.sender` from `getMessages()`, so render from `message.sender` and treat the value you passed to `send()` as the optimistic placeholder.
+This `sender` is for instant local display only. For attribution that persists and is visible to other participants, set the authoritative sender server-side on the trigger (see [Server SDK Sessions](/docs/server-sdk/sessions)). The persisted value comes back on `message.sender` from `getUiMessages()`, so render from `message.sender` and treat the value you passed to `send()` as the optimistic placeholder.
 
 ## Rendering Messages
 
@@ -449,13 +449,15 @@ function Chat({ sessionId, initialMessages }: ChatProps) {
 }
 ```
 
-On your backend, use `sessions.getMessages()` to fetch UI-ready messages:
+On your backend, use `sessions.getUiMessages()` to fetch the UI transcript:
 
 ```typescript
 // Server-side
-const messages = await client.sessions.getMessages(sessionId);
+const messages = await client.sessions.getUiMessages(sessionId);
 // UIMessage[] ready for the client's `initialMessages`
 ```
+
+The transcript shows what the person saw. To continue a conversation after its session has expired, the backend stores the model history instead; see [Server SDK Sessions](/docs/server-sdk/sessions#the-two-records-of-a-conversation).
 
 ## Callbacks
 

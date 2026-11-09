@@ -5,7 +5,7 @@ description: Session resources, triggers, continuations, messages, logs, and upl
 
 # Sessions API
 
-A session is a conversation with an agent: it holds the conversation history and the agent's variables. A session is a resource under `/api/v1/sessions`; its messages, its execution log, and the executions that run in it are resources of their own beneath it.
+A session is a conversation with an agent: it holds the conversation history and the agent's variables. A session is a resource under `/api/v1/sessions`; its two records of the conversation (the UI transcript and the model history), its execution log, and the executions that run in it are resources of their own beneath it.
 
 All session endpoints require an API key with the **Sessions** permission.
 
@@ -29,7 +29,7 @@ Every endpoint that creates or changes a session returns the session:
 | `status`    | string | `active` while the platform holds the session's state; `expired` once that state has aged out (24 hours idle) or been cleared |
 | `createdAt` | string | ISO 8601                                                                                                                      |
 
-An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the messages you stored.
+An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the model history you stored.
 
 ## Create Session
 
@@ -111,7 +111,7 @@ POST /api/v1/sessions/start
 GET /api/v1/sessions/:sessionId
 ```
 
-Returns the [session](#the-session-resource). The conversation itself is read from [Get Messages](#get-messages).
+Returns the [session](#the-session-resource). The conversation itself is read from [Get UI Messages](#get-ui-messages) (what the person saw) and [Get Model History](#get-model-history) (what the model produced).
 
 ### Example
 
@@ -120,13 +120,13 @@ curl https://octavus.ai/api/v1/sessions/:sessionId \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-## Get Messages
+## Get UI Messages
 
 ```
-GET /api/v1/sessions/:sessionId/messages
+GET /api/v1/sessions/:sessionId/ui-messages
 ```
 
-The session's conversation as the UI renders it. Each trigger produces one assistant message for the whole turn, however many tool rounds it takes: the message's `parts` hold every step in order, with a `step-start` part between steps - the same shape the client SDK builds while the turn streams. A handler that adds a message mid-turn (an `add-message` block after output has already been produced) continues in a new assistant message after it, so history keeps its order.
+The UI transcript: the session's conversation as the UI renders it, with each part revealing what its [display mode](/docs/protocol/tools#display-modes) allows - what the live stream showed. Each trigger produces one assistant message for the whole turn, however many tool rounds it takes: the message's `parts` hold every step in order, with a `step-start` part between steps - the same shape the client SDK builds while the turn streams. A handler that adds a message mid-turn (an `add-message` block after output has already been produced) continues in a new assistant message after it, so history keeps its order.
 
 A turn that is paused for tools - waiting for your server or client to continue it - is still in progress: its message has `status: "streaming"`, and its tool calls and sub-agent cards that await a result read `running`. A tool call a finished turn never resolved reads `cancelled`.
 
@@ -188,9 +188,70 @@ Messages contain typed `parts` that preserve content ordering:
 
 The list grows over time; keep a part of an unknown `type` and skip it when rendering (see [Versioning](/docs/api-reference/versioning)).
 
+## Get Model History
+
+```
+GET /api/v1/sessions/:sessionId/model-history?toolResults=full|trimmed
+```
+
+The model history: the model's record of the session, to store after each settled turn and hand back to [Restore Session](#restore-session) once the session's state has expired. Independent of display modes: every message as the model produced it, in the provider's emission order, with every tool call (the `hidden` ones and the sub-agent delegations included), plus the named threads, the context-compaction state, and the variables. The system prompt is not carried; a restore rebuilds it from the agent's current definition.
+
+### Query Parameters
+
+| Parameter     | Type   | Required | Description                                                                                                                                                                                                                                                |
+| ------------- | ------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `toolResults` | string | Yes      | How much of each tool result the record keeps: `full` (every result as stored) or `trimmed` (every result replaced by the placeholder the platform uses for a result it no longer holds, so the model re-makes a call when it needs the data). No default. |
+
+### Response
+
+```json
+{
+  "version": 1,
+  "sessionId": "cm5xyz123abc456def",
+  "agentId": "cm5xvz7k80001abcd",
+  "createdAt": "2024-01-15T10:35:00.000Z",
+  "toolResults": "trimmed",
+  "messages": [...],
+  "threads": {...},
+  "contextCompaction": {...},
+  "variables": {},
+  "signature": "k3Jx...Q9w"
+}
+```
+
+| Field               | Type   | Description                                                                                                           |
+| ------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| `version`           | number | The record's format version; a restore refuses a version the platform no longer reads                                 |
+| `sessionId`         | string | The session the record was read from; it restores that session only                                                   |
+| `agentId`           | string | The session's agent                                                                                                   |
+| `createdAt`         | string | When the record was read (ISO 8601)                                                                                   |
+| `toolResults`       | string | The mode it was read with                                                                                             |
+| `messages`          | array  | The model's record of the conversation, in the platform's own shape                                                   |
+| `threads`           | object | The named threads, when the session has any                                                                           |
+| `contextCompaction` | object | The context-compaction state, once the session has compacted                                                          |
+| `variables`         | object | The session's variables                                                                                               |
+| `signature`         | string | The platform's signature over the record's content. A record that was changed after it was read is refused on restore |
+
+Store the document as it is: readable JSON you may inspect, never edit. The fields beyond the envelope (`messages`, `threads`, `contextCompaction`) are the platform's own shapes and may change between versions; a restore reads them, your code should not.
+
+### Errors
+
+| Status | Code               | When                                                                                                                                                                                                  |
+| ------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | `VALIDATION_ERROR` | `toolResults` is missing or not one of `full`, `trimmed`                                                                                                                                              |
+| `409`  | `TURN_IN_PROGRESS` | A turn is running or paused for tools; the record covers settled turns only. Read it after a `finish` that ends the turn, not one that pauses it for tools or yields a leg (`tool-calls`, `continue`) |
+| `409`  | `SESSION_EXPIRED`  | The session's state has expired, so there is nothing to read; the record you stored stands                                                                                                            |
+
+### Example
+
+```bash
+curl "https://octavus.ai/api/v1/sessions/:sessionId/model-history?toolResults=trimmed" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
 ## Restore Session
 
-Restore an expired session from stored messages, so a conversation continues after the server-side state has expired.
+Restore an expired session from the model history you stored, so a conversation continues after the server-side state has expired: the faithful restore. The record's messages, threads, compaction state, and variables become the session's state as they were; the system prompt is rebuilt from the agent's current definition and the given `input`.
 
 ```
 POST /api/v1/sessions/:sessionId/restore
@@ -200,7 +261,64 @@ POST /api/v1/sessions/:sessionId/restore
 
 ```json
 {
-  "messages": [
+  "modelHistory": {
+    "version": 1,
+    "sessionId": "cm5xyz123abc456def",
+    "agentId": "cm5xvz7k80001abcd",
+    "createdAt": "2024-01-15T10:35:00.000Z",
+    "toolResults": "trimmed",
+    "messages": [...],
+    "variables": {},
+    "signature": "k3Jx...Q9w"
+  },
+  "input": {
+    "COMPANY_NAME": "Acme Corp"
+  }
+}
+```
+
+| Field          | Type   | Required | Description                                                            |
+| -------------- | ------ | -------- | ---------------------------------------------------------------------- |
+| `modelHistory` | object | Yes      | The record [Get Model History](#get-model-history) returned, unchanged |
+| `input`        | object | No       | Session input for system prompt interpolation (same as create)         |
+
+### Response
+
+The [session](#the-session-resource), `active` again. A session whose state was still live is left as it is.
+
+### Errors
+
+| Status | Code                                | When                                                                                         |
+| ------ | ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| `400`  | `MODEL_HISTORY_SIGNATURE_INVALID`   | The record's content was changed after it was read, or it was not produced by the platform   |
+| `400`  | `MODEL_HISTORY_VERSION_UNSUPPORTED` | The record's `version` is one the platform no longer reads; read the session's history again |
+| `400`  | `MODEL_HISTORY_MISMATCH`            | The record belongs to another session or agent than the one being restored                   |
+
+### Example
+
+```bash
+curl -X POST https://octavus.ai/api/v1/sessions/:sessionId/restore \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "modelHistory": {...},
+    "input": { "COMPANY_NAME": "Acme Corp" }
+  }'
+```
+
+## Restore Session from UI Messages
+
+Restore an expired session from the UI transcript you stored: the best-effort restore, for a conversation of which only [the UI messages](#get-ui-messages) were kept. The transcript is shaped by display modes, so the rebuilt history carries only what it revealed: a `hidden` tool call is gone, a `title`-mode call comes back without its arguments or result, a sub-agent delegation and its output are gone, and the named threads, the compaction state, and the variables are not carried. A `stream` call comes back whole. Prefer [Restore Session](#restore-session) with the model history.
+
+```
+POST /api/v1/sessions/:sessionId/restore-from-ui-messages
+```
+
+### Request Body
+
+```json
+{
+  "uiMessages": [
     {
       "id": "1702345800000-xyz789a",
       "role": "user",
@@ -215,28 +333,14 @@ POST /api/v1/sessions/:sessionId/restore
 }
 ```
 
-| Field      | Type        | Required | Description                                                    |
-| ---------- | ----------- | -------- | -------------------------------------------------------------- |
-| `messages` | UIMessage[] | Yes      | Previously stored chat history                                 |
-| `input`    | object      | No       | Session input for system prompt interpolation (same as create) |
+| Field        | Type        | Required | Description                                                    |
+| ------------ | ----------- | -------- | -------------------------------------------------------------- |
+| `uiMessages` | UIMessage[] | Yes      | The transcript [Get UI Messages](#get-ui-messages) returned    |
+| `input`      | object      | No       | Session input for system prompt interpolation (same as create) |
 
 ### Response
 
 The [session](#the-session-resource), `active` again. A session whose state was still live is left as it is.
-
-### Example
-
-```bash
-curl -X POST https://octavus.ai/api/v1/sessions/:sessionId/restore \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "messages": [...],
-    "input": { "COMPANY_NAME": "Acme Corp" }
-  }'
-```
-
-> **Note**: Store the `UIMessage[]` array after each interaction to enable restoration. The restore endpoint reconstructs the conversation state from these messages.
 
 ## Clear Session
 

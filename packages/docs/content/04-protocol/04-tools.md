@@ -9,7 +9,7 @@ Tools extend what agents can do. Octavus supports multiple types:
 
 1. **External Tools** - Defined in the protocol, implemented in your backend (this page)
 2. **MCP Tools** - Auto-discovered from MCP servers (see [MCP Servers](/docs/protocol/mcp-servers))
-3. **Built-in Tools** - Provider-agnostic tools managed by Octavus (web search, image generation). They render in `stream`, with a title the platform supplies: their card shows the call's arguments and result, and your UI decides what of it to display.
+3. **Built-in Tools** - Provider-agnostic tools managed by Octavus (web search, image generation). They render in `stream`, with a title the platform supplies: their card shows the call's arguments and result, and your UI decides what of it to display. The reference tools are the exception: labels by default, with the display set per scope (see [References](/docs/protocol/references#display)).
 4. **Skills** - Code execution and knowledge packages (see [Skills](/docs/protocol/skills))
 
 This page covers external tools. For MCP-based tools from services like Figma, Sentry, or device capabilities like browser and filesystem, see [MCP Servers](/docs/protocol/mcp-servers). Built-in tools are enabled via agent config - see [Web Search](/docs/protocol/agent-config#web-search) and [Image Generation](/docs/protocol/agent-config#image-generation). For code execution, see [Skills](/docs/protocol/skills).
@@ -73,11 +73,11 @@ What each mode reveals is the same on the live stream and in the stored messages
 
 `title` is the default and the usual choice for server-side tools that should surface in the UI; `stream` is for tools where the user benefits from seeing the arguments and result.
 
-**Built-in tools:** the `octavus_*` tools the agent config enables (web search, image, video, and speech generation, transcription, image viewing, references, and the sandbox code and file tools) have no `display` of their own and render in `stream`, each with a title the platform supplies ("Searching the web", "Generating image", "Running code", ...). Their arguments and result reach your client, live and in the stored conversation, so your UI can show a search's query or a code run's output - or leave out what it does not want to show. The skill tools that target a skill follow that skill's `display` instead (see [Skills](/docs/protocol/skills#display-modes)).
+**Built-in tools:** the `octavus_*` tools the agent config enables (web search, image, video, and speech generation, transcription, image viewing, and the sandbox code and file tools) have no `display` of their own and render in `stream`, each with a title the platform supplies ("Searching the web", "Generating image", "Running code", ...). Their arguments and result reach your client, live and in the stored conversation, so your UI can show a search's query or a code run's output - or leave out what it does not want to show. The reference tools are the exception: a read's result is a whole document written for the agent, so they render as labels by default (the reference's own `title`, else "Reading reference: {name}"), and the scope's `references: { names, display }` sets their display (see [References](/docs/protocol/references#display)). The skill tools that target a skill follow that skill's `display` instead (see [Skills](/docs/protocol/skills#display-modes)).
 
 **Refresh and restore behavior:**
 
-A `stream` tool's arguments and result are part of the stored conversation and come back on refresh and on restore. A `title` tool's card comes back with its label and status, and never its arguments or result. On a restore from stored `UIMessage[]`, a tool call stored without its result is given a placeholder so the model sees a complete history.
+A `stream` tool's arguments and result are part of the UI transcript and come back on refresh. A `title` tool's card comes back with its label and status, and never its arguments or result. Display never changes what the model remembers: the [model history](/docs/server-sdk/sessions#the-two-records-of-a-conversation) carries every call with its arguments whatever its mode, and the consumer chooses whether it keeps the results. A restore from the UI transcript alone gives a call stored without its result a placeholder, so the model sees a complete history.
 
 ## Parameters
 

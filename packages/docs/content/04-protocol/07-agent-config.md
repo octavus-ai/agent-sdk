@@ -30,7 +30,7 @@ agent:
 | `tools`               | No       | List of tools the LLM can call                                                                                                                                                                                                                             |
 | `mcpServers`          | No       | List of MCP servers to connect (see [MCP Servers](/docs/protocol/mcp-servers))                                                                                                                                                                             |
 | `skills`              | No       | List of Octavus skills the LLM can use                                                                                                                                                                                                                     |
-| `references`          | No       | List of references the LLM can fetch on demand                                                                                                                                                                                                             |
+| `references`          | No       | List of references the LLM can fetch on demand, or `{ names, display }` to also set how the reference tools render in this scope (see [References](/docs/protocol/references#display))                                                                     |
 | `sandboxTimeout`      | No       | Skill sandbox timeout in ms (default: 5 min, max: 1 hour)                                                                                                                                                                                                  |
 | `imageModel`          | No       | Image generation model (enables agentic image generation)                                                                                                                                                                                                  |
 | `videoModel`          | No       | Short-clip video generation model (enables agentic video generation, Google-only)                                                                                                                                                                          |
@@ -477,7 +477,14 @@ agent:
   agentic: true
 ```
 
-References are markdown files stored in the agent's `references/` directory. When enabled, the LLM can list available references and read their content using `octavus_reference_list` and `octavus_reference_read` tools. Both cards render in `stream` ("Listing references", "Reading reference: {name}"), so a read's card carries the reference's content.
+References are markdown files stored in the agent's `references/` directory. When enabled, the LLM can list available references and read their content using `octavus_reference_list` and `octavus_reference_read` tools. Their cards render as labels by default ("Listing references", and the reference's own `title` or "Reading reference: {name}"), without the document; to show what was read, write the field as an object and set the scope's display:
+
+```yaml
+agent:
+  references:
+    names: [api-guidelines, error-codes]
+    display: stream
+```
 
 See [References](/docs/protocol/references) for full documentation.
 

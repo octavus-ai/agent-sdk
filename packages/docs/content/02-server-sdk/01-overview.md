@@ -56,8 +56,8 @@ const { id: sessionId } = await client.sessions.create('clxyz123abc456', {
   PRODUCT_NAME: 'Widget Pro',
 });
 
-// Get the conversation as UI-ready messages (for session restore)
-const messages = await client.sessions.getMessages(sessionId);
+// Get the conversation as the UI renders it (for `initialMessages` after a refresh)
+const messages = await client.sessions.getUiMessages(sessionId);
 ```
 
 ### Tool Handlers
@@ -176,13 +176,26 @@ class SessionsApi {
   // Get a session (agent, creation time, active or expired)
   async get(sessionId: string): Promise<Session>;
 
-  // Get the conversation as UI-ready messages (empty once the session expired)
-  async getMessages(sessionId: string): Promise<UIMessage[]>;
+  // The UI transcript: the conversation as the UI renders it (empty once the session expired)
+  async getUiMessages(sessionId: string): Promise<UIMessage[]>;
 
-  // Restore an expired session from stored messages
-  async restore(
+  // The model history: the model's record, signed, to store and restore from
+  async getModelHistory(
     sessionId: string,
-    messages: UIMessage[],
+    options: { toolResults: 'full' | 'trimmed' },
+  ): Promise<ModelHistory>;
+
+  // Restore an expired session from the stored model history (the faithful restore)
+  async restoreFromModelHistory(
+    sessionId: string,
+    modelHistory: ModelHistory,
+    input?: Record<string, unknown>,
+  ): Promise<Session>;
+
+  // Restore an expired session from the stored UI transcript (best effort)
+  async restoreFromUiMessages(
+    sessionId: string,
+    uiMessages: UIMessage[],
     input?: Record<string, unknown>,
   ): Promise<Session>;
 
