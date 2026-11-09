@@ -57,7 +57,7 @@ const { id: sessionId } = await client.sessions.create('clxyz123abc456', {
 });
 
 // Get the conversation as UI-ready messages (for session restore)
-const messages = await client.sessions.getMessages(sessionId);
+const messages = await client.sessions.getUiMessages(sessionId);
 ```
 
 ### Tool Handlers
@@ -177,12 +177,12 @@ class SessionsApi {
   async get(sessionId: string): Promise<Session>;
 
   // Get the conversation as UI-ready messages (empty once the session expired)
-  async getMessages(sessionId: string): Promise<UIMessage[]>;
+  async getUiMessages(sessionId: string): Promise<UIMessage[]>;
 
   // Restore an expired session from stored messages
-  async restore(
+  async restoreFromUiMessages(
     sessionId: string,
-    messages: UIMessage[],
+    uiMessages: UIMessage[],
     input?: Record<string, unknown>,
   ): Promise<Session>;
 

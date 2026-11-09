@@ -29,7 +29,7 @@ Every endpoint that creates or changes a session returns the session:
 | `status`    | string | `active` while the platform holds the session's state; `expired` once that state has aged out (24 hours idle) or been cleared |
 | `createdAt` | string | ISO 8601                                                                                                                      |
 
-An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the messages you stored.
+An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the UI messages you stored.
 
 ## Create Session
 
@@ -111,7 +111,7 @@ POST /api/v1/sessions/start
 GET /api/v1/sessions/:sessionId
 ```
 
-Returns the [session](#the-session-resource). The conversation itself is read from [Get Messages](#get-messages).
+Returns the [session](#the-session-resource). The conversation itself is read from [Get UI Messages](#get-ui-messages).
 
 ### Example
 
@@ -120,17 +120,17 @@ curl https://octavus.ai/api/v1/sessions/:sessionId \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-## Get Messages
+## Get UI Messages
 
 ```
-GET /api/v1/sessions/:sessionId/messages
+GET /api/v1/sessions/:sessionId/ui-messages
 ```
 
 The session's conversation as the UI renders it. Each trigger produces one assistant message for the whole turn, however many tool rounds it takes: the message's `parts` hold every step in order, with a `step-start` part between steps - the same shape the client SDK builds while the turn streams. A handler that adds a message mid-turn (an `add-message` block after output has already been produced) continues in a new assistant message after it, so history keeps its order.
 
 A turn that is paused for tools - waiting for your server or client to continue it - is still in progress: its message has `status: "streaming"`, and its tool calls and sub-agent cards that await a result read `running`. A tool call a finished turn never resolved reads `cancelled`.
 
-An expired session has no messages: the response is `{ "messages": [] }`. Read [Get Session](#get-session) for the status.
+An expired session has no messages: the response is `{ "uiMessages": [] }`. Read [Get Session](#get-session) for the status.
 
 > **Note**: For an agent configured with [context management](/docs/protocol/context-management) (`maxToolOutputTokens` and/or `contextManagement`), the messages reflect the agent's **bounded working memory**, not a byte-complete transcript: tool results are the bounded previews and, once the session has compacted, older turns are represented by the running summary. For the complete, untruncated history - every tool result at full size - read the session's [execution log](#get-logs), which is the durable record.
 
@@ -138,7 +138,7 @@ An expired session has no messages: the response is `{ "messages": [] }`. Read [
 
 ```json
 {
-  "messages": [
+  "uiMessages": [
     {
       "id": "1702345800000-xyz789a",
       "role": "user",
@@ -190,7 +190,7 @@ The list grows over time; keep a part of an unknown `type` and skip it when rend
 
 ## Restore Session
 
-Restore an expired session from stored messages, so a conversation continues after the server-side state has expired.
+Restore an expired session from the UI messages you stored ([Get UI Messages](#get-ui-messages)), so a conversation continues after the server-side state has expired. The messages carry what their [display modes](/docs/protocol/tools#display-modes) revealed, and the restore rebuilds the model's history from that: a `stream` tool call comes back with its arguments and result, a `title` call with empty arguments and a placeholder result, and a `hidden` call not at all.
 
 ```
 POST /api/v1/sessions/:sessionId/restore
@@ -200,7 +200,7 @@ POST /api/v1/sessions/:sessionId/restore
 
 ```json
 {
-  "messages": [
+  "uiMessages": [
     {
       "id": "1702345800000-xyz789a",
       "role": "user",
@@ -215,10 +215,10 @@ POST /api/v1/sessions/:sessionId/restore
 }
 ```
 
-| Field      | Type        | Required | Description                                                    |
-| ---------- | ----------- | -------- | -------------------------------------------------------------- |
-| `messages` | UIMessage[] | Yes      | Previously stored chat history                                 |
-| `input`    | object      | No       | Session input for system prompt interpolation (same as create) |
+| Field        | Type        | Required | Description                                                    |
+| ------------ | ----------- | -------- | -------------------------------------------------------------- |
+| `uiMessages` | UIMessage[] | Yes      | The stored `UIMessage[]`                                       |
+| `input`      | object      | No       | Session input for system prompt interpolation (same as create) |
 
 ### Response
 
@@ -231,7 +231,7 @@ curl -X POST https://octavus.ai/api/v1/sessions/:sessionId/restore \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "messages": [...],
+    "uiMessages": [...],
     "input": { "COMPANY_NAME": "Acme Corp" }
   }'
 ```

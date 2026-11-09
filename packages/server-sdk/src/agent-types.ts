@@ -21,6 +21,7 @@ const agentPromptSchema = z.looseObject({
 
 const agentReferenceSchema = z.looseObject({
   name: z.string(),
+  title: z.string().optional(),
   description: z.string(),
   content: z.string(),
 });
@@ -85,6 +86,9 @@ export interface AgentPrompt {
 /** A reference document the agent loads on demand. */
 export interface AgentReference {
   name: string;
+  /** The label of the reference's read card (the file's frontmatter `title`); never shown to the model. */
+  title?: string;
+  /** What the reference contains, listed in the agent's system prompt. */
   description: string;
   content: string;
 }

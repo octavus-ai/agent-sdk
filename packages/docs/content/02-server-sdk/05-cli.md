@@ -218,7 +218,7 @@ my-agent/
 
 ### references/
 
-Reference files are markdown documents with YAML frontmatter containing a `description`. The agent can fetch these on demand during execution. See [References](/docs/protocol/references) for details.
+Reference files are markdown documents with YAML frontmatter containing a `description` (for the agent) and an optional `title` (the label of the card a person sees when the agent reads it). The agent can fetch these on demand during execution. See [References](/docs/protocol/references) for details.
 
 ### Sharing files across agents
 
