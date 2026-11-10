@@ -43,7 +43,7 @@ agent:
 | `maxSteps`            | No       | Maximum agentic steps (default: 10) - literal or variable reference                                                                                                                                                                                        |
 | `temperature`         | No       | Model temperature (0-2), `"off"`, or a variable reference                                                                                                                                                                                                  |
 | `thinking`            | No       | Reasoning level (`low`/`medium`/`high`/`xhigh`/`max`), `auto`, `"off"`, or a variable reference (see [Thinking](#thinking))                                                                                                                                |
-| `speed`               | No       | Inference speed for supported Opus models: `fast`/`standard` (see [Fast Mode](/docs/protocol/fast-mode))                                                                                                                                                   |
+| `speed`               | No       | Inference speed for supported Anthropic models: `fast`/`standard` (see [Fast Mode](/docs/protocol/fast-mode))                                                                                                                                              |
 | `cache`               | No       | Prompt caching mode: `auto` (default), `extended`, or `off`                                                                                                                                                                                                |
 | `streaming`           | No       | Delivery cadence for streamed text/reasoning: `{ chunking: off/word/line, delayMs? }` (see [Streaming Cadence](#streaming-cadence))                                                                                                                        |
 | `maxToolOutputTokens` | No       | Cap a single tool result at this many tokens - in the model view and in stored state (head+tail preview + note); the full result stays in the execution logs/trace. Omit to leave tool output unbounded                                                    |
@@ -812,10 +812,10 @@ handlers:
     Start summary thread:
       block: start-thread
       thread: summary
-      model: anthropic/claude-opus-4-8 # Different model
+      model: anthropic/claude-opus-5-5 # Different model
       backupModel: openai/gpt-4o # Failover model
       thinking: low # Different thinking
-      speed: fast # Fast mode for this thread (supported Opus models only)
+      speed: fast # Fast mode for this thread (supported Anthropic models only)
       streaming: { chunking: word } # Smooth streamed text for this thread
       cache: off # Different cache mode (does not inherit from agent)
       maxSteps: 1 # Limit tool calls

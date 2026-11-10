@@ -106,7 +106,7 @@ export interface StepStatsTrace {
   cacheMode?: 'auto' | 'extended' | 'off';
   /**
    * Inference speed the request actually ran at. `'fast'` only when the
-   * provider emitted the fast-mode param on the wire (Anthropic Opus).
+   * provider emitted the fast-mode param on the wire (Anthropic).
    * Undefined means standard speed.
    */
   speed?: 'fast' | 'standard';
