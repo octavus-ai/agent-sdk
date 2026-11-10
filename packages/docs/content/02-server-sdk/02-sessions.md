@@ -91,10 +91,10 @@ The created session id reaches you through two channels:
 
 ## Getting Session Messages
 
-To restore a conversation on page load, use `getUiMessages()` to retrieve the conversation as UI-ready messages:
+To restore a conversation on page load, use `getMessages()` to retrieve the conversation as UI-ready messages:
 
 ```typescript
-const messages = await client.sessions.getUiMessages(sessionId);
+const messages = await client.sessions.getMessages(sessionId);
 
 console.log(messages.length); // UIMessage[] ready for frontend
 ```
@@ -103,7 +103,7 @@ The returned messages can be passed directly to the client SDK's `initialMessage
 
 ## The Session
 
-`get()` returns the session: the agent it belongs to, when it was created, and whether its state is still `active` or has `expired`. `create()`, `restoreFromUiMessages()`, and `clear()` return the same shape.
+`get()` returns the session: the agent it belongs to, when it was created, and whether its state is still `active` or has `expired`. `create()`, `restoreFromMessages()`, and `clear()` return the same shape.
 
 ```typescript
 const session = await client.sessions.get(sessionId);
@@ -125,7 +125,7 @@ interface Session {
 }
 ```
 
-The conversation itself is read with `getUiMessages()`; the full execution record (every tool call, model request, and error) with `getLogs()`.
+The conversation itself is read with `getMessages()`; the full execution record (every tool call, model request, and error) with `getLogs()`.
 
 ## Getting Execution Logs
 
@@ -305,11 +305,11 @@ export async function POST(request: Request) {
 }
 ```
 
-The runtime stamps the sender onto the user message it creates, so it comes back on `UIMessage.sender` from `getUiMessages()` and survives restore. `sender` is turn metadata - it is never added to your protocol's trigger `input`, and agent-initiated turns (no `sender`) stay unattributed. For instant optimistic display in the browser, also pass it on the client `send()` (see [Client SDK Messages](/docs/client-sdk/messages)).
+The runtime stamps the sender onto the user message it creates, so it comes back on `UIMessage.sender` from `getMessages()` and survives restore. `sender` is turn metadata - it is never added to your protocol's trigger `input`, and agent-initiated turns (no `sender`) stay unattributed. For instant optimistic display in the browser, also pass it on the client `send()` (see [Client SDK Messages](/docs/client-sdk/messages)).
 
 ### Keying the User Message
 
-If you render the user's message before the turn runs (an optimistic bubble, a message stored in your own database), set `userMessageId` on the trigger and the runtime persists the turn's user message under that id. The message you rendered and the message `getUiMessages()` returns are then one message, with one id - no reconciliation by position or timestamp when the conversation is restored:
+If you render the user's message before the turn runs (an optimistic bubble, a message stored in your own database), set `userMessageId` on the trigger and the runtime persists the turn's user message under that id. The message you rendered and the message `getMessages()` returns are then one message, with one id - no reconciliation by position or timestamp when the conversation is restored:
 
 ```typescript
 const userMessageId = crypto.randomUUID(); // minted where the message is first shown
@@ -415,7 +415,7 @@ flowchart TD
 
     D -.- D1["`**client.sessions.get()**
     Check session status
-    **getUiMessages()** for the conversation`"]
+    **getMessages()** for the conversation`"]
 
     E -.- E1["`Sessions expire after
     24 hours (configurable)`"]
@@ -424,7 +424,7 @@ flowchart TD
     Programmatically clear state
     Session becomes expired`"]
 
-    F -.- F1["`**client.sessions.restoreFromUiMessages()**
+    F -.- F1["`**client.sessions.restoreFromMessages()**
     Restore from stored messages
     Or create new session`"]
 ```
@@ -441,7 +441,7 @@ if (session.status === 'expired') {
   console.log('Session expired:', session.id);
 } else {
   // Session is active
-  const messages = await client.sessions.getUiMessages(sessionId);
+  const messages = await client.sessions.getMessages(sessionId);
   console.log('Messages:', messages.length);
 }
 ```
@@ -454,7 +454,7 @@ To enable session restoration, store the chat messages in your own database afte
 
 ```typescript
 // After each trigger completes, save messages
-const messages = await client.sessions.getUiMessages(sessionId);
+const messages = await client.sessions.getMessages(sessionId);
 
 await db.chats.update({
   where: { id: chatId },
@@ -484,13 +484,13 @@ if (session.status === 'active') {
   // Session is active - use it directly
   return {
     sessionId: session.id,
-    messages: await client.sessions.getUiMessages(session.id),
+    messages: await client.sessions.getMessages(session.id),
   };
 }
 
 // 3. Session expired - restore from stored messages
 if (chat.messages && chat.messages.length > 0) {
-  const restored = await client.sessions.restoreFromUiMessages(
+  const restored = await client.sessions.restoreFromMessages(
     chat.sessionId,
     chat.messages,
     { COMPANY_NAME: 'Acme Corp' }, // Optional: same input as create()
@@ -514,7 +514,7 @@ return {
 };
 ```
 
-`restoreFromUiMessages()` returns the session, `active` again; a session whose state was still live is returned as it is.
+`restoreFromMessages()` returns the session, `active` again; a session whose state was still live is returned as it is.
 
 ## Complete Example
 
@@ -537,13 +537,13 @@ async function getOrCreateSession(chatId: string, agentId: string, input: Record
     const session = await client.sessions.get(chat.sessionId);
 
     if (session.status === 'active') {
-      const messages = await client.sessions.getUiMessages(session.id);
+      const messages = await client.sessions.getMessages(session.id);
       return { sessionId: session.id, messages };
     }
 
     // Restore the expired session from the stored messages
     if (chat.messages?.length > 0) {
-      const restored = await client.sessions.restoreFromUiMessages(
+      const restored = await client.sessions.restoreFromMessages(
         chat.sessionId,
         chat.messages,
         input,
@@ -575,7 +575,7 @@ const session = await client.sessions.clear(sessionId);
 console.log(session.status); // 'expired'
 ```
 
-After clearing, the session is `expired`. You can then restore it with `restoreFromUiMessages()` or create a new session.
+After clearing, the session is `expired`. You can then restore it with `restoreFromMessages()` or create a new session.
 
 This is idempotent - calling `clear()` on an already expired session succeeds without error.
 
@@ -587,7 +587,7 @@ Every failed request throws an `OctavusError` - the same class the stream's `err
 import { OctavusError } from '@octavus/server-sdk';
 
 try {
-  const messages = await client.sessions.getUiMessages(sessionId);
+  const messages = await client.sessions.getMessages(sessionId);
 } catch (error) {
   if (OctavusError.isInstance(error)) {
     if (error.status === 404) {
@@ -603,4 +603,4 @@ try {
 }
 ```
 
-A validation failure (`400`) or an invalid agent definition (`422`) carries its structured `issues`; a `429` or `503` carries `retryAfter` in seconds. See [Error handling](/docs/client-sdk/error-handling) for the classification and the [API reference](/docs/api-reference/overview#errors) for the response body.
+A validation failure (`400`) or an invalid agent definition (`422`) carries its structured `issues`; a `429` or `503` carries `retryAfter` in seconds. A successful response the SDK cannot read - a body that is not JSON, or not the shape it expects - throws the same class, classified `internal_error`, with that response's `status` and `requestId`. See [Error handling](/docs/client-sdk/error-handling) for the classification and the [API reference](/docs/api-reference/overview#errors) for the response body.

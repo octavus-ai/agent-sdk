@@ -37,7 +37,7 @@ export interface TriggerRequest {
   /**
    * The id the runtime gives the user message this turn's handler adds (the
    * first visible main-thread user message), so a message you render
-   * optimistically keeps one identity from send to `getUiMessages()`. Applied
+   * optimistically keeps one identity from send to `getMessages()`. Applied
    * when no message in the session has it yet; otherwise the runtime mints an
    * id as usual, so a re-issued turn whose earlier attempt already persisted
    * the message never overwrites it. Turn metadata, not a protocol input.

@@ -268,7 +268,7 @@ await send(
 );
 ```
 
-This `sender` is for instant local display only. For attribution that persists and is visible to other participants, set the authoritative sender server-side on the trigger (see [Server SDK Sessions](/docs/server-sdk/sessions)). The persisted value comes back on `message.sender` from `getUiMessages()`, so render from `message.sender` and treat the value you passed to `send()` as the optimistic placeholder.
+This `sender` is for instant local display only. For attribution that persists and is visible to other participants, set the authoritative sender server-side on the trigger (see [Server SDK Sessions](/docs/server-sdk/sessions)). The persisted value comes back on `message.sender` from `getMessages()`, so render from `message.sender` and treat the value you passed to `send()` as the optimistic placeholder.
 
 ## Rendering Messages
 
@@ -449,11 +449,11 @@ function Chat({ sessionId, initialMessages }: ChatProps) {
 }
 ```
 
-On your backend, use `sessions.getUiMessages()` to fetch UI-ready messages:
+On your backend, use `sessions.getMessages()` to fetch UI-ready messages:
 
 ```typescript
 // Server-side
-const messages = await client.sessions.getUiMessages(sessionId);
+const messages = await client.sessions.getMessages(sessionId);
 // UIMessage[] ready for the client's `initialMessages`
 ```
 
