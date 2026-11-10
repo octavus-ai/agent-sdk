@@ -127,7 +127,7 @@ Current status, active incidents, planned maintenance, and incident history are 
 | POST   | `/api/v1/sessions/start`                                | Create a session and run its first trigger (SSE) |
 | GET    | `/api/v1/sessions/:id`                                  | Get a session (`active` or `expired`)            |
 | POST   | `/api/v1/sessions/:id/clear`                            | Clear a session's state (it becomes `expired`)   |
-| GET    | `/api/v1/sessions/:id/ui-messages`                      | The conversation as UI messages                  |
+| GET    | `/api/v1/sessions/:id/messages`                         | The conversation as UI messages                  |
 | POST   | `/api/v1/sessions/:id/executions`                       | Start an execution: run a trigger (SSE)          |
 | POST   | `/api/v1/sessions/:id/executions/:executionId/continue` | Continue a paused execution (SSE)                |
 | POST   | `/api/v1/sessions/:id/restore`                          | Restore an expired session from stored messages  |

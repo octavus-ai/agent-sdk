@@ -71,10 +71,10 @@ const session = await client.sessions.create(agentId, input);
 const current = await client.sessions.get(session.id);
 
 // Get the conversation as UI-ready messages
-const messages = await client.sessions.getUiMessages(session.id);
+const messages = await client.sessions.getMessages(session.id);
 
 // Restore an expired session from stored messages
-await client.sessions.restoreFromUiMessages(session.id, storedMessages, input);
+await client.sessions.restoreFromMessages(session.id, storedMessages, input);
 
 // Clear session state (the session becomes expired)
 await client.sessions.clear(session.id);
@@ -206,13 +206,13 @@ const session = client.sessions.attach(sessionId, {
 
 ### Errors
 
-Every failed request throws an `OctavusError` - the same class the stream's `error` events become - with the HTTP `status`, the platform's stable `code`, the classification, whether a retry can help, and the `requestId` to quote to support.
+Every failed request throws an `OctavusError` - the same class the stream's `error` events become - with the HTTP `status`, the platform's stable `code`, the classification, whether a retry can help, and the `requestId` to quote to support. A successful response the SDK cannot read (not JSON, or not the shape it expects) throws the same class.
 
 ```typescript
 import { OctavusError } from '@octavus/server-sdk';
 
 try {
-  await client.sessions.getUiMessages(sessionId);
+  await client.sessions.getMessages(sessionId);
 } catch (error) {
   if (OctavusError.isInstance(error) && error.status === 404) {
     // start a new session
@@ -232,7 +232,7 @@ const events = session.trigger('user-message', input, {
 
 ### Active Sessions
 
-Sessions remain active for 24 hours (configurable). Use `getUiMessages()` for UI display, and store the messages to restore the session later.
+Sessions remain active for 24 hours (configurable). Use `getMessages()` for UI display, and store the messages to restore the session later.
 
 ### Expired Sessions
 
@@ -243,7 +243,7 @@ const session = await client.sessions.get(sessionId);
 
 if (session.status === 'expired') {
   // Restore from your stored messages
-  await client.sessions.restoreFromUiMessages(sessionId, storedMessages);
+  await client.sessions.restoreFromMessages(sessionId, storedMessages);
 }
 ```
 

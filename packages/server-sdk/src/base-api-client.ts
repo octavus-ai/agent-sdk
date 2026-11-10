@@ -1,5 +1,5 @@
 import type { ZodType } from 'zod';
-import { throwApiError } from '@/api-error.js';
+import { describeIssues, malformedResponseError, throwApiError } from '@/api-error.js';
 
 export interface ApiClientConfig {
   baseUrl: string;
@@ -107,11 +107,30 @@ export abstract class BaseApiClient {
     return `${this.config.baseUrl}${path}${search ? `?${search}` : ''}`;
   }
 
+  /**
+   * The response's body, validated. A failed response throws the error it
+   * describes; a successful one whose body cannot be read (not JSON, or not
+   * the shape the schema describes) throws the same error class, so every
+   * failure a call can raise is an `OctavusError`. A body that is not JSON
+   * names its content type, which is what tells a proxy's HTML page apart
+   * from a platform answer.
+   */
   private async readJson<T>(response: Response, schema: ZodType<T>): Promise<T> {
     if (!response.ok) {
       await throwApiError(response, 'Request failed');
     }
-    const data: unknown = await response.json();
-    return schema.parse(data);
+    const text = await response.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch (cause) {
+      const contentType = response.headers.get('Content-Type') ?? 'no Content-Type';
+      throw malformedResponseError(response, `the body is not JSON (${contentType})`, cause);
+    }
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      throw malformedResponseError(response, describeIssues(parsed.error), parsed.error);
+    }
+    return parsed.data;
   }
 }

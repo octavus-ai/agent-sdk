@@ -46,19 +46,23 @@ export function isSettledRecordingStatus(status: WorkforceRecording['status']): 
   return SETTLED_RECORDING_STATUSES.has(status);
 }
 
+// The response schemas are loose objects, so a field the platform adds to a
+// thread or agent read reaches the caller: every object schema of the SDK
+// keeps the fields it does not know.
+
 /**
  * Status is validated leniently (any string) so a newly-added platform status
  * never breaks polling; unknown values are simply treated as non-terminal.
  */
 const threadStatusSchema = z.string().transform((s) => s as WorkforceThreadStatus);
 
-const dispatchResponseSchema = z.object({
+const dispatchResponseSchema = z.looseObject({
   threadId: z.string(),
   status: threadStatusSchema,
 });
 
 /** The effective per-run config a thread ran under (what the run actually used). */
-const threadRunConfigSchema = z.object({
+const threadRunConfigSchema = z.looseObject({
   model: z.string().optional(),
   backupModel: z.string().optional(),
   thinking: z.string().optional(),
@@ -66,7 +70,7 @@ const threadRunConfigSchema = z.object({
 });
 
 /** Per-run cost + token summary, readable with the agent key. */
-const usageSummarySchema = z.object({
+const usageSummarySchema = z.looseObject({
   currency: z.literal('USD'),
   costUsd: z.number(),
   totalFeeUsd: z.number(),
@@ -77,7 +81,7 @@ const usageSummarySchema = z.object({
 });
 
 /** A thread's execution recording, when the run was recorded. */
-const recordingSchema = z.object({
+const recordingSchema = z.looseObject({
   status: z.string().transform((s) => s as WorkforceRecording['status']),
   visibility: z.string().transform((v) => v as WorkforceRecording['visibility']),
   url: z.string().nullable(),
@@ -90,16 +94,16 @@ const nullableString = z
   .nullish()
   .transform((v) => v ?? null);
 
-const deploymentSchema = z.object({
+const deploymentSchema = z.looseObject({
   deploymentId: z.string(),
   commitSha: nullableString,
   firstSeenAt: z.string(),
 });
 
-const definitionSchema = z.object({ slug: z.string(), version: z.number() });
+const definitionSchema = z.looseObject({ slug: z.string(), version: z.number() });
 
 /** Kinds and states are validated leniently (any string), so a value the platform adds later never breaks a read. */
-const computerIdentitySchema = z.object({
+const computerIdentitySchema = z.looseObject({
   kind: z.string().transform((k) => k as WorkforceComputerKind),
   os: nullableString.transform((o) => o as WorkforceComputerOs | null),
 });
@@ -110,13 +114,13 @@ const threadComputerSchema = computerIdentitySchema.extend({
   region: nullableString,
 });
 
-const provenanceSchema = z.object({
-  platform: z.object({ deployments: z.array(deploymentSchema) }),
+const provenanceSchema = z.looseObject({
+  platform: z.looseObject({ deployments: z.array(deploymentSchema) }),
   definition: definitionSchema.nullish().transform((v) => v ?? null),
   computer: threadComputerSchema.nullish().transform((v) => v ?? null),
 });
 
-const agentResponseSchema = z.object({
+const agentResponseSchema = z.looseObject({
   agentId: z.string(),
   name: z.string(),
   status: z.string().transform((s) => s as WorkforceAgentStatus),
@@ -150,7 +154,7 @@ export type WorkforceFailureType =
   | 'billing'
   | 'session_too_large';
 
-const threadResponseSchema = z.object({
+const threadResponseSchema = z.looseObject({
   threadId: z.string(),
   status: threadStatusSchema,
   failureReason: z.string().nullable(),
