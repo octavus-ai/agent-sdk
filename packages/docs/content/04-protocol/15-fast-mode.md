@@ -1,15 +1,15 @@
 ---
 title: Fast Mode
-description: Run supported Anthropic Opus models at higher output speed for latency-sensitive agents.
+description: Run supported Anthropic models at higher output speed for latency-sensitive agents.
 ---
 
 # Fast Mode
 
-Fast mode runs a supported Anthropic Opus model with a faster inference configuration - higher output tokens per second, same weights and behavior - at premium pricing. Enable it with the `speed` field in the [agent config](/docs/protocol/agent-config):
+Fast mode runs a supported Anthropic model with a faster inference configuration - higher output tokens per second, same weights and behavior - at premium pricing. Enable it with the `speed` field in the [agent config](/docs/protocol/agent-config):
 
 ```yaml
 agent:
-  model: anthropic/claude-opus-5
+  model: anthropic/claude-opus-5-5
   speed: fast # fast | standard (default)
 ```
 
@@ -22,7 +22,7 @@ Fast mode is orthogonal to thinking - it's a speed/price knob, not an intelligen
 
 ## Supported models
 
-Fast mode only applies to **Anthropic Opus 5.5, 5, and 4.8**. On any other model or provider it is a **no-op**: the request runs at standard speed and price, and never errors. This makes it safe to leave `speed: fast` set when using a dynamic model (resolved from input) that might turn out not to support it.
+Fast mode only applies to **Anthropic Claude Fable 5.2 and Opus 5.5, 5, and 4.8**. On any other model or provider it is a **no-op**: the request runs at standard speed and price, and never errors. This makes it safe to leave `speed: fast` set when using a dynamic model (resolved from input) that might turn out not to support it.
 
 When you set `speed: fast` on a literal model that does not support it, the protocol validator surfaces a non-fatal warning in the dashboard.
 
@@ -32,13 +32,13 @@ Fast mode costs about 2x the model's standard rates, for both input and output a
 
 ## Rate limits and fallback
 
-Fast mode has a dedicated rate limit, separate from standard Opus limits. When it is exhausted the agent degrades gracefully instead of failing: the request automatically retries at standard speed on the same model, then falls back to your configured [backup model](/docs/protocol/agent-config) if needed, before surfacing an error.
+Fast mode has a dedicated rate limit, separate from the model's standard limits. When it is exhausted the agent degrades gracefully instead of failing: the request automatically retries at standard speed on the same model, then falls back to your configured [backup model](/docs/protocol/agent-config) if needed, before surfacing an error.
 
 Falling back to standard speed is a prompt-cache miss, since fast and standard requests do not share cached prefixes. The fallback is recorded in the session trace, so it is clear when a request that asked for fast ran at standard (or on the backup model) and why.
 
 ## Routing
 
-`speed: fast` applies on the direct Anthropic route (`anthropic/claude-opus-4-8`). Through OpenRouter, `speed` is ignored (validation warns): OpenRouter expresses fast mode only as a dedicated `-fast` model slug, which an agent can use once the [model catalog](https://octavus.ai/pricing/models) lists it.
+`speed: fast` applies on the direct Anthropic route (`anthropic/claude-opus-5-5`). Through OpenRouter, `speed` is ignored (validation warns): OpenRouter expresses fast mode only as a dedicated `-fast` model slug, which an agent can use once the [model catalog](https://octavus.ai/pricing/models) lists it.
 
 ## Passing speed as input
 
@@ -52,7 +52,7 @@ input:
     optional: true
 
 agent:
-  model: anthropic/claude-opus-4-8
+  model: anthropic/claude-opus-5-5
   speed: SPEED # Resolved from session input; unset -> standard
   system: system
 ```
