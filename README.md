@@ -105,7 +105,7 @@ Full documentation is available at [octavus.ai/docs](https://octavus.ai/docs).
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 20.0.0+
+- [Node.js](https://nodejs.org/) 22.0.0+
 - [pnpm](https://pnpm.io/) 10.0.0+
 
 ### Setup

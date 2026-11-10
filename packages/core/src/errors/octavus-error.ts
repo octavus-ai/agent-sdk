@@ -222,9 +222,15 @@ export class OctavusError extends Error {
    * request ID from the body, else from the `Request-Id` header the caller
    * read.
    *
+   * A body that is not the platform's error body never becomes the message:
+   * it came from whatever stands in front of the platform (its host's or a
+   * proxy's error page, often HTML), which is not something to show a person.
+   * Such a response is classified by its status, and its message is the
+   * caller's `fallbackMessage`, which names the status and what came back.
+   *
    * @param status - HTTP status code of the response
-   * @param body - The parsed response body, or the raw text when it was not JSON
-   * @param fallbackMessage - Message when the body carries none
+   * @param body - The parsed JSON body, or `undefined` when the body was not JSON
+   * @param fallbackMessage - Message when the body is not the platform's error body, or carries none
    * @param options - The response's headers the error can use
    */
   static fromApiResponse(
@@ -238,7 +244,7 @@ export class OctavusError extends Error {
     if (!parsed.success) {
       return new OctavusError({
         errorType: errorTypeForStatus(status),
-        message: typeof body === 'string' && body.trim() ? body : fallbackMessage,
+        message: fallbackMessage,
         source: 'platform',
         retryable: retryableForStatus(status),
         status,

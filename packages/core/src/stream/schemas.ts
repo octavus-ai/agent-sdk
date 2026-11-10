@@ -354,7 +354,7 @@ export const toolInputAvailableEventSchema = z.looseObject({
 export const toolOutputAvailableEventSchema = z.looseObject({
   type: z.literal('tool-output-available'),
   toolCallId: z.string(),
-  output: z.unknown(),
+  output: z.unknown().optional(),
   display: displayModeSchema.optional(),
   workerId: z.string().optional(),
 });
