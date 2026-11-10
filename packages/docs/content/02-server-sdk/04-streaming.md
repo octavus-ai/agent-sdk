@@ -205,7 +205,8 @@ Tool call lifecycle:
 // Tool input is complete and available
 { type: 'tool-input-available', toolCallId: '...', toolName: 'get-user-account', input: { userId: 'user-123' } }
 
-// Tool output available (success)
+// Tool output available (success); `output` is present only for `display: stream`,
+// a `title` card gets the event without it so it can complete
 { type: 'tool-output-available', toolCallId: '...', output: { name: 'Demo User', email: '...' } }
 
 // Tool output error (failure)

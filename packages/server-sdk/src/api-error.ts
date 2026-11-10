@@ -4,25 +4,55 @@ import { OctavusError } from '@octavus/core';
 /**
  * The error a failed platform response describes: the platform's error body
  * when it sent one (its message, code, classification, request ID, and any
- * data to act on), else the status and the response text.
+ * data to act on), else the status and, for a body that is not JSON, its
+ * content type. The body's text is never the message: a response the platform
+ * did not answer (its host's or a proxy's error page) must not reach a person
+ * as a wall of markup.
  */
 export async function readApiError(
   response: Response,
   defaultMessage: string,
 ): Promise<OctavusError> {
   const text = await response.text().catch(() => '');
-  let body: unknown = text;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    // Not JSON: the text itself is the best message available.
-  }
+  const body = parseJson(text);
   return OctavusError.fromApiResponse(
     response.status,
     body,
-    `${defaultMessage}: ${response.statusText}`,
+    describeFailedResponse(response, defaultMessage, body === undefined),
     { requestId: response.headers.get('Request-Id') },
   );
+}
+
+/** The parsed JSON body, or `undefined` when the text is not JSON. */
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The message for a failed response that carried no platform error body:
+ * the status and its reason (the reason is empty over HTTP/2, so the number
+ * is always there), plus the content type when the body was not JSON, which
+ * is what tells a proxy's HTML page apart from a platform answer.
+ */
+function describeFailedResponse(
+  response: Response,
+  defaultMessage: string,
+  bodyNotJson: boolean,
+): string {
+  const reason = response.statusText ? ` ${response.statusText}` : '';
+  const contentType = bodyNotJson ? ` (${mediaType(response)})` : '';
+  return `${defaultMessage}: ${response.status}${reason}${contentType}`;
+}
+
+/** The response's media type, without its parameters (`text/html`, not `text/html; charset=utf-8`). */
+function mediaType(response: Response): string {
+  const contentType = response.headers.get('Content-Type');
+  if (!contentType) return 'no Content-Type';
+  return contentType.split(';')[0]!.trim() || 'no Content-Type';
 }
 
 /**

@@ -344,11 +344,11 @@ export type ToolInputAvailableEvent = {
   display?: DisplayMode;
   workerId?: string;
 };
-/** Tool output is available; `output` is `undefined` unless the display mode is `stream`. */
+/** Tool output is available; `output` is absent unless the display mode is `stream`. */
 export type ToolOutputAvailableEvent = {
   type: 'tool-output-available';
   toolCallId: string;
-  output: unknown;
+  output?: unknown;
   display?: DisplayMode;
   workerId?: string;
 };

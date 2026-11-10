@@ -6,7 +6,7 @@ Thank you for your interest in contributing to the Octavus SDK!
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 20.0.0+
+- [Node.js](https://nodejs.org/) 22.0.0+
 - [pnpm](https://pnpm.io/) 10.0.0+
 
 ### Setup
@@ -63,21 +63,26 @@ pnpm type-check
 The packages have the following dependency structure:
 
 ```
-@octavus/core (no dependencies)
+@octavus/core (zod)
     ↑
 @octavus/client-sdk
     ↑
-@octavus/react
+@octavus/react (peer: react)
 
 @octavus/core
     ↑
-@octavus/server-sdk
+@octavus/server-sdk (zod, @standard-schema/spec)
+    ↑
+@octavus/cli
 
-@octavus/cli (standalone)
+@octavus/core
+    ↑
+@octavus/computer (@modelcontextprotocol/sdk)
+
 @octavus/docs (standalone)
 ```
 
-When making changes to `@octavus/core`, ensure you test dependent packages as well.
+Every package publishes at the same version, in one release. When making changes to `@octavus/core`, ensure you test dependent packages as well.
 
 ## Code Style
 

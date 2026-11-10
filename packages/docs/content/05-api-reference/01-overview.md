@@ -67,7 +67,7 @@ All responses are JSON. A request that creates or changes a resource returns the
 
 ### Error Response
 
-Every error, on every endpoint, is one flat body:
+Every error, on every endpoint (and on a path under `/api` that is not one), is one flat body:
 
 ```json
 {
@@ -105,7 +105,7 @@ Every response, success or error, carries the request's ID in the `Request-Id` h
 | 401  | Unauthorized - Missing or invalid API key                                                                 |
 | 402  | Payment Required - A plan limit was reached                                                               |
 | 403  | Forbidden - Insufficient permissions                                                                      |
-| 404  | Not Found                                                                                                 |
+| 404  | Not Found - The resource does not exist, or the path is not an endpoint                                   |
 | 409  | Conflict - The state does not allow the request (an expired session, a busy agent)                        |
 | 422  | Unprocessable - The agent definition is invalid (`issues` says why)                                       |
 | 426  | Upgrade Required - The path prefix is no longer served (see [Versioning](/docs/api-reference/versioning)) |
