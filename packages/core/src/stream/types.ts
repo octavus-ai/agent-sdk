@@ -200,10 +200,13 @@ export type FileReference = {
  *
  * `messageId` is the id of the assistant message this execution's output lands
  * on - the id the message is persisted under, so a client that builds the
- * message live can key it the same way a reload does. `executionId` identifies
- * the execution for tool continuation; `lastMessageId` is the last message in
- * session state before this execution (for retry rollback); `sessionId` lets a
- * create-and-trigger caller learn the new session id from the first event.
+ * message live can key it the same way a reload does. `sessionId` is the
+ * session the execution runs in - the conversation, or the session a worker
+ * run is recorded as - and the id to keep: the session's log, messages, and
+ * activity page are read by it, and a caller that created the session with
+ * this request learns its id here. `executionId` identifies the execution
+ * within the session, and only a continuation uses it. `lastMessageId` is the
+ * last message in session state before this execution (for retry rollback).
  */
 export type StartEvent = {
   type: 'start';

@@ -7,6 +7,15 @@ description: Managing agent sessions with the Server SDK.
 
 Sessions represent conversations with an agent. They store conversation history and the agent's variables, and enable stateful interactions.
 
+## Sessions and Executions
+
+Two ids appear across the SDK, and each has one job:
+
+- **`sessionId`** names a session: the record of an agent's work, with its state, its execution log, and its page in the dashboard. It is the id you keep. Store it with your own record, and read the session by it.
+- **`executionId`** names one execution inside a session: a turn of the conversation, from its trigger until it finishes, across every tool round in between. Its only use is to continue an execution that paused for tools. The SDK passes it along for you; you see it only when the browser runs [client tools](/docs/client-sdk/client-tools) and sends it back with their results.
+
+An interactive agent's session is a conversation and holds many executions, one per turn. A [worker](/docs/server-sdk/workers#worker-sessions) run is a session of its own with a single execution, created by running the worker (`create()` refuses a worker agent); it holds no conversation.
+
 ## Creating Sessions
 
 Create a session by specifying the agent ID and initial input variables:

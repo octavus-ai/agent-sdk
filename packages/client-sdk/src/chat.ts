@@ -138,11 +138,15 @@ interface PendingToolState {
   args: Record<string, unknown>;
 }
 
-/** What a `start` event reports when an execution begins. */
+/** What a `start` event reports when an execution begins or continues. */
 export interface ExecutionStart {
-  /** The execution's id: what a continuation resumes, and what activity logs are keyed by. */
+  /** The execution's id: what a continuation resumes. */
   executionId: string;
-  /** The session's id, when the execution runs in one (a worker execution does not). */
+  /**
+   * The id of the session the execution runs in - the conversation, or the
+   * session a worker run is recorded as. The id to keep: the session's
+   * messages, execution log, and activity page are read by it.
+   */
   sessionId?: string;
 }
 
@@ -258,21 +262,22 @@ export interface OctavusChatOptions {
   /** Callback when streaming is stopped by user */
   onStop?: () => void;
   /**
-   * Callback when an execution starts: the execution's id, and the session's
-   * when the stream reports one (a worker execution has no session). Useful
-   * for tracking the current execution for activity logs.
+   * Callback on each `start` event: when an execution starts, and again each
+   * time it continues after a tool round. Reports the session the execution
+   * runs in and the execution's own id.
    *
    * @example
    * ```typescript
-   * onStart: ({ executionId, sessionId }) => {
-   *   setCurrentExecutionId(executionId);
+   * onStart: ({ sessionId }) => {
+   *   setCurrentSessionId(sessionId);
    * }
    * ```
    */
   onStart?: (start: ExecutionStart) => void;
   /**
-   * Callback with the platform session id, fired once when a stream first
-   * reports one (and again only if it changes). Use it with create-and-trigger
+   * Callback with the session id, fired when a stream first reports one and
+   * again only when it changes: once for a conversation, and once per run for
+   * a worker, whose every run is a new session. Use it with create-and-trigger
    * flows where the session is created lazily on the first message: persist the
    * id and include it in subsequent requests.
    *

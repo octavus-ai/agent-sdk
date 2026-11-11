@@ -337,7 +337,7 @@ The `request` function receives a discriminated union with `type` to identify th
 The server responds with an SSE stream:
 
 ```
-data: {"type":"start","messageId":"msg_xyz","executionId":"exec_xyz789"}
+data: {"type":"start","messageId":"msg_xyz","sessionId":"sess_abc123","executionId":"exec_xyz789"}
 
 data: {"type":"text-delta","id":"msg_xyz","delta":"Hello"}
 
