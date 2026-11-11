@@ -199,6 +199,23 @@ if (canRetry) {
 
 `canRetry` is `true` when a trigger has been sent and the chat is not currently streaming or awaiting input.
 
+### Session and Execution IDs
+
+The chat reports the two ids each stream's `start` event carries. `sessionId` is the session the chat's executions run in and the id to keep; `executionId` is the current execution, which the SDK uses to continue it after client tools. See [Sessions and Executions](/docs/server-sdk/sessions#sessions-and-executions).
+
+```tsx
+const { sessionId } = useOctavusChat({
+  transport,
+  // Fired when a stream first reports a session id, for example a session
+  // your server created lazily on the first message
+  onSessionCreated: (id) => {
+    sessionIdRef.current = id; // subsequent sends attach to it
+  },
+});
+```
+
+`onStart` fires on every `start` event with both ids: when an execution starts, and again each time it continues after a tool round.
+
 ## Hook Reference (React)
 
 ### useOctavusChat
@@ -227,6 +244,8 @@ interface OctavusChatOptions {
   onError?: (error: OctavusError) => void; // Structured error with type, source, retryable
   onFinish?: () => void;
   onStop?: () => void; // Called when user stops generation
+  onStart?: (start: { executionId: string; sessionId?: string }) => void; // Each `start` event
+  onSessionCreated?: (sessionId: string) => void; // A stream first reports a session id
 }
 
 interface UseOctavusChatReturn {
@@ -234,6 +253,8 @@ interface UseOctavusChatReturn {
   messages: UIMessage[];
   status: ChatStatus; // 'idle' | 'streaming' | 'error' | 'awaiting-input'
   error: OctavusError | null; // Structured error with type, source, retryable
+  sessionId: string | null; // The session the chat's executions run in
+  executionId: string | null; // The current execution, which a continuation resumes
 
   // Connection (socket transport only - undefined for HTTP)
   connectionState: ConnectionState | undefined; // 'disconnected' | 'connecting' | 'connected' | 'error'

@@ -7,6 +7,10 @@ description: Session resources, triggers, continuations, messages, logs, and upl
 
 A session is a conversation with an agent: it holds the conversation history and the agent's variables. A session is a resource under `/api/v1/sessions`; its messages, its execution log, and the executions that run in it are resources of their own beneath it.
 
+Two ids run through this API. A session's `id` is the one to keep: its messages, its log, and its page in the dashboard are read by it. An execution's `executionId` names one turn inside the session, and its only use is to [continue](#continue-execution) that turn while it is paused.
+
+A [worker run](/docs/api-reference/agents#run-worker) is a session too, created by running the worker: [Create Session](#create-session) and [Start Session](#start-session) refuse a worker agent with `400` and the code `VALIDATION_ERROR`. [Get Session](#get-session) and [Get Logs](#get-logs) read the run by the `sessionId` its `start` event carries. It holds no conversation, so [Get Messages](#get-messages) answers empty, [Start Execution](#start-execution), [Continue Execution](#continue-execution), and [Restore Session](#restore-session) answer `400` with the code `VALIDATION_ERROR`, and [Clear Session](#clear-session) discards its state and log.
+
 All session endpoints require an API key with the **Sessions** permission.
 
 ## The session resource
@@ -59,7 +63,7 @@ POST /api/v1/sessions
 
 ### Response
 
-`201` with the [session](#the-session-resource), and its path in the `Location` header.
+`201` with the [session](#the-session-resource), and its path in the `Location` header. A worker agent is refused with `400` and the code `VALIDATION_ERROR`: a worker's session is created by [running it](/docs/api-reference/agents#run-worker).
 
 ### Example
 

@@ -16,14 +16,38 @@ const client = new OctavusClient({
   apiKey: 'your-api-key',
 });
 
-const { output, executionId } = await client.workers.generate(agentId, {
+const { output, sessionId } = await client.workers.generate(agentId, {
   TOPIC: 'AI safety',
   DEPTH: 'detailed',
 });
 
 console.log('Result:', output);
-console.log(`Debug: ${client.getSessionUrl(executionId)}`);
+console.log(`Debug: ${client.getSessionUrl(sessionId)}`);
 ```
+
+## Worker Sessions
+
+Every worker run is recorded as a [session](/docs/server-sdk/sessions#sessions-and-executions) of its own, created when the run starts (`sessions.create()` refuses a worker agent). Its `sessionId` is the id to keep if you want to come back to the run:
+
+```typescript
+const { output, sessionId } = await client.workers.generate(agentId, input);
+
+client.getSessionUrl(sessionId); // the run's activity page in the dashboard
+await client.sessions.get(sessionId); // { id, agentId, status, createdAt }
+await client.sessions.getLogs(sessionId); // the run's execution log
+```
+
+`generate()` returns the `sessionId`, a [`WorkerError`](#workererror-generate) carries it, and on the `execute()` stream it is on the `start` event:
+
+```typescript
+for await (const event of client.workers.execute(agentId, input)) {
+  if (event.type === 'start') {
+    console.log('Session:', event.sessionId);
+  }
+}
+```
+
+A worker's session holds no conversation: `getMessages()` returns an empty array, and the session cannot be triggered, continued through `attach()`, or restored (`400 VALIDATION_ERROR`). Like any session, its state and execution log are held for 24 hours, after which `get()` reports it `expired` and the log reads empty; `clear()` discards them sooner.
 
 ## WorkersApi Reference
 
@@ -47,8 +71,8 @@ Runs the worker to completion and returns the output value. This is the simplest
 interface WorkerGenerateResult {
   /** The worker's output value */
   output: unknown;
-  /** The execution's id; `client.getSessionUrl(executionId)` is its activity page */
-  executionId: string;
+  /** The session the run was recorded as (see Worker Sessions above) */
+  sessionId: string;
   /** Dollar cost of this execution (see Cost reporting below) */
   cost?: WorkerExecutionCost;
   /** Token totals for this execution */
@@ -186,7 +210,7 @@ Tools defined in the worker protocol but not provided as handlers become client 
 
 ### WorkerError (generate)
 
-`generate()` throws a `WorkerError` on failure. It is an [`OctavusError`](/docs/client-sdk/error-handling), so it carries the same classification (`errorType`, `source`, `code`, `retryable`, `retryAfter`, `requestId`, and the provider details when a model failed) and the error guards recognize it. It also includes an optional `executionId` for constructing debug URLs:
+`generate()` throws a `WorkerError` on failure. It is an [`OctavusError`](/docs/client-sdk/error-handling), so it carries the same classification (`errorType`, `source`, `code`, `retryable`, `retryAfter`, `requestId`, and the provider details when a model failed) and the error guards recognize it. It also carries the run's `sessionId`, when the worker started before failing, for its debug URL:
 
 ```typescript
 import { OctavusClient, WorkerError, isRateLimitError } from '@octavus/server-sdk';
@@ -199,8 +223,8 @@ try {
     // Retry after error.retryAfter seconds
   } else if (error instanceof WorkerError) {
     console.error('Worker failed:', error.message, error.requestId);
-    if (error.executionId) {
-      console.error(`Debug: ${client.getSessionUrl(error.executionId)}`);
+    if (error.sessionId) {
+      console.error(`Debug: ${client.getSessionUrl(error.sessionId)}`);
     }
   }
 }
@@ -371,7 +395,7 @@ Workers emit standard stream events plus worker-specific events.
 
 | Event                   | Description                   |
 | ----------------------- | ----------------------------- |
-| `start`                 | Execution started             |
+| `start`                 | Run started (`sessionId`)     |
 | `finish`                | Execution completed           |
 | `usage`                 | Cost summary (after `finish`) |
 | `text-start`            | Text generation started       |
@@ -396,7 +420,7 @@ const client = new OctavusClient({
 });
 
 try {
-  const { output, executionId } = await client.workers.generate(
+  const { output, sessionId } = await client.workers.generate(
     'research-assistant-id',
     {
       TOPIC: 'AI safety best practices',
@@ -411,11 +435,12 @@ try {
   );
 
   console.log('Result:', output);
+  console.log(`Debug: ${client.getSessionUrl(sessionId)}`);
 } catch (error) {
   if (error instanceof WorkerError) {
     console.error('Failed:', error.message);
-    if (error.executionId) {
-      console.error(`Debug: ${client.getSessionUrl(error.executionId)}`);
+    if (error.sessionId) {
+      console.error(`Debug: ${client.getSessionUrl(error.sessionId)}`);
     }
   }
 }

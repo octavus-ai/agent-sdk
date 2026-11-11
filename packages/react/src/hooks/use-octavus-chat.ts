@@ -46,13 +46,15 @@ export interface UseOctavusChatReturn {
   error: OctavusError | null;
   /**
    * The id of the execution the most recent `send()` started, from its `start`
-   * event. Useful for tracking activity logs or debugging.
+   * event: what a continuation resumes. Null until a stream has reported one.
    */
   executionId: string | null;
   /**
-   * The id of the session the chat runs in, once a stream has reported one
-   * (a session created lazily by the first message reports it on that
-   * stream). Null for a chat whose executions run in no session.
+   * The id of the session the chat's executions run in, once a stream has
+   * reported one: the conversation (a session created lazily by the first
+   * message reports it on that stream), or the session of the latest worker
+   * run. The id to keep: the session's messages, execution log, and activity
+   * page are read by it.
    */
   sessionId: string | null;
   /**

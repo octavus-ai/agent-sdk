@@ -314,7 +314,7 @@ curl -X DELETE https://octavus.ai/api/v1/agents/:agentId \
 
 ## Run Worker
 
-Run a worker agent and stream the execution. Worker agents execute their steps sequentially and return an output value; unlike interactive sessions they keep no conversation, only the state of an execution paused for tools. Requires the Sessions permission.
+Run a worker agent and stream the execution. Worker agents execute their steps sequentially and return an output value. Each run is recorded as a [session](/docs/api-reference/sessions) of its own, which keeps no conversation, only the run's execution log and the state of an execution paused for tools. Requires the Sessions permission.
 
 ```
 POST /api/v1/agents/:id/executions
@@ -335,7 +335,7 @@ POST /api/v1/agents/:id/executions
 
 ### Response
 
-The same `text/event-stream` as a [session execution](/docs/api-reference/sessions#start-execution). The `start` event names the execution; a `worker-result` event carries the output before `finish`, and a `usage` event the execution's cost and tokens. An execution that pauses for tools ends with `tool-request` and `finish: tool-calls`; one that reaches its time budget ends with `finish: continue`. Either is resumed with [Continue Worker Execution](#continue-worker-execution).
+The same `text/event-stream` as a [session execution](/docs/api-reference/sessions#start-execution). The `start` event carries the run's `sessionId`, the id to keep ([Get Session](/docs/api-reference/sessions#get-session) and [Get Logs](/docs/api-reference/sessions#get-logs) read the run by it), and the `executionId` a continuation addresses. A `worker-result` event carries the output before `finish`, and a `usage` event the execution's cost and tokens. An execution that pauses for tools ends with `tool-request` and `finish: tool-calls`; one that reaches its time budget ends with `finish: continue`. Either is resumed with [Continue Worker Execution](#continue-worker-execution).
 
 ## Continue Worker Execution
 

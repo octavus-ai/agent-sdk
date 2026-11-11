@@ -88,7 +88,10 @@ export class OctavusClient {
     this.tokens = new TokensApi(apiConfig);
   }
 
-  /** Returns the platform URL for viewing a session's activity. */
+  /**
+   * Returns the platform URL for viewing a session's activity: a conversation,
+   * or the session a worker run was recorded as.
+   */
   getSessionUrl(sessionId: string): string {
     return `${this.baseUrl}/platform/sessions/${sessionId}`;
   }

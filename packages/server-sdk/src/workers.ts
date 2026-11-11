@@ -55,7 +55,12 @@ export interface WorkerExecuteOptions {
 export interface WorkerGenerateResult {
   /** The worker's output value */
   output: unknown;
-  /** The execution's id, which `getSessionUrl()` turns into its activity page. */
+  /**
+   * The session the run was recorded as: `getSessionUrl()` turns it into the
+   * run's activity page, and `sessions.getLogs()` reads its execution log.
+   */
+  sessionId: string;
+  /** @deprecated Use `sessionId`, which holds the same id. */
   executionId: string;
   /**
    * Dollar cost of this execution: the Octavus bandwidth fee plus the LLM
@@ -78,7 +83,9 @@ export class WorkersApi extends BaseApiClient {
    * Execute a worker agent and stream the response.
    *
    * Worker agents execute steps sequentially and return an output value.
-   * Unlike interactive sessions, workers don't maintain persistent state.
+   * Each run is recorded as its own session, named by the `start` event's
+   * `sessionId`: the id `getSessionUrl()` and `sessions.getLogs()` take. A
+   * worker's session holds no conversation, so it cannot be triggered.
    *
    * The execution handles the tool continuation pattern automatically:
    * - Server tools (with handlers provided) are executed automatically
@@ -159,16 +166,16 @@ export class WorkersApi extends BaseApiClient {
    * @param agentId - The worker agent ID
    * @param input - Input values for the worker
    * @param options - Optional configuration including tools and abort signal
-   * @returns The worker output and the execution's id
+   * @returns The worker output and the id of the run's session
    * @throws {WorkerError} If the worker fails or completes without output
    *
    * @example Basic usage
    * ```typescript
-   * const { output, executionId } = await client.workers.generate(agentId, {
+   * const { output, sessionId } = await client.workers.generate(agentId, {
    *   TOPIC: 'AI safety',
    * });
    * console.log(output);
-   * console.log(`Debug: ${client.getSessionUrl(executionId)}`);
+   * console.log(`Debug: ${client.getSessionUrl(sessionId)}`);
    * ```
    *
    * @example With timeout
@@ -183,7 +190,7 @@ export class WorkersApi extends BaseApiClient {
     input: Record<string, unknown>,
     options: WorkerExecuteOptions = {},
   ): Promise<WorkerGenerateResult> {
-    let executionId: string | undefined;
+    let sessionId: string | undefined;
     let workerOutput: WorkerGenerateResult | undefined;
     let errorMessage: string | undefined;
     let errorEvent: ErrorEvent | undefined;
@@ -196,8 +203,8 @@ export class WorkersApi extends BaseApiClient {
     // relative order is not guaranteed; reading through both lets us throw
     // with the richest available info regardless of which arrives first.
     for await (const event of this.execute(agentId, input, options)) {
-      if (event.type === 'start' && event.executionId) {
-        executionId = event.executionId;
+      if (event.type === 'start' && event.sessionId) {
+        sessionId = event.sessionId;
       } else if (event.type === 'error') {
         errorMessage = event.message;
         errorEvent = event;
@@ -208,10 +215,8 @@ export class WorkersApi extends BaseApiClient {
           // (already-masked) worker-result string; otherwise use this one.
           errorMessage = errorMessage ?? event.error;
         } else {
-          workerOutput = {
-            output: event.output,
-            executionId: executionId ?? event.workerId,
-          };
+          const id = sessionId ?? event.workerId;
+          workerOutput = { output: event.output, sessionId: id, executionId: id };
         }
       } else if (event.type === 'usage') {
         // Emitted once at the end of the execution, after `worker-result`.
@@ -232,7 +237,7 @@ export class WorkersApi extends BaseApiClient {
         provider: errorEvent?.provider,
         tool: errorEvent?.tool,
         backup: errorEvent?.backup,
-        executionId: executionId ?? lastWorkerId,
+        sessionId: sessionId ?? lastWorkerId,
       });
     }
 
@@ -246,7 +251,7 @@ export class WorkersApi extends BaseApiClient {
       errorType: 'execution_error',
       message: 'Worker completed without producing a result',
       source: 'platform',
-      executionId,
+      sessionId,
     });
   }
 

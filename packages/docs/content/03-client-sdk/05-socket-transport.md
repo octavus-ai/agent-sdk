@@ -508,7 +508,7 @@ The server sends Octavus `StreamEvent` objects as JSON. See [Streaming Events](/
 
 ```typescript
 // Examples
-{ type: 'start', messageId: '...', executionId: '...' }
+{ type: 'start', messageId: '...', sessionId: '...', executionId: '...' }
 { type: 'text-delta', id: '...', delta: 'Hello' }
 { type: 'tool-input-start', toolCallId: '...', toolName: 'get-user' }
 { type: 'finish', finishReason: 'stop' }
