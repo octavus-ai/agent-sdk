@@ -89,7 +89,10 @@ export async function normalizeToolResultMedia(
 
     let uploadInfos: FileUploadInfo[] | null = null;
     try {
-      const response = await filesApi.getUploadUrls(sessionId, requests);
+      // The normalizer runs inside a session's tool round trip, so the file is
+      // created for that session and stays within reach of a credential scoped
+      // to it.
+      const response = await filesApi.create(requests, { sessionId });
       uploadInfos = response.files;
     } catch {
       uploadInfos = null;

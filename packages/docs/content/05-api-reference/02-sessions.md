@@ -486,7 +486,9 @@ An expired session has no log: `{ "entries": [], "total": 0, "truncated": false 
 
 ## Uploads
 
-Get presigned URLs for uploading files to a session. Files are uploaded directly to S3; the session must be active (an expired one is `409 SESSION_EXPIRED`).
+Get presigned URLs for uploading files for a session. Files are uploaded directly to S3; the session must be active (an expired one is `409 SESSION_EXPIRED`).
+
+This is [`POST /api/v1/files`](/docs/api-reference/files) with `sessionId` set to the path's session, which is the form the Server SDK uses: the same project files, recorded as uploaded for the session, and the same response.
 
 ```
 POST /api/v1/sessions/:sessionId/uploads
@@ -536,26 +538,11 @@ POST /api/v1/sessions/:sessionId/uploads
 3. Use `downloadUrl` as the `url` in `FileReference`
 4. Include `FileReference` in trigger input
 
-### Supported Types
-
-| Category  | Media Types                                                          |
-| --------- | -------------------------------------------------------------------- |
-| Images    | `image/jpeg`, `image/png`, `image/gif`, `image/webp`                 |
-| Documents | `application/pdf`, `text/plain`, `text/markdown`, `application/json` |
-
-### Limits
-
-| Limit                 | Value      |
-| --------------------- | ---------- |
-| Max file size         | 10 MB      |
-| Max total per request | 50 MB      |
-| Max files per request | 20         |
-| Upload URL expiry     | 15 minutes |
-| Download URL expiry   | 24 hours   |
+The supported types and the limits are those of the [Files API](/docs/api-reference/files#supported-types): 100 MB per file, 200 MB per request, 20 files per request, a 15-minute upload URL, and a 7-day download URL.
 
 ## File View URL
 
-A short-lived view URL for a file the session produced, to render it inline (in a sandboxed frame) without exposing the storage URL. The files outlive the session's state, so this works for an expired session too.
+A short-lived view URL for a file the session shows (one it produced, uploaded, or accepted as input), to render it inline (in a sandboxed frame) without exposing the storage URL. The files outlive the session's state, so this works for an expired session too.
 
 ```
 POST /api/v1/sessions/:sessionId/files/view-url
@@ -573,4 +560,4 @@ POST /api/v1/sessions/:sessionId/files/view-url
 { "viewUrl": "https://.../outputs/sessions/cm5xyz123abc456def/report.html?..." }
 ```
 
-`viewUrl` is a signed URL on the platform's content domain. It is `null` when the file is not one the session owns or viewing is unavailable; fall back to the file's download URL.
+`viewUrl` is a signed URL on the platform's content domain. It is `null` when the file is not one the session shows or viewing is unavailable; fall back to the file's download URL.

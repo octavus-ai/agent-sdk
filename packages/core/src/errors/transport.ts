@@ -72,3 +72,12 @@ export const UNKNOWN_TOOL_CALL_CODE = 'UNKNOWN_TOOL_CALL';
  * restore it from the messages you stored, or start a new one.
  */
 export const SESSION_EXPIRED_CODE = 'SESSION_EXPIRED';
+
+/**
+ * The platform's error code for a `file` input whose reference it cannot
+ * accept: a platform file that does not exist, belongs to another project, is
+ * outside the credential's scope, was reserved but never uploaded, or exceeds
+ * the size limit, or a URL that is neither platform storage nor `https:`.
+ * Returned with HTTP 400, naming the input and the file id.
+ */
+export const INVALID_FILE_REFERENCE_CODE = 'INVALID_FILE_REFERENCE';

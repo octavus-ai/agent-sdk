@@ -130,7 +130,10 @@ export async function normalizeToolResultOutputFiles(
 
     let uploadInfos: { id: string; uploadUrl: string; downloadUrl: string }[];
     try {
-      const response = await filesApi.getUploadUrls(sessionId, uploadRequests);
+      // The normalizer runs inside a session's tool round trip, so the file is
+      // created for that session and stays within reach of a credential scoped
+      // to it.
+      const response = await filesApi.create(uploadRequests, { sessionId });
       uploadInfos = response.files;
     } catch {
       result.outputFiles = outputs.map(

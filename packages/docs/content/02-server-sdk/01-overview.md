@@ -243,12 +243,23 @@ function toSSEStream(events: AsyncIterable<StreamEvent>): ReadableStream<Uint8Ar
 
 ### FilesApi
 
-Handles file uploads for sessions.
+Files are project resources: upload once, reference anywhere a protocol takes a `file`.
 
 ```typescript
 class FilesApi {
-  // Get presigned URLs for file uploads
-  async getUploadUrls(sessionId: string, files: FileUploadRequest[]): Promise<UploadUrlsResponse>;
+  // Upload one file and get the FileReference to pass on
+  async upload(
+    data: Blob | Uint8Array | ArrayBuffer,
+    meta: FileUploadMeta,
+    options?: CreateFilesOptions,
+  ): Promise<FileReference>;
+  // Create files and get presigned upload + download URLs
+  async create(
+    files: FileUploadRequest[],
+    options?: CreateFilesOptions,
+  ): Promise<UploadUrlsResponse>;
+  // Read a file with a fresh download URL
+  async get(fileId: string): Promise<FileResource>;
 }
 
 interface FileUploadRequest {
@@ -266,7 +277,7 @@ interface UploadUrlsResponse {
 }
 ```
 
-The client uploads files directly to S3 using the presigned upload URL. See [File Uploads](/docs/client-sdk/file-uploads) for the full integration pattern.
+The bytes go directly to storage through the presigned upload URL. See [Files](/docs/server-sdk/files) for the full API and [File Uploads](/docs/client-sdk/file-uploads) for the browser integration pattern.
 
 ## Next Steps
 
@@ -274,5 +285,6 @@ The client uploads files directly to S3 using the presigned upload URL. See [Fil
 - [Tools](/docs/server-sdk/tools) - Implementing tool handlers
 - [Streaming](/docs/server-sdk/streaming) - Understanding stream events
 - [Workers](/docs/server-sdk/workers) - Executing worker agents
+- [Files](/docs/server-sdk/files) - Uploading files and referencing them
 - [Debugging](/docs/server-sdk/debugging) - Model request tracing and debugging
 - [Computer](/docs/server-sdk/computer) - Browser, filesystem, and shell via MCP

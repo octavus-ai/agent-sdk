@@ -165,7 +165,24 @@ Every failed call throws an `OctavusError` with the HTTP `status`, the platform'
 | `recordingTimeoutMs` | number      | `120000` | After the run finishes, how long to wait for a recorded run's recording to settle; it is returned as-is after that. `0` skips the wait |
 | `signal`             | AbortSignal | -        | Cancel the wait early                                                                                                                  |
 
-`dispatch()`, `followUp()`, and `run()` also accept `files` (an array of `FileReference`) to attach hosted files to the message, and `dispatch()` and `run()` accept `idempotencyKey` and `ifIdle` (see above). A turn carries a message, at least one file, or both, so with `files` the message may be an empty string.
+`dispatch()`, `followUp()`, and `run()` also accept `files` (an array of `FileReference`) to attach files to the message, and `dispatch()` and `run()` accept `idempotencyKey` and `ifIdle` (see above). A turn carries a message, at least one file, or both, so with `files` the message may be an empty string.
+
+### Attaching files
+
+Host a file for the agent with `upload()`, then attach the reference. The file is uploaded directly to storage with the agent key; no other credential is needed:
+
+```ts
+import { readFile } from 'node:fs/promises';
+
+const spec = await client.workforce.upload(agentId, await readFile('spec.pdf'), {
+  filename: 'spec.pdf',
+  mediaType: 'application/pdf',
+});
+
+const thread = await client.workforce.run(agentId, 'Review this spec', { files: [spec] });
+```
+
+`createFiles(agentId, files)` is the two-step form: it creates the files and returns an upload URL (PUT, valid for 15 minutes) and a download URL per file, for when something else holds the bytes. A dispatch's `files` must be files hosted for this agent, files one of its threads produced, or `https:` URLs you host yourself (read through the platform's SSRF guard, never re-signed or copied); anything else fails the dispatch with an `OctavusError` coded `INVALID_FILE_REFERENCE`.
 
 ```ts
 const thread = await client.workforce.run(agentId, 'Review this spec', {

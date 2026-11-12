@@ -9,13 +9,13 @@ The Client SDK supports uploading images and documents that can be sent with mes
 
 ## Overview
 
-File uploads follow a two-step flow:
+File uploads follow three steps:
 
 1. **Request upload URLs** from the platform via your backend
 2. **Upload files directly to S3** using presigned URLs
 3. **Send file references** with your message
 
-This architecture keeps your API key secure on the server while enabling fast, direct uploads.
+This architecture keeps your API key secure on the server while enabling fast, direct uploads. A file is a resource of your project, not of a session: the upload needs no session, and the same reference is accepted by a session input, the first message of a conversation started with [`sessions.start()`](/docs/server-sdk/sessions#create-and-trigger-in-one-call), and any later trigger.
 
 ## Setup
 
@@ -29,14 +29,16 @@ import { NextResponse } from 'next/server';
 import { octavus } from '@/lib/octavus';
 
 export async function POST(request: Request) {
-  const { sessionId, files } = await request.json();
+  const { files } = await request.json();
 
-  // Get presigned URLs from Octavus
-  const result = await octavus.files.getUploadUrls(sessionId, files);
+  // Create the files in the project and get presigned URLs from Octavus
+  const result = await octavus.files.create(files);
 
   return NextResponse.json(result);
 }
 ```
+
+The endpoint takes no session id, and the file is created by your project key, which is right when your backend also relays the messages (as in the examples below). If the browser instead triggers the platform directly with a session-scoped [ephemeral token](/docs/authentication/ephemeral-tokens), create the file for that session with `octavus.files.create(files, { sessionId })`: a scoped token reaches only the files tied to its session, so a file your project key created without one is refused when the browser sends it. Alternatively, let the browser call `POST /api/v1/files` with its own token, which creates the file under that scope.
 
 ### Client: Configure File Uploads
 
@@ -61,17 +63,17 @@ function Chat({ sessionId }: { sessionId: string }) {
     [sessionId],
   );
 
-  // Request upload URLs from your backend
+  // Request upload URLs from your backend (no session is involved)
   const requestUploadUrls = useCallback(
     async (files: { filename: string; mediaType: string; size: number }[]) => {
       const response = await fetch('/api/upload-urls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, files }),
+        body: JSON.stringify({ files }),
       });
       return response.json();
     },
-    [sessionId],
+    [],
   );
 
   const { messages, status, send, uploadFiles } = useOctavusChat({
@@ -182,6 +184,24 @@ async function handleSend(message: string, files?: File[]) {
 
 The SDK automatically uploads the files before sending. Note: This doesn't provide upload progress.
 
+### Files on the First Message
+
+Because the upload needs no session, a conversation can start with files attached. With a backend that uses [`sessions.start()`](/docs/server-sdk/sessions#create-and-trigger-in-one-call), the session is created by the first message itself, so no session exists while the user picks their files - and none is needed:
+
+```tsx
+// The browser uploads before any session exists ...
+const fileRefs = await uploadFiles(files);
+
+// ... and the first send creates the session and runs the trigger in one request.
+await send(
+  'user-message',
+  { USER_MESSAGE: message, FILES: fileRefs },
+  { userMessage: { content: message, files: fileRefs } },
+);
+```
+
+The same reference works as a `file` session input, given to `sessions.create()` or `sessions.start()` at creation.
+
 ## Upload Reliability
 
 Uploads include built-in timeout and retry logic for handling transient failures (network errors, server issues, mobile network switches).
@@ -255,6 +275,8 @@ interface FileReference {
 
 For image files, `uploadFiles` reads the pixel dimensions from the file header and sets `width` and `height`, so an agent with a [`maxImageDimension`](/docs/protocol/agent-config#image-delivery-limits) knows whether the image fits without fetching it.
 
+The platform validates every reference where it enters: a platform file must be one of the project's whose bytes have landed, and a URL you host yourself must be `https:`. A reference it cannot accept fails the send with the code `INVALID_FILE_REFERENCE`. See [Files](/docs/server-sdk/files) for the full rule.
+
 ## Protocol Integration
 
 To accept files in your agent protocol, use the `file[]` type:
@@ -320,8 +342,9 @@ and parses them with code or skills (e.g. via a sandboxed computer).
 | --------------------- | ---------- |
 | Max file size         | 100 MB     |
 | Max total per request | 200 MB     |
+| Max files per request | 20         |
 | Upload URL expiry     | 15 minutes |
-| Download URL expiry   | 24 hours   |
+| Download URL expiry   | 7 days     |
 
 ## Rendering User Files
 
@@ -370,8 +393,8 @@ const client = new OctavusClient({
   apiKey: 'your-api-key',
 });
 
-// Get presigned upload URLs
-const { files } = await client.files.getUploadUrls(sessionId, [
+// Create files in the project and get presigned upload URLs
+const { files } = await client.files.create([
   { filename: 'photo.jpg', mediaType: 'image/jpeg', size: 102400 },
   { filename: 'doc.pdf', mediaType: 'application/pdf', size: 204800 },
 ]);
@@ -379,7 +402,12 @@ const { files } = await client.files.getUploadUrls(sessionId, [
 // files[0].id - Use in FileReference
 // files[0].uploadUrl - PUT to this URL to upload
 // files[0].downloadUrl - Use as FileReference.url
+
+// Or, when the server holds the bytes, upload in one call
+const photo = await client.files.upload(bytes, { filename: 'photo.jpg', mediaType: 'image/jpeg' });
 ```
+
+See [Files](/docs/server-sdk/files) for the full API.
 
 ## Complete Example
 
@@ -425,11 +453,11 @@ export function Chat({ sessionId }: { sessionId: string }) {
       const res = await fetch('/api/upload-urls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, files }),
+        body: JSON.stringify({ files }),
       });
       return res.json();
     },
-    [sessionId],
+    [],
   );
 
   const { messages, status, send, uploadFiles } = useOctavusChat({
