@@ -78,7 +78,7 @@ export interface FileResource {
   status: FileStatus;
   /** A freshly signed download URL. */
   downloadUrl: string;
-  /** When the file was reserved (ISO 8601). */
+  /** When the file was created (ISO 8601). */
   createdAt: string;
 }
 
@@ -86,22 +86,35 @@ export interface FileResource {
 // API
 // =============================================================================
 
+/** Options of `files.create` and `files.upload`. */
+export interface CreateFilesOptions {
+  /**
+   * The session the files are uploaded for, recorded as their provenance.
+   * Needed when the file will be used by a credential scoped to that session
+   * (a browser holding a session-scoped ephemeral token): a scoped credential
+   * reaches only the files tied to its session or agent, so a file your
+   * project key created without a session is out of its reach. The session
+   * must be yours and active.
+   */
+  sessionId?: string;
+}
+
 /**
  * API for file operations.
  *
- * A file is a project resource: upload it once, with the key you already
+ * A file is a project resource: create it once, with the key you already
  * have, and pass the reference wherever the protocol takes a `file` - a
  * session input, a trigger, a worker run. Files are uploaded directly to
  * storage, never through the platform.
  *
  * @example
  * ```typescript
- * // One call: reserve, upload, and get the reference to pass on.
+ * // One call: create, upload, and get the reference to pass on.
  * const image = await client.files.upload(bytes, { filename: 'shot.png', mediaType: 'image/png' });
  * const { output } = await client.workers.generate(graderId, { IMAGE: image });
  *
  * // Two steps, when the bytes are uploaded elsewhere (e.g. by a browser):
- * const { files } = await client.files.createUploads([
+ * const { files } = await client.files.create([
  *   { filename: 'image.png', mediaType: 'image/png', size: 12345 },
  * ]);
  * // PUT the bytes to files[0].uploadUrl, then use files[0].downloadUrl as FileReference.url
@@ -109,32 +122,44 @@ export interface FileResource {
  */
 export class FilesApi extends BaseApiClient {
   /**
-   * Reserve files in the project and get presigned URLs to upload them with.
+   * Create files in the project and get presigned URLs to upload them with.
    *
    * Returns an upload URL (PUT, valid for 15 minutes) and a download URL (GET)
    * per file. PUT each file to its `uploadUrl` with its `Content-Type`, then
-   * reference it as `{ id, mediaType, url: downloadUrl, filename, size }`.
-   * No session is needed: the reference is accepted by any session, run, or
-   * dispatch of the project.
+   * reference it as `{ id, mediaType, url: downloadUrl, filename, size }`. A
+   * file is `pending` until its bytes land and `uploaded` once they are
+   * confirmed. The reference is accepted by any session, run, or dispatch of
+   * the project the credential can reach; pass `sessionId` when a credential
+   * scoped to a session will use the file.
    *
    * @param files - Array of file metadata (filename, mediaType, size), 1 to 20 files
-   * @throws OctavusError if validation fails
+   * @param options - The session the files are uploaded for, when there is one
+   * @throws OctavusError if validation fails, or the session is not yours or has expired
    */
-  async createUploads(files: FileUploadRequest[]): Promise<UploadUrlsResponse> {
-    return await this.httpPost('/api/v1/files', { files }, uploadUrlsResponseSchema);
+  async create(
+    files: FileUploadRequest[],
+    options: CreateFilesOptions = {},
+  ): Promise<UploadUrlsResponse> {
+    const body = options.sessionId ? { files, sessionId: options.sessionId } : { files };
+    return await this.httpPost('/api/v1/files', body, uploadUrlsResponseSchema);
   }
 
   /**
    * Upload one file and get the `FileReference` to pass wherever the protocol
-   * takes a `file`: reserves a slot, PUTs the bytes, and reads an image's pixel
-   * dimensions from its header.
+   * takes a `file`: creates the file, PUTs the bytes, and reads an image's
+   * pixel dimensions from its header.
    *
    * @param data - The bytes: a `Blob`, a `Uint8Array` (a `Buffer` included), or an `ArrayBuffer`
    * @param meta - The filename and media type
-   * @throws OctavusError if the reservation or the upload fails
+   * @param options - The session the file is uploaded for, when there is one
+   * @throws OctavusError if creating the file or uploading the bytes fails
    */
-  async upload(data: FileUploadData, meta: FileUploadMeta): Promise<FileReference> {
-    return await uploadFile((files) => this.createUploads(files), data, meta);
+  async upload(
+    data: FileUploadData,
+    meta: FileUploadMeta,
+    options: CreateFilesOptions = {},
+  ): Promise<FileReference> {
+    return await uploadFile((files) => this.create(files, options), data, meta);
   }
 
   /**
@@ -147,27 +172,12 @@ export class FilesApi extends BaseApiClient {
   }
 
   /**
-   * Reserve files for a session you already hold and get presigned URLs to
-   * upload them with. The files are the same project files `createUploads`
-   * reserves, recorded as uploaded for this session - which is what lets a
-   * credential scoped to the session (a browser holding a session-scoped
-   * ephemeral token) use them: a scoped credential reaches only the files tied
-   * to its session or agent, so a file reserved by your project key with
-   * `createUploads` is out of its reach. Use `createUploads` when no session
-   * exists yet or the same credential uploads and triggers.
+   * Get presigned URLs for uploading files for a session.
    *
-   * @param sessionId - The session the files are uploaded for; must be active
-   * @param files - Array of file metadata (filename, mediaType, size), 1 to 20 files
-   * @returns Upload info with presigned URLs for each file
-   *
-   * @throws OctavusError if the session doesn't exist, has expired, or validation fails
+   * @deprecated Use `create(files, { sessionId })`, which does the same.
    */
   async getUploadUrls(sessionId: string, files: FileUploadRequest[]): Promise<UploadUrlsResponse> {
-    return await this.httpPost(
-      `/api/v1/sessions/${sessionId}/uploads`,
-      { files },
-      uploadUrlsResponseSchema,
-    );
+    return await this.create(files, { sessionId });
   }
 
   /**

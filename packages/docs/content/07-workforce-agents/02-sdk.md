@@ -182,7 +182,7 @@ const spec = await client.workforce.upload(agentId, await readFile('spec.pdf'), 
 const thread = await client.workforce.run(agentId, 'Review this spec', { files: [spec] });
 ```
 
-`createUploads(agentId, files)` is the two-step form: it reserves the files and returns an upload URL (PUT, valid for 15 minutes) and a download URL per file, for when something else holds the bytes. A dispatch's `files` must be files hosted for this agent, files one of its threads produced, or `https:` URLs you host yourself (read through the platform's SSRF guard, never re-signed or copied); anything else fails the dispatch with an `OctavusError` coded `INVALID_FILE_REFERENCE`.
+`createFiles(agentId, files)` is the two-step form: it creates the files and returns an upload URL (PUT, valid for 15 minutes) and a download URL per file, for when something else holds the bytes. A dispatch's `files` must be files hosted for this agent, files one of its threads produced, or `https:` URLs you host yourself (read through the platform's SSRF guard, never re-signed or copied); anything else fails the dispatch with an `OctavusError` coded `INVALID_FILE_REFERENCE`.
 
 ```ts
 const thread = await client.workforce.run(agentId, 'Review this spec', {

@@ -26,7 +26,7 @@ Files are uploaded directly to storage through presigned URLs; the bytes never p
 
 ### One Call
 
-`upload()` reserves a file, PUTs the bytes, and returns the reference to pass on. The bytes can be a `Blob` (a `File` included), a `Uint8Array` (a `Buffer` included), or an `ArrayBuffer`. For an image, the pixel dimensions are read from its header and set on the reference.
+`upload()` creates a file, PUTs the bytes, and returns the reference to pass on. The bytes can be a `Blob` (a `File` included), a `Uint8Array` (a `Buffer` included), or an `ArrayBuffer`. For an image, the pixel dimensions are read from its header and set on the reference.
 
 ```typescript
 import { readFile } from 'node:fs/promises';
@@ -40,10 +40,10 @@ const report = await client.files.upload(await readFile('report.pdf'), {
 
 ### Two Steps
 
-When something else holds the bytes (a browser, another service), reserve the slots and upload separately:
+When something else holds the bytes (a browser, another service), create the files and upload separately:
 
 ```typescript
-const { files } = await client.files.createUploads([
+const { files } = await client.files.create([
   { filename: 'photo.jpg', mediaType: 'image/jpeg', size: 102400 },
   { filename: 'doc.pdf', mediaType: 'application/pdf', size: 204800 },
 ]);
@@ -65,16 +65,17 @@ const reference = {
 };
 ```
 
-`uploadUrl` is valid for 15 minutes; `downloadUrl` for 7 days. The [Client SDK](/docs/client-sdk/file-uploads) uses this two-step flow: your backend reserves the files and the browser PUTs the bytes.
+`uploadUrl` is valid for 15 minutes; `downloadUrl` for 7 days. A file is `pending` until its bytes land and `uploaded` once they are confirmed. The [Client SDK](/docs/client-sdk/file-uploads) uses this two-step flow: your backend creates the files and the browser PUTs the bytes.
 
-### For a Session You Hold
+### For a Session
 
-`getUploadUrls(sessionId, files)` reserves the same project files, recorded as uploaded for that session. The difference matters when the credential that will use the file is narrower than yours: an [ephemeral token](/docs/authentication/ephemeral-tokens) scoped to a session or an agent reaches only the files tied to its session or agent, so a file your project key reserved with `createUploads()` is out of its reach, while one reserved for the session is not. Use it when your backend uploads on behalf of a browser that triggers the platform directly with a session-scoped token (or let the browser reserve the file with its own token, which creates it under that scope). The session must be active.
+Both `create` and `upload` take a `sessionId` option, which records the session the file is uploaded for. It matters when the credential that will use the file is narrower than yours: an [ephemeral token](/docs/authentication/ephemeral-tokens) scoped to a session or an agent reaches only the files tied to its session or agent, so a file your project key created without a session is out of its reach, while one created for the session is not. Pass it when your backend uploads on behalf of a browser that triggers the platform directly with a session-scoped token (or let the browser create the file with its own token, which creates it under that scope). The session must be yours and active.
 
 ```typescript
-const { files } = await client.files.getUploadUrls(sessionId, [
-  { filename: 'photo.jpg', mediaType: 'image/jpeg', size: 102400 },
-]);
+const { files } = await client.files.create(
+  [{ filename: 'photo.jpg', mediaType: 'image/jpeg', size: 102400 }],
+  { sessionId },
+);
 ```
 
 ## Where a File Goes
@@ -132,7 +133,7 @@ try {
 }
 ```
 
-With an [ephemeral credential](/docs/authentication/ephemeral-tokens), a file is created under the credential's scope and read by the credentials whose scope reaches it: an agent-scoped token reads the files created under its agent's scope and the files its agent's sessions uploaded or use, a session-scoped token the files of its one session, a project key every file of the project. To hand a scoped token a file your backend uploads, reserve it [for its session](#for-a-session-you-hold).
+With an [ephemeral credential](/docs/authentication/ephemeral-tokens), a file is created under the credential's scope and read by the credentials whose scope reaches it: an agent-scoped token reads the files created under its agent's scope and the files its agent's sessions uploaded or use, a session-scoped token the files of its one session, a project key every file of the project. To hand a scoped token a file your backend uploads, create it [for its session](#for-a-session).
 
 ## Limits and Types
 
@@ -151,24 +152,32 @@ The supported media types are listed in the [API reference](/docs/api-reference/
 ```typescript
 class FilesApi {
   // Upload one file and get its FileReference
-  upload(data: Blob | Uint8Array | ArrayBuffer, meta: FileUploadMeta): Promise<FileReference>;
+  upload(
+    data: Blob | Uint8Array | ArrayBuffer,
+    meta: FileUploadMeta,
+    options?: CreateFilesOptions,
+  ): Promise<FileReference>;
 
-  // Reserve files and get presigned upload + download URLs
-  createUploads(files: FileUploadRequest[]): Promise<UploadUrlsResponse>;
+  // Create files and get presigned upload + download URLs
+  create(files: FileUploadRequest[], options?: CreateFilesOptions): Promise<UploadUrlsResponse>;
 
   // Read a file with a fresh download URL
   get(fileId: string): Promise<FileResource>;
 
-  // Reserve files for a session you hold (what a credential scoped to it can reach)
-  getUploadUrls(sessionId: string, files: FileUploadRequest[]): Promise<UploadUrlsResponse>;
-
   // A short-lived view URL for a file a session shows (null to fall back to the download URL)
   getViewUrl(sessionId: string, fileUrl: string): Promise<string | null>;
+
+  /** @deprecated Use create(files, { sessionId }) */
+  getUploadUrls(sessionId: string, files: FileUploadRequest[]): Promise<UploadUrlsResponse>;
 }
 
 interface FileUploadMeta {
   filename: string;
   mediaType: string; // the size is read from the data
+}
+
+interface CreateFilesOptions {
+  sessionId?: string; // the session the files are uploaded for
 }
 
 interface FileUploadRequest {

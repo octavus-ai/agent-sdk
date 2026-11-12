@@ -488,14 +488,14 @@ export class WorkforceApi extends BaseApiClient {
   }
 
   /**
-   * Reserve files for the agent and get presigned URLs to upload them with: an
+   * Create files for the agent and get presigned URLs to upload them with: an
    * upload URL (PUT, valid for 15 minutes) and a download URL (GET) per file.
    * PUT each file to its `uploadUrl` with its `Content-Type`, then attach
    * `{ id, mediaType, url: downloadUrl, filename, size }` as a dispatch's or
    * follow-up's `files`. The files are hosted for this agent, which is what a
    * dispatch's `files` must be.
    */
-  async createUploads(agentId: string, files: FileUploadRequest[]): Promise<UploadUrlsResponse> {
+  async createFiles(agentId: string, files: FileUploadRequest[]): Promise<UploadUrlsResponse> {
     return await this.httpPost(
       `/api/v1/workforce/agents/${encodeURIComponent(agentId)}/files`,
       { files },
@@ -505,7 +505,7 @@ export class WorkforceApi extends BaseApiClient {
 
   /**
    * Host one file for the agent and get the `FileReference` to attach to a
-   * dispatch or follow-up: reserves a slot, PUTs the bytes, and reads an
+   * dispatch or follow-up: creates the file, PUTs the bytes, and reads an
    * image's pixel dimensions from its header.
    *
    * @param data - The bytes: a `Blob`, a `Uint8Array` (a `Buffer` included), or an `ArrayBuffer`
@@ -516,7 +516,7 @@ export class WorkforceApi extends BaseApiClient {
     data: FileUploadData,
     meta: FileUploadMeta,
   ): Promise<FileReference> {
-    return await uploadFile((files) => this.createUploads(agentId, files), data, meta);
+    return await uploadFile((files) => this.createFiles(agentId, files), data, meta);
   }
 
   /**

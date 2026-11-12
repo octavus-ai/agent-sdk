@@ -31,14 +31,14 @@ import { octavus } from '@/lib/octavus';
 export async function POST(request: Request) {
   const { files } = await request.json();
 
-  // Reserve the files in the project and get presigned URLs from Octavus
-  const result = await octavus.files.createUploads(files);
+  // Create the files in the project and get presigned URLs from Octavus
+  const result = await octavus.files.create(files);
 
   return NextResponse.json(result);
 }
 ```
 
-The endpoint takes no session id, and the file is reserved by your project key, which is right when your backend also relays the messages (as in the examples below). If the browser instead triggers the platform directly with a session-scoped [ephemeral token](/docs/authentication/ephemeral-tokens), reserve the file for that session with `octavus.files.getUploadUrls(sessionId, files)`: a scoped token reaches only the files tied to its session, so a file your project key reserved without one is refused when the browser sends it. Alternatively, let the browser call `POST /api/v1/files` with its own token, which creates the file under that scope.
+The endpoint takes no session id, and the file is created by your project key, which is right when your backend also relays the messages (as in the examples below). If the browser instead triggers the platform directly with a session-scoped [ephemeral token](/docs/authentication/ephemeral-tokens), create the file for that session with `octavus.files.create(files, { sessionId })`: a scoped token reaches only the files tied to its session, so a file your project key created without one is refused when the browser sends it. Alternatively, let the browser call `POST /api/v1/files` with its own token, which creates the file under that scope.
 
 ### Client: Configure File Uploads
 
@@ -393,8 +393,8 @@ const client = new OctavusClient({
   apiKey: 'your-api-key',
 });
 
-// Reserve files in the project and get presigned upload URLs
-const { files } = await client.files.createUploads([
+// Create files in the project and get presigned upload URLs
+const { files } = await client.files.create([
   { filename: 'photo.jpg', mediaType: 'image/jpeg', size: 102400 },
   { filename: 'doc.pdf', mediaType: 'application/pdf', size: 204800 },
 ]);

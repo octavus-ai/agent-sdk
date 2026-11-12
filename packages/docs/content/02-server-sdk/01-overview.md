@@ -248,9 +248,16 @@ Files are project resources: upload once, reference anywhere a protocol takes a 
 ```typescript
 class FilesApi {
   // Upload one file and get the FileReference to pass on
-  async upload(data: Blob | Uint8Array | ArrayBuffer, meta: FileUploadMeta): Promise<FileReference>;
-  // Reserve files and get presigned upload + download URLs
-  async createUploads(files: FileUploadRequest[]): Promise<UploadUrlsResponse>;
+  async upload(
+    data: Blob | Uint8Array | ArrayBuffer,
+    meta: FileUploadMeta,
+    options?: CreateFilesOptions,
+  ): Promise<FileReference>;
+  // Create files and get presigned upload + download URLs
+  async create(
+    files: FileUploadRequest[],
+    options?: CreateFilesOptions,
+  ): Promise<UploadUrlsResponse>;
   // Read a file with a fresh download URL
   async get(fileId: string): Promise<FileResource>;
 }

@@ -12,20 +12,20 @@ export interface FileUploadMeta {
 }
 
 /**
- * Upload one file in one call: reserve a slot through `reserve`, PUT the bytes
+ * Upload one file in one call: create the file through `create`, PUT the bytes
  * to storage, and build the `FileReference` to pass wherever a protocol takes
  * a `file`. An image's pixel dimensions are read from its header, so an agent
  * with an image cap knows whether the image fits without fetching it.
  */
 export async function uploadFile(
-  reserve: (files: FileUploadRequest[]) => Promise<{ files: FileUploadInfo[] }>,
+  create: (files: FileUploadRequest[]) => Promise<{ files: FileUploadInfo[] }>,
   data: FileUploadData,
   meta: FileUploadMeta,
 ): Promise<FileReference> {
   const bytes = await toBytes(data);
   const size = bytes.byteLength;
 
-  const { files } = await reserve([{ filename: meta.filename, mediaType: meta.mediaType, size }]);
+  const { files } = await create([{ filename: meta.filename, mediaType: meta.mediaType, size }]);
   const slot = files[0];
   if (!slot) {
     throw OctavusError.internal('The platform returned no upload slot for the file');

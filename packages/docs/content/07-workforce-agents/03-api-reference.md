@@ -58,7 +58,7 @@ curl https://octavus.ai/api/v1/workforce/agents/AGENT_ID \
 
 ## Host files
 
-Reserve files for the agent and get presigned URLs to upload them with. The files are hosted for this agent, which is what a dispatch's or follow-up's `files` must be: a file hosted for another agent, or with a project key of another project, is refused.
+Create files for the agent and get presigned URLs to upload them with. The files are hosted for this agent, which is what a dispatch's or follow-up's `files` must be: a file hosted for another agent, or with a project key of another project, is refused.
 
 ```
 POST /api/v1/workforce/agents/{agentId}/files

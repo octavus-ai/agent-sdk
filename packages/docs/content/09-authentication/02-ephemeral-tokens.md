@@ -61,7 +61,7 @@ curl -N -H "Authorization: Bearer oct_et_..." \
 - A session-scoped token cannot create sessions or run workers; it only drives its one session.
 - The token can never manage agents, skills, or project settings, regardless of the minting key's other permissions.
 - A token is honored only while its minting key exists and is unexpired.
-- A token reaches only the [files](/docs/server-sdk/files) tied to its scope: those it uploaded itself, and those uploaded for or used by its session (an agent-scoped token, by any session of its agent). A file your backend uploads for it must be reserved for the token's session (`files.getUploadUrls(sessionId, files)`), not with the session-less `files.createUploads()`.
+- A token reaches only the [files](/docs/server-sdk/files) tied to its scope: those it uploaded itself, and those uploaded for or used by its session (an agent-scoped token, by any session of its agent). A file your backend uploads for it is created for the token's session (`files.create(files, { sessionId })` or `files.upload(data, meta, { sessionId })`); one created without a session is out of its reach.
 
 ## Revoke early
 

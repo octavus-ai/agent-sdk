@@ -486,9 +486,9 @@ An expired session has no log: `{ "entries": [], "total": 0, "truncated": false 
 
 ## Uploads
 
-Get presigned URLs for uploading files to a session. Files are uploaded directly to S3; the session must be active (an expired one is `409 SESSION_EXPIRED`).
+Get presigned URLs for uploading files for a session. Files are uploaded directly to S3; the session must be active (an expired one is `409 SESSION_EXPIRED`).
 
-A file is a project resource: this route creates the same project files as [`POST /api/v1/files`](/docs/api-reference/files), recorded as uploaded for the session, and the reference is accepted by a session input, a trigger, a worker run, and a Workforce dispatch alike. Use the files route when no session exists yet or the same credential uploads and triggers. Use this route when the file will be used by a credential narrower than yours - an [ephemeral token](/docs/authentication/ephemeral-tokens) scoped to this session or its agent reaches only the files tied to them, so a file a project key reserved without a session is out of its reach.
+This is [`POST /api/v1/files`](/docs/api-reference/files) with `sessionId` set to the path's session, which is the form the Server SDK uses: the same project files, recorded as uploaded for the session, and the same response.
 
 ```
 POST /api/v1/sessions/:sessionId/uploads

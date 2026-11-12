@@ -9,9 +9,9 @@ A file is a resource of your project. Reserve it with the Files API, upload the 
 
 Files are uploaded directly to storage through presigned URLs; the bytes never pass through the platform.
 
-## Create Uploads
+## Create Files
 
-Reserve files in the project and get presigned URLs to upload them with.
+Create files in the project and get presigned URLs to upload them with.
 
 ```
 POST /api/v1/files
@@ -29,16 +29,18 @@ Requires a project key with the Sessions permission, or an [ephemeral credential
       "mediaType": "image/jpeg",
       "size": 102400
     }
-  ]
+  ],
+  "sessionId": "clxyz123"
 }
 ```
 
-| Field               | Type   | Required | Description                         |
-| ------------------- | ------ | -------- | ----------------------------------- |
-| `files`             | array  | Yes      | Array of file metadata (1-20 files) |
-| `files[].filename`  | string | Yes      | Original filename                   |
-| `files[].mediaType` | string | Yes      | MIME type (e.g., `image/png`)       |
-| `files[].size`      | number | Yes      | File size in bytes                  |
+| Field               | Type   | Required | Description                                                                                                                                                                                     |
+| ------------------- | ------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `files`             | array  | Yes      | Array of file metadata (1-20 files)                                                                                                                                                             |
+| `files[].filename`  | string | Yes      | Original filename                                                                                                                                                                               |
+| `files[].mediaType` | string | Yes      | MIME type (e.g., `image/png`)                                                                                                                                                                   |
+| `files[].size`      | number | Yes      | File size in bytes                                                                                                                                                                              |
+| `sessionId`         | string | No       | The session the files are uploaded for, recorded as their provenance (see [Scoped Credentials](#scoped-credentials)). Must be the caller's (`404` otherwise) and active (`409 SESSION_EXPIRED`) |
 
 ### Response
 
@@ -63,7 +65,7 @@ Requires a project key with the Sessions permission, or an [ephemeral credential
 3. Build the `FileReference`: `{ id, mediaType, url: downloadUrl, filename, size }` (add `width` and `height` for an image when you know them)
 4. Pass the reference wherever the protocol takes a `file`
 
-The reference is accepted by any session, run, or dispatch of the project the credential can reach. The platform checks the file exists where it is used: a reserved slot whose bytes never landed is refused.
+The reference is accepted by any session, run, or dispatch of the project the credential can reach. The platform checks the file exists where it is used: a file whose bytes never landed is refused.
 
 ## Get File
 
@@ -133,7 +135,7 @@ A refused reference is `400` with the code `INVALID_FILE_REFERENCE`, naming the 
 
 ### Scoped Credentials
 
-An [ephemeral credential](/docs/authentication/ephemeral-tokens) reads the files it could already reach: an agent-scoped token, the files created under its agent's scope and the files its agent's sessions use or produced; a session-scoped token, the files created under or used by its one session. A project key reads every file of the project. Files are created under the scope of the credential that reserved them, so a browser holding a session-scoped token can upload for its session and nothing else.
+An [ephemeral credential](/docs/authentication/ephemeral-tokens) reads the files it could already reach: an agent-scoped token, the files created under its agent's scope and the files its agent's sessions use or produced; a session-scoped token, the files created under or used by its one session. A project key reads every file of the project. Files are created under the scope of the credential that created them, so a browser holding a session-scoped token can upload for its session and nothing else; a file your backend creates for such a token carries the token's session as `sessionId`, which puts it within the token's reach.
 
 ## Supported Types
 

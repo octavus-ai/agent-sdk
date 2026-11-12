@@ -67,14 +67,16 @@ import { NextResponse } from 'next/server';
 import { octavus } from '@/lib/octavus';
 
 export async function POST(request: Request) {
-  const { sessionId, files } = await request.json();
+  const { files } = await request.json();
 
-  // Get presigned URLs from Octavus
-  const result = await octavus.files.getUploadUrls(sessionId, files);
+  // Create the files in the project and get presigned URLs from Octavus
+  const result = await octavus.files.create(files);
 
   return NextResponse.json(result);
 }
 ```
+
+A file is a project resource, so no session is needed to upload one; see [File Uploads](/docs/client-sdk/file-uploads) for the browser side and for the case where the browser triggers with a session-scoped token.
 
 ## Step 5: Create Session Endpoint
 

@@ -17,6 +17,7 @@ export {
 } from '@/sessions.js';
 export {
   FilesApi,
+  type CreateFilesOptions,
   type FileUploadRequest,
   type FileUploadInfo,
   type UploadUrlsResponse,
