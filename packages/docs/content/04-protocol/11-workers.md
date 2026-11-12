@@ -186,6 +186,39 @@ output: RESULT # Return this variable's value
 
 The `output` field references a variable declared in `variables:`. If omitted, the worker completes without returning a value.
 
+### File Inputs
+
+A worker takes files like any input: declare `file` or `file[]` and attach the input to a message with the block's `files`:
+
+```yaml
+input:
+  IMAGE:
+    type: file
+    description: The image to judge
+
+steps:
+  Start thread:
+    block: start-thread
+    thread: judge
+    model: anthropic/claude-sonnet-5-5
+    system: system
+
+  Add image:
+    block: add-message
+    thread: judge
+    role: user
+    prompt: rubric
+    files:
+      - IMAGE
+
+  Judge:
+    block: next-message
+    thread: judge
+    output: VERDICT
+```
+
+A direct run gets the file from the caller, uploaded as a project resource through the [Files API](/docs/server-sdk/files) since the run's session does not exist yet. A worker called from an interactive agent gets it from the parent's conversation, by file id (see [Input Binding](#input-binding)).
+
 ## Available Blocks
 
 Workers support the same blocks as handlers:

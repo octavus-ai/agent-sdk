@@ -20,7 +20,10 @@ export {
   type FileUploadRequest,
   type FileUploadInfo,
   type UploadUrlsResponse,
+  type FileResource,
+  type FileStatus,
 } from '@/files.js';
+export { type FileUploadData, type FileUploadMeta } from '@/upload-file.js';
 export {
   SkillsApi,
   type Skill,
@@ -262,6 +265,7 @@ export {
   EXECUTION_NOT_RESUMABLE_CODE,
   UNKNOWN_TOOL_CALL_CODE,
   SESSION_EXPIRED_CODE,
+  INVALID_FILE_REFERENCE_CODE,
   // Utilities
   generateId,
   isAbortError,

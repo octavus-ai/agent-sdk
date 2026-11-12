@@ -79,15 +79,15 @@ Every error, on every endpoint (and on a path under `/api` that is not one), is 
 }
 ```
 
-| Field        | Description                                                                                                                                       |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `error`      | A readable message                                                                                                                                |
-| `code`       | The stable machine-readable code (`NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_PROTOCOL`, `UNKNOWN_TOOL_CALL`, `SESSION_EXPIRED`, `AGENT_BUSY`, ...) |
-| `type`       | The classification, the same vocabulary as a stream `error` event's `errorType` (`validation_error`, `not_found_error`, `rate_limit_error`)       |
-| `retryable`  | Whether the same request can succeed if retried                                                                                                   |
-| `requestId`  | The request's ID, an opaque string; quote it when contacting support                                                                              |
-| `issues`     | Present on a validation failure (`400`) or an invalid agent definition (`422`): the structured issues                                             |
-| `retryAfter` | Present on a `429` or `503`: seconds to wait, also sent as the `Retry-After` header                                                               |
+| Field        | Description                                                                                                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error`      | A readable message                                                                                                                                                          |
+| `code`       | The stable machine-readable code (`NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_PROTOCOL`, `UNKNOWN_TOOL_CALL`, `SESSION_EXPIRED`, `INVALID_FILE_REFERENCE`, `AGENT_BUSY`, ...) |
+| `type`       | The classification, the same vocabulary as a stream `error` event's `errorType` (`validation_error`, `not_found_error`, `rate_limit_error`)                                 |
+| `retryable`  | Whether the same request can succeed if retried                                                                                                                             |
+| `requestId`  | The request's ID, an opaque string; quote it when contacting support                                                                                                        |
+| `issues`     | Present on a validation failure (`400`) or an invalid agent definition (`422`): the structured issues                                                                       |
+| `retryAfter` | Present on a `429` or `503`: seconds to wait, also sent as the `Retry-After` header                                                                                         |
 
 An endpoint may add fields that describe the error's data (a `409 AGENT_BUSY` names the thread holding the agent). Unknown fields are to be ignored.
 
@@ -121,19 +121,28 @@ Current status, active incidents, planned maintenance, and incident history are 
 
 ### Sessions
 
-| Method | Endpoint                                                | Description                                      |
-| ------ | ------------------------------------------------------- | ------------------------------------------------ |
-| POST   | `/api/v1/sessions`                                      | Create a session                                 |
-| POST   | `/api/v1/sessions/start`                                | Create a session and run its first trigger (SSE) |
-| GET    | `/api/v1/sessions/:id`                                  | Get a session (`active` or `expired`)            |
-| POST   | `/api/v1/sessions/:id/clear`                            | Clear a session's state (it becomes `expired`)   |
-| GET    | `/api/v1/sessions/:id/messages`                         | The conversation as UI messages                  |
-| POST   | `/api/v1/sessions/:id/executions`                       | Start an execution: run a trigger (SSE)          |
-| POST   | `/api/v1/sessions/:id/executions/:executionId/continue` | Continue a paused execution (SSE)                |
-| POST   | `/api/v1/sessions/:id/restore`                          | Restore an expired session from stored messages  |
-| GET    | `/api/v1/sessions/:id/logs`                             | The execution log                                |
-| POST   | `/api/v1/sessions/:id/uploads`                          | Presigned upload URLs for files                  |
-| POST   | `/api/v1/sessions/:id/files/view-url`                   | A view URL for a file the session produced       |
+| Method | Endpoint                                                | Description                                                   |
+| ------ | ------------------------------------------------------- | ------------------------------------------------------------- |
+| POST   | `/api/v1/sessions`                                      | Create a session                                              |
+| POST   | `/api/v1/sessions/start`                                | Create a session and run its first trigger (SSE)              |
+| GET    | `/api/v1/sessions/:id`                                  | Get a session (`active` or `expired`)                         |
+| POST   | `/api/v1/sessions/:id/clear`                            | Clear a session's state (it becomes `expired`)                |
+| GET    | `/api/v1/sessions/:id/messages`                         | The conversation as UI messages                               |
+| POST   | `/api/v1/sessions/:id/executions`                       | Start an execution: run a trigger (SSE)                       |
+| POST   | `/api/v1/sessions/:id/executions/:executionId/continue` | Continue a paused execution (SSE)                             |
+| POST   | `/api/v1/sessions/:id/restore`                          | Restore an expired session from stored messages               |
+| GET    | `/api/v1/sessions/:id/logs`                             | The execution log                                             |
+| POST   | `/api/v1/sessions/:id/uploads`                          | Presigned upload URLs for files, recorded against the session |
+| POST   | `/api/v1/sessions/:id/files/view-url`                   | A view URL for a file the session shows                       |
+
+### Files
+
+| Method | Endpoint            | Description                                                   |
+| ------ | ------------------- | ------------------------------------------------------------- |
+| POST   | `/api/v1/files`     | Reserve files in the project and get presigned URLs to upload |
+| GET    | `/api/v1/files/:id` | Read a file with a fresh download URL                         |
+
+A file is a project resource: upload it once and pass the reference wherever a protocol takes a `file`. See [Files](/docs/api-reference/files).
 
 ### Agents
 

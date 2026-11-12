@@ -47,15 +47,15 @@ These scalar types can be used directly in inputs, variables, triggers, and tool
 | `integer` | Whole numbers only                    | `1`, `100`, `-5`                |
 | `boolean` | True or false                         | `true`, `false`                 |
 | `unknown` | Any value (no type checking)          | Any JSON value                  |
-| `file`    | Uploaded file reference               | `{ id, mediaType, url, ... }`   |
+| `file`    | File reference                        | `{ id, mediaType, url, ... }`   |
 
-The `file` type represents an uploaded file (image, document, etc.) with this structure:
+The `file` type represents a file the agent can read (image, document, etc.) with this structure:
 
 ```typescript
 interface FileReference {
   id: string; // Unique file ID
   mediaType: string; // MIME type (e.g., 'image/png')
-  url: string; // Presigned download URL
+  url: string; // Download URL
   filename?: string; // Original filename
   size?: number; // File size in bytes
   width?: number; // Image width in pixels, when known
@@ -63,7 +63,9 @@ interface FileReference {
 }
 ```
 
-`width` and `height` are optional hints for images. The SDK records them when it holds the bytes (client-side uploads and server-side tool-result normalization); with them, the runtime can tell whether an image fits [`maxImageDimension`](/docs/protocol/agent-config#image-delivery-limits) without fetching it. If you set them yourself, use the image's true pixel size: the runtime trusts them, so a smaller value lets an over-cap image skip the cap.
+A file is either a **platform file** - uploaded through the [Files API](/docs/server-sdk/files) or produced by an agent of the project - or a file you **host yourself** at an `https:` URL. The platform validates a reference where it enters (a session input, a trigger input, a worker input): a platform file must be one of the project's that the credential can reach, and its URL is re-signed by the platform; a file you host is accepted as given and read only through the platform's SSRF guard when a model needs its bytes, never re-signed or copied. Anything else - a file of another project, one whose bytes never landed, an `http:` URL - is refused with `INVALID_FILE_REFERENCE`.
+
+`width` and `height` are optional hints for images. The SDK records them when it holds the bytes (`files.upload()`, client-side uploads, and server-side tool-result normalization); with them, the runtime can tell whether an image fits [`maxImageDimension`](/docs/protocol/agent-config#image-delivery-limits) without fetching it. If you set them yourself, use the image's true pixel size: the runtime trusts them, so a smaller value lets an over-cap image skip the cap.
 
 > **Note:** There is no standalone `array` or `object` type. If you need typed arrays or objects, define a [custom type](#defining-types). If you don't care about the internal structure, use `unknown`.
 

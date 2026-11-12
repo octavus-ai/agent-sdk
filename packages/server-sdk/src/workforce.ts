@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { uiMessageSchema, type FileReference, type UIMessage } from '@octavus/core';
 import { BaseApiClient } from '@/base-api-client.js';
+import {
+  uploadUrlsResponseSchema,
+  type FileUploadRequest,
+  type UploadUrlsResponse,
+} from '@/files.js';
+import { uploadFile, type FileUploadData, type FileUploadMeta } from '@/upload-file.js';
 
 /**
  * Status of a Workforce thread (one dispatched run lives on the thread's
@@ -465,9 +471,9 @@ const DEFAULT_RECORDING_TIMEOUT_MS = 2 * 60 * 1_000;
  * ```
  *
  * The key only authorizes its own agent: `getAgent` reads whether it can take a
- * run, `dispatch` starts a thread, `getThread` reads status + messages,
- * `followUp` continues a thread, `cancel` stops an in-flight run, and `run` does
- * the whole create-wait-return cycle.
+ * run, `upload` hosts a file to attach, `dispatch` starts a thread, `getThread`
+ * reads status + messages, `followUp` continues a thread, `cancel` stops an
+ * in-flight run, and `run` does the whole create-wait-return cycle.
  */
 export class WorkforceApi extends BaseApiClient {
   /**
@@ -479,6 +485,38 @@ export class WorkforceApi extends BaseApiClient {
       `/api/v1/workforce/agents/${encodeURIComponent(agentId)}`,
       agentResponseSchema,
     );
+  }
+
+  /**
+   * Reserve files for the agent and get presigned URLs to upload them with: an
+   * upload URL (PUT, valid for 15 minutes) and a download URL (GET) per file.
+   * PUT each file to its `uploadUrl` with its `Content-Type`, then attach
+   * `{ id, mediaType, url: downloadUrl, filename, size }` as a dispatch's or
+   * follow-up's `files`. The files are hosted for this agent, which is what a
+   * dispatch's `files` must be.
+   */
+  async createUploads(agentId: string, files: FileUploadRequest[]): Promise<UploadUrlsResponse> {
+    return await this.httpPost(
+      `/api/v1/workforce/agents/${encodeURIComponent(agentId)}/files`,
+      { files },
+      uploadUrlsResponseSchema,
+    );
+  }
+
+  /**
+   * Host one file for the agent and get the `FileReference` to attach to a
+   * dispatch or follow-up: reserves a slot, PUTs the bytes, and reads an
+   * image's pixel dimensions from its header.
+   *
+   * @param data - The bytes: a `Blob`, a `Uint8Array` (a `Buffer` included), or an `ArrayBuffer`
+   * @param meta - The filename and media type
+   */
+  async upload(
+    agentId: string,
+    data: FileUploadData,
+    meta: FileUploadMeta,
+  ): Promise<FileReference> {
+    return await uploadFile((files) => this.createUploads(agentId, files), data, meta);
   }
 
   /**

@@ -56,6 +56,56 @@ curl https://octavus.ai/api/v1/workforce/agents/AGENT_ID \
   -H "Authorization: Bearer oct_agt_..."
 ```
 
+## Host files
+
+Reserve files for the agent and get presigned URLs to upload them with. The files are hosted for this agent, which is what a dispatch's or follow-up's `files` must be: a file hosted for another agent, or with a project key of another project, is refused.
+
+```
+POST /api/v1/workforce/agents/{agentId}/files
+```
+
+### Request Body
+
+```json
+{
+  "files": [{ "filename": "spec.pdf", "mediaType": "application/pdf", "size": 204800 }]
+}
+```
+
+| Field               | Type   | Required | Description                         |
+| ------------------- | ------ | -------- | ----------------------------------- |
+| `files`             | array  | Yes      | Array of file metadata (1-20 files) |
+| `files[].filename`  | string | Yes      | Original filename                   |
+| `files[].mediaType` | string | Yes      | MIME type (e.g., `application/pdf`) |
+| `files[].size`      | number | Yes      | File size in bytes                  |
+
+### Response
+
+Returns `201`.
+
+```json
+{
+  "files": [
+    {
+      "id": "1762900000000-k3x9q2p",
+      "uploadUrl": "https://s3.amazonaws.com/bucket/key?...",
+      "downloadUrl": "https://s3.amazonaws.com/bucket/key?..."
+    }
+  ]
+}
+```
+
+PUT each file's bytes to its `uploadUrl` with the declared `Content-Type` (the URL is valid for 15 minutes), then attach `{ id, mediaType, url: downloadUrl, filename, size }` as a dispatch's `files`. The limits and the supported types are those of the [Files API](/docs/api-reference/files#limits).
+
+### Example
+
+```bash
+curl -X POST https://octavus.ai/api/v1/workforce/agents/AGENT_ID/files \
+  -H "Authorization: Bearer oct_agt_..." \
+  -H "Content-Type: application/json" \
+  -d '{ "files": [{ "filename": "spec.pdf", "mediaType": "application/pdf", "size": 204800 }] }'
+```
+
 ## Start a thread
 
 Dispatch a message to the agent. This starts a new thread and returns immediately.
@@ -75,7 +125,7 @@ POST /api/v1/workforce/agents/{agentId}/threads
 | Field     | Type            | Required                        | Description                                                                                                                                  |
 | --------- | --------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `message` | string          | Yes, unless `files` is provided | The task or message for the agent. A turn carries a message, at least one file, or both                                                      |
-| `files`   | FileReference[] | No                              | Hosted file attachments                                                                                                                      |
+| `files`   | FileReference[] | No                              | File attachments: files [hosted for this agent](#host-files), files one of its threads produced, or `https:` URLs you host yourself          |
 | `config`  | RunConfig       | No                              | Per-run configuration for this thread (see below). Omitted fields inherit the agent's stored settings.                                       |
 | `ifIdle`  | boolean         | No                              | Refuse instead of queuing when the agent already has a run in flight or queued (see [Only run on an idle agent](#only-run-on-an-idle-agent)) |
 
@@ -300,7 +350,7 @@ POST /api/v1/workforce/agents/{agentId}/threads/{threadId}/messages
 | Field     | Type            | Required                        | Description                                                                 |
 | --------- | --------------- | ------------------------------- | --------------------------------------------------------------------------- |
 | `message` | string          | Yes, unless `files` is provided | The follow-up message. A turn carries a message, at least one file, or both |
-| `files`   | FileReference[] | No                              | Hosted file attachments                                                     |
+| `files`   | FileReference[] | No                              | File attachments, as on [Start a thread](#start-a-thread)                   |
 
 ### Response
 
@@ -358,7 +408,7 @@ Errors return the platform's standard [error body](/docs/api-reference/overview#
 
 | Status | Meaning                                                                                                                                                                                                                                                          |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `400`  | The request is invalid (for example a malformed body or `Idempotency-Key`)                                                                                                                                                                                       |
+| `400`  | The request is invalid (for example a malformed body or `Idempotency-Key`), or `INVALID_FILE_REFERENCE`: a file in `files` is not one the agent can take (see [Files](/docs/api-reference/files#file-references))                                                |
 | `401`  | Missing or invalid API key                                                                                                                                                                                                                                       |
 | `402`  | The agent is blocked by a usage or spending limit                                                                                                                                                                                                                |
 | `403`  | The key is not authorized for this agent                                                                                                                                                                                                                         |

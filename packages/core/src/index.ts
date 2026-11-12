@@ -24,6 +24,7 @@ export {
   EXECUTION_NOT_RESUMABLE_CODE,
   UNKNOWN_TOOL_CALL_CODE,
   SESSION_EXPIRED_CODE,
+  INVALID_FILE_REFERENCE_CODE,
 } from './errors/transport';
 
 export { generateId, isAbortError, normalizeToolInputSchema } from './utils';

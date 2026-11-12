@@ -130,6 +130,8 @@ export async function normalizeToolResultOutputFiles(
 
     let uploadInfos: { id: string; uploadUrl: string; downloadUrl: string }[];
     try {
+      // The normalizer runs inside a session's tool round trip, so the file
+      // belongs to that session and the session route records it as such.
       const response = await filesApi.getUploadUrls(sessionId, uploadRequests);
       uploadInfos = response.files;
     } catch {

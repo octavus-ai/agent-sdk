@@ -49,6 +49,24 @@ for await (const event of client.workers.execute(agentId, input)) {
 
 A worker's session holds no conversation: `getMessages()` returns an empty array, and the session cannot be triggered, continued through `attach()`, or restored (`400 VALIDATION_ERROR`). Like any session, its state and execution log are held for 24 hours, after which `get()` reports it `expired` and the log reads empty; `clear()` discards them sooner.
 
+## File Inputs
+
+A worker's `file` or `file[]` input takes a `FileReference`. A worker run's session exists only once the run starts, so the file is uploaded as a project resource first, with [`files.upload()`](/docs/server-sdk/files) - no session is involved:
+
+```typescript
+const image = await client.files.upload(screenshotBytes, {
+  filename: 'screenshot.png',
+  mediaType: 'image/png',
+});
+
+const { output } = await client.workers.generate(graderId, {
+  IMAGE: image,
+  RUBRIC: 'The page shows a signed-in dashboard.',
+});
+```
+
+A reference the run cannot accept - a file of another project, one whose bytes never landed, an `http:` URL - is refused with `INVALID_FILE_REFERENCE` before the run is created. A file another run or session of the project produced (a screenshot, a skill output) can be passed on as it is: agent-produced files stay usable as inputs. See [Files](/docs/server-sdk/files) for what the platform does with a file you host yourself.
+
 ## WorkersApi Reference
 
 ### generate()
