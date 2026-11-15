@@ -40,8 +40,9 @@ export type ErrorSource = 'platform' | 'provider' | 'tool' | 'client';
 
 /**
  * Provider information for provider errors: the provider and model, its HTTP
- * status and error type, its request ID for support, a truncated raw response
- * body when it carries detail beyond the normalized message, and the upstream
+ * status and error type, its request ID for support, the provider's own detail
+ * beyond the normalized message (a truncated raw response body, or on a safety
+ * refusal the classifier's category and explanation as JSON), and the upstream
  * deployment a gateway reported.
  */
 export type ProviderErrorInfo = {

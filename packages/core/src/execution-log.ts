@@ -140,6 +140,36 @@ export interface StepStatsTrace {
   reportedCost?: StepReportedCost;
   /** Why a router picked the model that served this step, when it says. */
   router?: StepRouterDecision;
+  /**
+   * How the step ended and what it delivered: the finish reason and the
+   * content parts that settled, by kind. Undefined on media rows.
+   */
+  outcome?: StepOutcome;
+}
+
+/**
+ * How one model step ended and what it delivered. `finishReason` is the
+ * unified reason (`stop`, `tool-calls`, `length`, `content-filter`,
+ * `interrupted`, `other`); `rawFinishReason` is the provider's own
+ * (`end_turn`, `tool_use`, `refusal`, ...). `parts` counts the content parts
+ * that settled: `text` parts carrying text, `reasoning` parts carrying text,
+ * `emptyReasoning` for reasoning parts that carried neither text nor metadata
+ * (thinking the provider billed but did not return), `toolCalls`, and `other`
+ * for every other kind. `toolInputsStarted` is how many tool inputs began
+ * streaming, to read against `parts.toolCalls`; undefined on a step that was
+ * not streamed.
+ */
+export interface StepOutcome {
+  finishReason: string;
+  rawFinishReason?: string;
+  parts: {
+    text: number;
+    reasoning: number;
+    emptyReasoning: number;
+    toolCalls: number;
+    other: number;
+  };
+  toolInputsStarted?: number;
 }
 
 /**

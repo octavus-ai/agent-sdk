@@ -258,6 +258,7 @@ export type {
   StepStatsTrace,
   StepThinking,
   StepImages,
+  StepOutcome,
   StepReportedCost,
   StepRouterDecision,
   ExecutionLogError,
