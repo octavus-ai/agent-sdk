@@ -449,21 +449,61 @@ function Chat({ sessionId, initialMessages }: ChatProps) {
 }
 ```
 
-On your backend, use `sessions.getMessages()` to fetch UI-ready messages:
+On your backend, read the session with its messages in one snapshot:
 
 ```typescript
 // Server-side
-const messages = await client.sessions.getMessages(sessionId);
-// UIMessage[] ready for the client's `initialMessages`
+const session = await client.sessions.get(sessionId, { includeMessages: true });
+// session.messages: UIMessage[] ready for the client's `initialMessages`
 ```
+
+### Persisting from the browser
+
+The browser can send the conversation to your backend after each turn instead. `onFinish` fires with the turn's `finish` event once the platform has saved the turn; the hook's `messages` then hold the finished turn on the next render, which is where to read them from:
+
+```tsx
+import { useEffect, useState } from 'react';
+import { useOctavusChat, type FinishEvent, type Transport, type UIMessage } from '@octavus/react';
+
+interface PersistedChatProps {
+  chatId: string;
+  transport: Transport;
+  initialMessages: UIMessage[];
+}
+
+function PersistedChat({ chatId, transport, initialMessages }: PersistedChatProps) {
+  const [turnToPersist, setTurnToPersist] = useState<FinishEvent | null>(null);
+  const { messages } = useOctavusChat({
+    transport,
+    initialMessages,
+    onFinish: setTurnToPersist,
+  });
+
+  // Once per finished turn, with that turn's final messages; cleared so a
+  // later change to `messages` does not persist on its own.
+  useEffect(() => {
+    if (!turnToPersist) return;
+    setTurnToPersist(null);
+    void fetch(`/api/chats/${chatId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+    });
+  }, [turnToPersist, messages, chatId]);
+
+  // ...
+}
+```
+
+Your backend stores them as the copy it restores the session from (see [Restoring Sessions](/docs/server-sdk/sessions#restoring-sessions)).
 
 ## Callbacks
 
 ```tsx
 useOctavusChat({
   transport,
-  onFinish: () => {
-    console.log('Stream completed');
+  onFinish: (event) => {
+    console.log('Stream completed:', event.finishReason);
     // Scroll to bottom, play sound, etc.
   },
   onError: (error) => {

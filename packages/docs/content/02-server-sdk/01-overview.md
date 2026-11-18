@@ -56,8 +56,9 @@ const { id: sessionId } = await client.sessions.create('clxyz123abc456', {
   PRODUCT_NAME: 'Widget Pro',
 });
 
-// Get the conversation as UI-ready messages (for session restore)
-const messages = await client.sessions.getMessages(sessionId);
+// The session with its conversation as UI-ready messages, in one snapshot
+// (for a page load: an expired session answers `expired` with no messages)
+const session = await client.sessions.get(sessionId, { includeMessages: true });
 ```
 
 ### Tool Handlers
@@ -173,18 +174,21 @@ class SessionsApi {
   // Create a session
   async create(agentId: string, input?: Record<string, unknown>): Promise<Session>;
 
-  // Get a session (agent, creation time, active or expired)
+  // Get a session (agent, creation time, active or expired, and while active
+  // its expiresAt); with `includeMessages`, the conversation embedded in the
+  // same snapshot
+  async get(sessionId: string, options: { includeMessages: true }): Promise<SessionWithMessages>;
   async get(sessionId: string): Promise<Session>;
 
-  // Get the conversation as UI-ready messages (empty once the session expired)
+  // Get the conversation as UI-ready messages (SESSION_EXPIRED once the session expired)
   async getMessages(sessionId: string): Promise<UIMessage[]>;
 
-  // Restore an expired session from stored messages
-  async restoreFromMessages(
+  // Restore an expired session from stored messages: `{ session, restored }`,
+  // where `restored` says whether the state was rebuilt or was still live
+  async restore(
     sessionId: string,
-    messages: UIMessage[],
-    input?: Record<string, unknown>,
-  ): Promise<Session>;
+    from: { messages: UIMessage[]; input?: Record<string, unknown> },
+  ): Promise<SessionRestoreResult>;
 
   // Clear the session's state; it becomes expired
   async clear(sessionId: string): Promise<Session>;
@@ -221,6 +225,14 @@ class AgentSession {
 
   // Register dynamic tools (e.g., pass a Computer or explicit DynamicTool[])
   setDynamicTools(source: ToolProvider | DynamicTool[]): void;
+}
+
+interface TriggerOptions {
+  signal?: AbortSignal;
+  // Called once the stream has ended, with its `finish` event (undefined when it
+  // ended with an error); not when aborted. Awaited before the stream closes.
+  // Where to persist the conversation (see Sessions, "Persisting Chat History")
+  onFinish?: (finish: FinishEvent | undefined) => void | Promise<void>;
 }
 
 type SessionRequest = TriggerRequest | ContinueRequest;

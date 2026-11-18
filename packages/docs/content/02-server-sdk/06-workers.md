@@ -47,7 +47,7 @@ for await (const event of client.workers.execute(agentId, input)) {
 }
 ```
 
-A worker's session holds no conversation: `getMessages()` returns an empty array, and the session cannot be triggered, continued through `attach()`, or restored (`400 VALIDATION_ERROR`). Like any session, its state and execution log are held for 24 hours, after which `get()` reports it `expired` and the log reads empty; `clear()` discards them sooner.
+A worker's session holds no conversation: `getMessages()` returns an empty array, and the session cannot be triggered, continued through `attach()`, or restored (`400 VALIDATION_ERROR`). Like any session, its state and execution log are held for 24 hours, after which `get()` reports it `expired` and `getLogs()` fails with `SESSION_EXPIRED`; `clear()` discards them sooner.
 
 ## File Inputs
 

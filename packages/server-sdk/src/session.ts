@@ -2,6 +2,7 @@ import {
   OctavusError,
   generateId,
   type DynamicTool,
+  type FinishEvent,
   type InlineMcpServer,
   type PendingToolCall,
   type StreamEvent,
@@ -75,8 +76,8 @@ export type SocketMessage = TriggerRequest | ContinueRequest | StopMessage;
 export interface SocketMessageHandlers {
   /** Called for each stream event */
   onEvent: (event: StreamEvent) => void;
-  /** Called after streaming completes (not called if aborted) */
-  onFinish?: () => void | Promise<void>;
+  /** Called once the stream has ended, as `TriggerOptions.onFinish` is. */
+  onFinish?: TriggerOptions['onFinish'];
 }
 
 const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
@@ -190,6 +191,20 @@ export interface SessionConfig {
 export interface TriggerOptions {
   /** Abort signal to cancel the trigger execution */
   signal?: AbortSignal;
+  /**
+   * Called once the stream has ended, with its `finish` event (undefined when
+   * the stream ended with an error instead); not called when the execution was
+   * aborted. It runs after the last event is consumed, so iterate the stream
+   * to its end, as `toSSEStream` and `handleSocketMessage` do: a loop that
+   * stops at `finish` never reaches it. Awaited before the stream closes, so
+   * on a serverless runtime the work it does is covered by the response. This
+   * is where to persist the conversation: read the session with its messages
+   * (`sessions.get(sessionId, { includeMessages: true })`) and store them. To
+   * close the stream without waiting for that work, hand it to the runtime
+   * inside the callback (`after()` from `next/server`, `waitUntil()` from
+   * `@vercel/functions`) and return.
+   */
+  onFinish?: (finish: FinishEvent | undefined) => void | Promise<void>;
 }
 
 /** Handles streaming and tool continuation for agent sessions */
@@ -248,11 +263,23 @@ export class AgentSession {
    * Use this when you want to pass through requests from the client directly.
    *
    * @param request - The request (check `request.type` for the kind)
-   * @param options - Optional configuration including abort signal
+   * @param options - The abort signal, and `onFinish` to run once the stream has ended
    *
    * @example HTTP route (simple passthrough)
    * ```typescript
    * const events = session.execute(body, { signal: request.signal });
+   * return new Response(toSSEStream(events));
+   * ```
+   *
+   * @example HTTP route that persists the conversation after each turn
+   * ```typescript
+   * const events = session.execute(body, {
+   *   signal: request.signal,
+   *   onFinish: async () => {
+   *     const current = await client.sessions.get(sessionId, { includeMessages: true });
+   *     if (current.status === 'active') await db.chats.update({ ... });
+   *   },
+   * });
    * return new Response(toSSEStream(events));
    * ```
    *
@@ -267,27 +294,36 @@ export class AgentSession {
    * ```
    */
   async *execute(request: SessionRequest, options?: TriggerOptions): AsyncGenerator<StreamEvent> {
-    if (request.type === 'continue') {
-      if (!this.sessionId) {
-        throw new Error(
-          'Cannot continue a session before it exists. Run a trigger first to create the session.',
-        );
-      }
-      yield* this.executeStream(
-        { executionId: request.executionId, toolResults: request.toolResults },
-        options?.signal,
+    if (request.type === 'continue' && !this.sessionId) {
+      throw new Error(
+        'Cannot continue a session before it exists. Run a trigger first to create the session.',
       );
-    } else {
-      yield* this.executeStream(
-        {
-          triggerName: request.triggerName,
-          input: request.input,
-          rollbackAfterMessageId: request.rollbackAfterMessageId,
-          sender: request.sender,
-          userMessageId: request.userMessageId,
-        },
-        options?.signal,
-      );
+    }
+    const events =
+      request.type === 'continue'
+        ? this.executeStream(
+            { executionId: request.executionId, toolResults: request.toolResults },
+            options?.signal,
+          )
+        : this.executeStream(
+            {
+              triggerName: request.triggerName,
+              input: request.input,
+              rollbackAfterMessageId: request.rollbackAfterMessageId,
+              sender: request.sender,
+              userMessageId: request.userMessageId,
+            },
+            options?.signal,
+          );
+
+    let finish: FinishEvent | undefined;
+    for await (const event of events) {
+      if (event.type === 'finish') finish = event;
+      yield event;
+    }
+
+    if (options?.onFinish && !options.signal?.aborted) {
+      await options.onFinish(finish);
     }
   }
 
@@ -343,7 +379,8 @@ export class AgentSession {
    *   session.handleSocketMessage(JSON.parse(raw), {
    *     onEvent: (event) => conn.write(JSON.stringify(event)),
    *     onFinish: async () => {
-   *       // Fetch messages and persist to your database for restoration
+   *       // Read the session with its messages and persist them to your
+   *       // database for restoration
    *     },
    *   });
    * });
@@ -364,15 +401,14 @@ export class AgentSession {
     const localController = this.socketAbortController;
 
     try {
-      const events = this.execute(message, { signal: localController.signal });
+      const events = this.execute(message, {
+        signal: localController.signal,
+        onFinish: handlers.onFinish,
+      });
 
       for await (const event of events) {
         if (localController.signal.aborted) break;
         handlers.onEvent(event);
-      }
-
-      if (!localController.signal.aborted && handlers.onFinish) {
-        await handlers.onFinish();
       }
     } catch (err) {
       if (!localController.signal.aborted) {

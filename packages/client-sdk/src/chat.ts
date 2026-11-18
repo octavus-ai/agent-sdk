@@ -19,6 +19,7 @@ import {
   type UIWorkerStatus,
   type UITodoPart,
   type DisplayMode,
+  type FinishEvent,
   type StreamEvent,
   type FileReference,
   type PendingToolCall,
@@ -257,8 +258,8 @@ export interface OctavusChatOptions {
    * ```
    */
   onError?: (error: OctavusError) => void;
-  /** Callback when streaming finishes successfully */
-  onFinish?: () => void;
+  /** Callback when streaming finishes successfully, with the stream's `finish` event */
+  onFinish?: (event: FinishEvent) => void;
   /** Callback when streaming is stopped by user */
   onStop?: () => void;
   /**
@@ -711,6 +712,12 @@ export class OctavusChat {
   private options: OctavusChatOptions;
   private transport: Transport;
   private streamingState: StreamingState | null = null;
+  // The stream that owns the chat, bumped by every `_consumeStream`. A loop
+  // still reading an older stream - its response aborted by a newer `send()`
+  // while the server held it open past `finish` - compares unequal and steps
+  // aside, instead of settling or erroring the turn the newer stream is
+  // building.
+  private _streamGeneration = 0;
 
   // Client tool state
   // Keyed by toolName -> array of pending tools for that name
@@ -1267,6 +1274,8 @@ export class OctavusChat {
     stream: AsyncIterable<ChatStreamItem>,
     resumeFrom?: UIMessage,
   ): Promise<void> {
+    this._streamGeneration += 1;
+    const generation = this._streamGeneration;
     this.setStatus('streaming');
     this.setError(null);
     this.streamingState = resumeFrom
@@ -1292,7 +1301,7 @@ export class OctavusChat {
 
     try {
       for await (const item of stream) {
-        if (this.streamingState === null) break;
+        if (this.streamingState === null || this._streamGeneration !== generation) break;
         if (item.type === 'replay-start') {
           this.beginReplayBatch(item.sinceRound);
           continue;
@@ -1313,6 +1322,8 @@ export class OctavusChat {
         if (this._replayResetPending) this.resetForReplay(item);
         this.handleStreamEvent(item, this.streamingState);
       }
+      // A newer stream owns the chat: nothing left here is this loop's to settle.
+      if (this._streamGeneration !== generation) return;
       // Stream ended without an explicit `live` marker (e.g. the session ended
       // during replay). Flush so a silent batch can never strand the UI.
       this.endReplayBatch();
@@ -1339,6 +1350,7 @@ export class OctavusChat {
         this.setStatus('idle');
       }
     } catch (err) {
+      if (this._streamGeneration !== generation) return;
       // Paint whatever was rebuilt during a replay batch before surfacing the error.
       this.endReplayBatch();
       // Convert unknown errors to OctavusError
@@ -2470,7 +2482,7 @@ export class OctavusChat {
         // notify (below) reads the true messages, never a paced snapshot.
         this.stopPacer();
         this.setStatus('idle');
-        this.options.onFinish?.();
+        this.options.onFinish?.(event);
         break;
       }
 
@@ -2857,6 +2869,7 @@ export class OctavusChat {
    * Continue execution with collected client tool results.
    */
   private async continueWithClientToolResults(): Promise<void> {
+    const generation = this._streamGeneration;
     if (this._completedToolResults.length === 0) return;
 
     if (this._pendingExecutionId === null) {
@@ -2886,7 +2899,7 @@ export class OctavusChat {
     try {
       // Use the transport's continuation method (works for both HTTP and Socket)
       for await (const item of this.transport.continueWithToolResults(executionId, results)) {
-        if (this.streamingState === null) break;
+        if (this.streamingState === null || this._streamGeneration !== generation) break;
         if (item.type === 'replay-start') {
           this.beginReplayBatch(item.sinceRound);
           continue;
@@ -2906,6 +2919,7 @@ export class OctavusChat {
         if (this._replayResetPending) this.resetForReplay(item);
         this.handleStreamEvent(item, this.streamingState);
       }
+      if (this._streamGeneration !== generation) return;
       this.endReplayBatch();
       // This continuation is no longer in flight. Decrement before the settle
       // check so a genuinely dropped continuation (count back to zero) still
@@ -2926,6 +2940,7 @@ export class OctavusChat {
         this.setStatus('idle');
       }
     } catch (err) {
+      if (this._streamGeneration !== generation) return;
       this.endReplayBatch();
       const errorObj = OctavusError.isInstance(err)
         ? err

@@ -23,6 +23,15 @@ export const sessionSchema = z.looseObject({
   agentId: z.string(),
   status: sessionStatusSchema,
   createdAt: z.string(),
+  // Null once expired; absent from a platform that predates the field.
+  expiresAt: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? null),
+});
+
+const sessionWithMessagesSchema = sessionSchema.extend({
+  messages: z.array(uiMessageSchema),
 });
 
 const sessionMessagesResponseSchema = z.looseObject({
@@ -57,13 +66,61 @@ export type SessionStatus = 'active' | 'expired';
 /**
  * A session: its agent, when it was created, and whether its state is still
  * `active` or has `expired` (aged out or cleared). An expired session is
- * restored from the messages you stored with `restoreFromMessages()`.
+ * restored from the messages you stored with `restore()`.
+ *
+ * While the state is `active`, `expiresAt` says when it ages out if nothing
+ * writes it again (every execution moves it); null once it has expired.
  */
 export interface Session {
   id: string;
   agentId: string;
   status: SessionStatus;
   createdAt: string;
+  /** When the session's state ages out if nothing writes it again. Null when expired. */
+  expiresAt: string | null;
+}
+
+/**
+ * The session with its conversation embedded: `messages` as `getMessages()`
+ * returns them, read in the same snapshot as the session's status. Empty once
+ * the session's state has expired.
+ */
+export interface SessionWithMessages extends Session {
+  messages: UIMessage[];
+}
+
+/**
+ * What `restore()` rebuilds an expired session's state from: the conversation
+ * you stored. The messages carry what their display modes revealed: a `stream`
+ * tool call comes back with its arguments and result, a `title` call with
+ * empty arguments and a placeholder result, and a `hidden` call not at all,
+ * so set `display: stream` on the tools whose results the model should still
+ * have after a restore.
+ */
+export interface SessionRestoreFromMessages {
+  /** The stored `UIMessage[]`, as `get(sessionId, { includeMessages: true })` or `getMessages()` returned them. */
+  messages: UIMessage[];
+  /** The session input the system prompt is rebuilt with (the same input as `create()`). */
+  input?: Record<string, unknown>;
+}
+
+/** What a `restore()` did. */
+export interface SessionRestoreResult {
+  /** The session, `active`. */
+  session: Session;
+  /**
+   * True when the state was rebuilt from what you sent; false when the state
+   * was still live and was left as it is (what you sent was not applied).
+   */
+  restored: boolean;
+}
+
+export interface GetSessionOptions {
+  /**
+   * Embed the conversation on the session (`SessionWithMessages`), read in
+   * one snapshot with the session's status.
+   */
+  includeMessages?: boolean;
 }
 
 export interface GetLogsOptions {
@@ -75,7 +132,7 @@ export interface GetLogsOptions {
   excludeModelRequests?: boolean;
 }
 
-/** A session's execution log. Empty once the session's state has expired. */
+/** A session's execution log. */
 export interface ExecutionLogs {
   entries: ExecutionLogEntry[];
   /** Total number of entries available server-side. Exceeds `entries.length` when the response was capped. */
@@ -135,10 +192,23 @@ export class SessionsApi extends BaseApiClient {
   }
 
   /**
-   * Get a session: its agent, when it was created, and whether its state is
-   * still `active` or has `expired`. Messages are read with `getMessages()`.
+   * Get a session: its agent, when it was created, whether its state is still
+   * `active` or has `expired`, and while it is active its `expiresAt`. With
+   * `includeMessages`, the conversation is embedded as `messages`, read in the
+   * same snapshot as the status: the one read for a page load, since an
+   * expired session answers `expired` with empty messages instead of throwing.
    */
-  async get(sessionId: string): Promise<Session> {
+  get(sessionId: string, options: { includeMessages: true }): Promise<SessionWithMessages>;
+  get(sessionId: string, options?: GetSessionOptions): Promise<Session>;
+  async get(
+    sessionId: string,
+    options: GetSessionOptions = {},
+  ): Promise<Session | SessionWithMessages> {
+    if (options.includeMessages) {
+      return await this.httpGet(`/api/v1/sessions/${sessionId}`, sessionWithMessagesSchema, {
+        include: 'messages',
+      });
+    }
     return await this.httpGet(`/api/v1/sessions/${sessionId}`, sessionSchema);
   }
 
@@ -146,8 +216,11 @@ export class SessionsApi extends BaseApiClient {
    * Get the session's conversation as the UI renders it: the visible messages,
    * each part revealing what its display mode allows. Pass them to
    * `initialMessages` on the client, and store them to restore the session
-   * later with `restoreFromMessages()`. Empty once the session's state has
-   * expired.
+   * later with `restore()`. The messages are the session's live state: an
+   * expired session fails with the code `SESSION_EXPIRED`
+   * (`SESSION_EXPIRED_CODE`), like any operation that needs the live state.
+   * To read the session and its messages together whatever its status, use
+   * `get(sessionId, { includeMessages: true })`.
    */
   async getMessages(sessionId: string): Promise<UIMessage[]> {
     const { messages } = await this.httpGet(
@@ -158,34 +231,48 @@ export class SessionsApi extends BaseApiClient {
   }
 
   /**
-   * Restore an expired session from the messages you stored (the `UIMessage[]`
-   * that `getMessages()` returned). The messages carry what their display
-   * modes revealed: a `stream` tool call comes back with its arguments and
-   * result, a `title` call with empty arguments and a placeholder result, and
-   * a `hidden` call not at all - so set `display: stream` on the tools whose
-   * results the model should still have after a restore.
+   * Restore an expired session from what you stored, so the conversation
+   * continues after the server-side state has expired. A session whose state
+   * is still live is left as it is: a restore is never an error, so two
+   * restores racing both succeed and a retry after a lost response is safe.
    *
    * @param sessionId - The session ID to restore
-   * @param messages - The stored `UIMessage[]`
-   * @param input - Optional session input for system prompt interpolation (same as create)
-   * @returns The session, `active` again (a session that was still active is left as it is)
+   * @param from - The stored conversation (`messages`) and the session `input`
+   * @returns The session, `active`, and `restored`: true when its state was
+   * rebuilt from what you sent, false when it was still live and left as it is
+   */
+  async restore(
+    sessionId: string,
+    from: SessionRestoreFromMessages,
+  ): Promise<SessionRestoreResult> {
+    const { status, data } = await this.httpPostWithStatus(
+      `/api/v1/sessions/${sessionId}/restore`,
+      { messages: from.messages, input: from.input },
+      sessionSchema,
+    );
+    return { session: data, restored: status === 201 };
+  }
+
+  /**
+   * Restore an expired session from the messages you stored.
+   *
+   * @deprecated Use `restore(sessionId, { messages, input })`, which also
+   * reports whether the state was rebuilt.
+   * @returns The session, `active` (a session that was still active is left as it is)
    */
   async restoreFromMessages(
     sessionId: string,
     messages: UIMessage[],
     input?: Record<string, unknown>,
   ): Promise<Session> {
-    return await this.httpPost(
-      `/api/v1/sessions/${sessionId}/restore`,
-      { messages, input },
-      sessionSchema,
-    );
+    const { session } = await this.restore(sessionId, { messages, input });
+    return session;
   }
 
   /**
    * Clear the session's state from the server. The session becomes `expired`
-   * and can be restored with `restoreFromMessages()`. Idempotent: succeeds
-   * when the state was already gone.
+   * and can be restored with `restore()`. Idempotent: succeeds when the state
+   * was already gone.
    */
   async clear(sessionId: string): Promise<Session> {
     return await this.httpPost(`/api/v1/sessions/${sessionId}/clear`, {}, sessionSchema);
@@ -199,7 +286,8 @@ export class SessionsApi extends BaseApiClient {
    * narrowing on `entry.type`. New entry types may be added server-side - include a
    * `default` case when switching on `type` to handle unknown variants gracefully.
    *
-   * Empty once the session's state has expired.
+   * The log lives with the session's state: an expired session fails with the
+   * code `SESSION_EXPIRED`.
    */
   async getLogs(sessionId: string, options?: GetLogsOptions): Promise<ExecutionLogs> {
     const logs = await this.httpGet(

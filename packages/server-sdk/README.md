@@ -64,17 +64,17 @@ const client = new OctavusClient({
 ### Sessions API
 
 ```typescript
-// Create a session: { id, agentId, status, createdAt }
+// Create a session: { id, agentId, status, createdAt, expiresAt }
 const session = await client.sessions.create(agentId, input);
 
-// Get a session (status is 'active' or 'expired')
+// Get a session (status is 'active' or 'expired'; expiresAt says when its live state ages out)
 const current = await client.sessions.get(session.id);
 
-// Get the conversation as UI-ready messages
-const messages = await client.sessions.getMessages(session.id);
+// The session with the conversation as UI-ready messages, in one snapshot
+const { messages } = await client.sessions.get(session.id, { includeMessages: true });
 
-// Restore an expired session from stored messages
-await client.sessions.restoreFromMessages(session.id, storedMessages, input);
+// Restore an expired session from stored messages (`restored` says whether it rebuilt the state)
+const { restored } = await client.sessions.restore(session.id, { messages: storedMessages, input });
 
 // Clear session state (the session becomes expired)
 await client.sessions.clear(session.id);
@@ -204,6 +204,21 @@ const session = client.sessions.attach(sessionId, {
 });
 ```
 
+### Persisting the Conversation
+
+To restore a session after its state expires, store its conversation after each turn. `execute()`'s `onFinish` runs once the turn's stream has ended (not when aborted) and is awaited before the stream closes; read the session with its messages there and store them. To close the stream first and persist afterwards, hand the work to your runtime inside the callback (`after()` from `next/server`, `waitUntil()` from `@vercel/functions`) and return.
+
+```typescript
+const events = session.execute(payload, {
+  signal: request.signal,
+  onFinish: async () => {
+    const current = await client.sessions.get(sessionId, { includeMessages: true });
+    if (current.status === 'active') await db.chats.update(chatId, { messages: current.messages });
+  },
+});
+return new Response(toSSEStream(events), { headers: { 'Content-Type': 'text/event-stream' } });
+```
+
 ### Errors
 
 Every failed request throws an `OctavusError` - the same class the stream's `error` events become - with the HTTP `status`, the platform's stable `code`, the classification, whether a retry can help, and the `requestId` to quote to support. A successful response the SDK cannot read (not JSON, or not the shape it expects) throws the same class.
@@ -232,18 +247,19 @@ const events = session.trigger('user-message', input, {
 
 ### Active Sessions
 
-Sessions remain active for 24 hours (configurable). Use `getMessages()` for UI display, and store the messages to restore the session later.
+Sessions remain active for 24 hours of inactivity (`expiresAt` says when). Read the session with `includeMessages: true` for UI display, and store the messages to restore the session later.
 
 ### Expired Sessions
 
 When session state expires:
 
 ```typescript
-const session = await client.sessions.get(sessionId);
+const session = await client.sessions.get(sessionId, { includeMessages: true });
 
 if (session.status === 'expired') {
   // Restore from your stored messages
-  await client.sessions.restoreFromMessages(sessionId, storedMessages);
+  const { restored } = await client.sessions.restore(sessionId, { messages: storedMessages });
+  // restored: true when the state was rebuilt from them, false when it was still live
 }
 ```
 
