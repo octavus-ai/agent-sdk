@@ -59,12 +59,23 @@ export abstract class BaseApiClient {
     schema: ZodType<T>,
     options: { headers?: Record<string, string> } = {},
   ): Promise<T> {
+    const { data } = await this.httpPostWithStatus(path, body, schema, options);
+    return data;
+  }
+
+  /** POST, keeping the response status for the calls whose status carries meaning. */
+  protected async httpPostWithStatus<T>(
+    path: string,
+    body: unknown,
+    schema: ZodType<T>,
+    options: { headers?: Record<string, string> } = {},
+  ): Promise<ApiResponse<T>> {
     const response = await fetch(this.url(path), {
       method: 'POST',
       headers: { ...(await this.config.getHeaders()), ...options.headers },
       body: JSON.stringify(body),
     });
-    return await this.readJson(response, schema);
+    return { status: response.status, data: await this.readJson(response, schema) };
   }
 
   /**

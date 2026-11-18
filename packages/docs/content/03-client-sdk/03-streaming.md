@@ -203,9 +203,9 @@ import { isRateLimitError, type OctavusError } from '@octavus/react';
 
 useOctavusChat({
   transport,
-  onFinish: () => {
-    console.log('Stream completed successfully');
-    // Scroll to bottom, play sound, etc.
+  onFinish: (event) => {
+    console.log('Stream completed successfully at revision', event.revision);
+    // Scroll to bottom, play sound, persist the messages with their revision, etc.
   },
   onStop: () => {
     console.log('User stopped generation');

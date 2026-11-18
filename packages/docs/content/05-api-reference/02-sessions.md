@@ -22,18 +22,26 @@ Every endpoint that creates or changes a session returns the session:
   "id": "cm5xyz123abc456def",
   "agentId": "cm5xvz7k80001abcd",
   "status": "active",
-  "createdAt": "2024-01-15T10:30:00.000Z"
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T11:02:14.318Z",
+  "expiresAt": "2024-01-16T11:02:14.318Z",
+  "revision": "k7f3q9Wn2pLa"
 }
 ```
 
-| Field       | Type   | Description                                                                                                                   |
-| ----------- | ------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `id`        | string | The session ID                                                                                                                |
-| `agentId`   | string | The agent the session runs                                                                                                    |
-| `status`    | string | `active` while the platform holds the session's state; `expired` once that state has aged out (24 hours idle) or been cleared |
-| `createdAt` | string | ISO 8601                                                                                                                      |
+| Field       | Type           | Description                                                                                                                                                                                                                             |
+| ----------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`        | string         | The session ID                                                                                                                                                                                                                          |
+| `agentId`   | string         | The agent the session runs                                                                                                                                                                                                              |
+| `status`    | string         | `active` while the platform holds the session's state; `expired` once that state has aged out (24 hours idle) or been cleared                                                                                                           |
+| `createdAt` | string         | ISO 8601                                                                                                                                                                                                                                |
+| `updatedAt` | string \| null | When the session's state was last written (a turn, a checkpoint, a restore). Null when expired                                                                                                                                          |
+| `expiresAt` | string \| null | When the state ages out if nothing writes it again; every execution moves it forward by the idle window. Null when expired                                                                                                              |
+| `revision`  | string \| null | An opaque token of the state's last write. Equal revisions are the same stored state, so a copy of the conversation stamped with a revision is current while the session still reports it. Compare for equality only. Null when expired |
 
-An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the messages you stored. Its reads keep working and answer empty ([Get Messages](#get-messages), [Get Logs](#get-logs)), and its files stay viewable ([File View URL](#file-view-url)). What needs the live state - [starting an execution](#start-execution) or [requesting upload URLs](#uploads) - answers `409` with the code `SESSION_EXPIRED`, which tells an expired session apart from one that does not exist (`404`): restore it, or create a new one.
+`revision` changes on every write of the state, including ones that change no visible message (a mid-turn checkpoint, a compaction), so a different revision means "read again", never "the messages differ". Never parse or order it.
+
+An expired session is not gone: its record stays, and [Restore Session](#restore-session) rebuilds its state from the messages you stored. The session itself keeps reading ([Get Session](#get-session), with `include=messages` answering the expired session and an empty `messages`), and its files stay viewable ([File View URL](#file-view-url)). What needs the live state - its [messages](#get-messages) and [log](#get-logs), [starting an execution](#start-execution), [requesting upload URLs](#uploads) - answers `409` with the code `SESSION_EXPIRED`, which tells an expired session apart from one that does not exist (`404`): restore it, or create a new one.
 
 ## Create Session
 
@@ -123,13 +131,34 @@ A retried start under the same key resolves to the session the first request cre
 GET /api/v1/sessions/:sessionId
 ```
 
-Returns the [session](#the-session-resource). The conversation itself is read from [Get Messages](#get-messages).
+Returns the [session](#the-session-resource).
+
+### Query Parameters
+
+| Parameter | Type   | Description                                                                                                                                     |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `include` | string | A comma-separated list of sub-resources to embed on the session. `messages` embeds the conversation as [Get Messages](#get-messages) returns it |
+
+With `include=messages`, the session and its `messages` come from one read of the state, so the `revision` in the body is the revision the messages are of. An expired session answers `status: "expired"` with `messages: []`, in the same body, so the one read tells a conversation with no messages yet apart from one whose state is gone. This is the read for a page load and for persisting the conversation after a turn. An `include` value the API does not define is `400` with the code `VALIDATION_ERROR`.
 
 ### Example
 
 ```bash
-curl https://octavus.ai/api/v1/sessions/:sessionId \
+curl https://octavus.ai/api/v1/sessions/:sessionId?include=messages \
   -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```json
+{
+  "id": "cm5xyz123abc456def",
+  "agentId": "cm5xvz7k80001abcd",
+  "status": "active",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T11:02:14.318Z",
+  "expiresAt": "2024-01-16T11:02:14.318Z",
+  "revision": "k7f3q9Wn2pLa",
+  "messages": [ ... ]
+}
 ```
 
 ## Get Messages
@@ -142,7 +171,7 @@ The session's conversation as the UI renders it. Each trigger produces one assis
 
 A turn that is paused for tools - waiting for your server or client to continue it - is still in progress: its message has `status: "streaming"`, and its tool calls and sub-agent cards that await a result read `running`. A tool call a finished turn never resolved reads `cancelled`.
 
-An expired session has no messages: the response is `{ "messages": [] }`. Read [Get Session](#get-session) for the status.
+The messages are the session's live state: an expired session answers `409` with the code `SESSION_EXPIRED`, like every operation that needs that state. To read the session and its messages together whatever its status, use [Get Session](#get-session) with `include=messages`.
 
 > **Note**: For an agent configured with [context management](/docs/protocol/context-management) (`maxToolOutputTokens` and/or `contextManagement`), the messages reflect the agent's **bounded working memory**, not a byte-complete transcript: tool results are the bounded previews and, once the session has compacted, older turns are represented by the running summary. For the complete, untruncated history - every tool result at full size - read the session's [execution log](#get-logs), which is the durable record.
 
@@ -234,7 +263,12 @@ POST /api/v1/sessions/:sessionId/restore
 
 ### Response
 
-The [session](#the-session-resource), `active` again. A session whose state was still live is left as it is.
+The [session](#the-session-resource), `active`. The status code says what the restore did:
+
+- `201 Created`: the state had expired and was rebuilt from the body. The session's `revision` is the one the restore wrote, and the messages you sent are that revision: stamp your copy with it.
+- `200 OK`: the state was still live and was left as it is; the body was not applied. The session's `revision` is the live one: if it differs from the revision your copy carries, read the conversation with [Get Session](#get-session) and `include=messages`.
+
+A restore on a live session is never an error, so two restores racing (two tabs opening the same conversation) both succeed, and a restore retried after a lost response is safe.
 
 ### Example
 
@@ -260,7 +294,7 @@ POST /api/v1/sessions/:sessionId/clear
 
 ### Response
 
-The [session](#the-session-resource), with `status: "expired"`.
+The [session](#the-session-resource), with `status: "expired"` and `revision`, `updatedAt`, and `expiresAt` null.
 
 ### Example
 
@@ -332,40 +366,42 @@ data: {"type":"text-end","id":"t1"}
 
 data: {"type":"block-end","blockId":"b2"}
 
-data: {"type":"finish","finishReason":"stop"}
+data: {"type":"finish","finishReason":"stop","executionId":"3f1c9b2e-6d4a-4c8e-9f0b-2a7d5e8c1b4f","revision":"k7f3q9Wn2pLa"}
 
 data: [DONE]
 ```
 
 The `start` event names the execution (`executionId`); a [continuation](#continue-execution) addresses it. A turn ends in one of three ways, told by the `finish` event's `finishReason`: `stop` (the turn is complete), `tool-calls` (the turn is paused on the calls of the preceding `tool-request` event, see [Tool Continuation](#tool-continuation)), or `continue` (the leg reached its time budget, see [Execution Legs](#execution-legs)). Aborting the request stops generation; what was produced is kept.
 
+The `finish` event's `revision` is the session's [`revision`](#the-session-resource) after the state write that preceded it: the platform saves the turn's state before it sends `finish`, so a copy of the conversation taken from the stream can be stamped with the revision it is of without a read, and a read of the session returns that revision until something writes the state again. The `persisted` event carries the same field for the write it reports.
+
 ### Event Types
 
-| Event                   | Description                        |
-| ----------------------- | ---------------------------------- |
-| `start`                 | Stream started                     |
-| `finish`                | Stream ended (see `finishReason`)  |
-| `error`                 | Error occurred                     |
-| `block-start`           | Execution block started            |
-| `block-end`             | Execution block completed          |
-| `step-start`            | A later model step started         |
-| `step-discard`          | Current step's output retracted    |
-| `persisted`             | Session state saved up to here     |
-| `text-start`            | Text generation started            |
-| `text-delta`            | Incremental text content           |
-| `text-end`              | Text generation ended              |
-| `reasoning-start`       | Extended reasoning started         |
-| `reasoning-delta`       | Reasoning content                  |
-| `reasoning-end`         | Extended reasoning ended           |
-| `tool-input-start`      | Tool call initiated                |
-| `tool-input-delta`      | Tool arguments streaming           |
-| `tool-input-end`        | Tool arguments streaming ended     |
-| `tool-input-available`  | Tool input complete                |
-| `tool-output-available` | Tool completed with result         |
-| `tool-output-error`     | Tool failed                        |
-| `tool-request`          | Platform requesting tool execution |
-| `file-available`        | File ready for display/download    |
-| `worker-start` ...      | Sub-agent lifecycle (see the SDK)  |
+| Event                   | Description                                                    |
+| ----------------------- | -------------------------------------------------------------- |
+| `start`                 | Stream started                                                 |
+| `finish`                | Stream ended (see `finishReason`); carries the `revision`      |
+| `error`                 | Error occurred                                                 |
+| `block-start`           | Execution block started                                        |
+| `block-end`             | Execution block completed                                      |
+| `step-start`            | A later model step started                                     |
+| `step-discard`          | Current step's output retracted                                |
+| `persisted`             | Session state saved up to here; carries the `revision` written |
+| `text-start`            | Text generation started                                        |
+| `text-delta`            | Incremental text content                                       |
+| `text-end`              | Text generation ended                                          |
+| `reasoning-start`       | Extended reasoning started                                     |
+| `reasoning-delta`       | Reasoning content                                              |
+| `reasoning-end`         | Extended reasoning ended                                       |
+| `tool-input-start`      | Tool call initiated                                            |
+| `tool-input-delta`      | Tool arguments streaming                                       |
+| `tool-input-end`        | Tool arguments streaming ended                                 |
+| `tool-input-available`  | Tool input complete                                            |
+| `tool-output-available` | Tool completed with result                                     |
+| `tool-output-error`     | Tool failed                                                    |
+| `tool-request`          | Platform requesting tool execution                             |
+| `file-available`        | File ready for display/download                                |
+| `worker-start` ...      | Sub-agent lifecycle (see the SDK)                              |
 
 The list grows over time. Read an event of an unknown `type` as one to ignore or forward, and keep any field you do not know; see [Versioning](/docs/api-reference/versioning).
 
@@ -482,7 +518,7 @@ The session's execution log: the chronological trace of everything that happened
 | `total`     | number  | The number of entries on the server, which exceeds `entries.length` when `truncated` |
 | `truncated` | boolean | True when the response was capped (at 3000 entries)                                  |
 
-An expired session has no log: `{ "entries": [], "total": 0, "truncated": false }`. Entry types grow over time; handle an unknown `type` with a default branch.
+The log lives with the session's state: an expired session answers `409` with the code `SESSION_EXPIRED`. Entry types grow over time; handle an unknown `type` with a default branch.
 
 ## Uploads
 

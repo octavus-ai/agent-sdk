@@ -449,21 +449,52 @@ function Chat({ sessionId, initialMessages }: ChatProps) {
 }
 ```
 
-On your backend, use `sessions.getMessages()` to fetch UI-ready messages:
+On your backend, read the session with its messages in one snapshot:
 
 ```typescript
 // Server-side
-const messages = await client.sessions.getMessages(sessionId);
-// UIMessage[] ready for the client's `initialMessages`
+const session = await client.sessions.get(sessionId, { includeMessages: true });
+// session.messages: UIMessage[] ready for the client's `initialMessages`
+// session.revision: the revision those messages are of
 ```
+
+### Persisting from the browser
+
+If the browser sends the conversation to your backend after each turn, stamp it with the revision the turn's `finish` event carries. `onFinish` receives the event, and its `revision` is the session's after the turn's state was saved, so the copy your backend stores records the revision it is of without a read:
+
+```tsx
+import { useEffect, useState } from 'react';
+import { useOctavusChat, type FinishEvent } from '@octavus/react';
+
+const [finished, setFinished] = useState<FinishEvent | null>(null);
+const { messages } = useOctavusChat({
+  transport,
+  initialMessages,
+  onFinish: setFinished,
+});
+
+// Once per finished turn, reading that turn's final messages: `finished` is
+// the only dependency on purpose, so a later edit to `messages` does not
+// persist again under a revision it is not of
+useEffect(() => {
+  if (!finished) return;
+  void fetch(`/api/chats/${chatId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, revision: finished.revision ?? null }),
+  });
+}, [finished]);
+```
+
+On the next page load your backend compares the stored revision with the session's (see [Restoring Sessions](/docs/server-sdk/sessions#restoring-sessions)); equal means the platform has nothing new for it.
 
 ## Callbacks
 
 ```tsx
 useOctavusChat({
   transport,
-  onFinish: () => {
-    console.log('Stream completed');
+  onFinish: (event) => {
+    console.log('Stream completed at revision', event.revision);
     // Scroll to bottom, play sound, etc.
   },
   onError: (error) => {

@@ -230,6 +230,14 @@ export type FinishEvent = {
   type: 'finish';
   finishReason: FinishReason;
   executionId?: string;
+  /**
+   * The session's `revision` after the state write that preceded this event:
+   * the revision a read of the session returns until something writes it
+   * again, so a copy of the conversation kept from the stream can be stamped
+   * without a read. Absent on a finish nothing was written for, and on a
+   * worker run's finish (a worker's session holds no conversation to stamp).
+   */
+  revision?: string;
 };
 
 /**
@@ -482,6 +490,8 @@ export type PersistedEvent = {
   executionId: string;
   round: number;
   messageId?: string;
+  /** The session's `revision` after the write this marker reports (see `FinishEvent.revision`). */
+  revision?: string;
 };
 
 // --------------------------------- Tool --------------------------------------

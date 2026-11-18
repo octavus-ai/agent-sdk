@@ -56,8 +56,9 @@ const { id: sessionId } = await client.sessions.create('clxyz123abc456', {
   PRODUCT_NAME: 'Widget Pro',
 });
 
-// Get the conversation as UI-ready messages (for session restore)
-const messages = await client.sessions.getMessages(sessionId);
+// The session with its conversation as UI-ready messages, in one snapshot
+// (for a page load: an expired session answers `expired` with no messages)
+const session = await client.sessions.get(sessionId, { includeMessages: true });
 ```
 
 ### Tool Handlers
@@ -173,18 +174,22 @@ class SessionsApi {
   // Create a session
   async create(agentId: string, input?: Record<string, unknown>): Promise<Session>;
 
-  // Get a session (agent, creation time, active or expired)
+  // Get a session (agent, creation time, active or expired, and while active
+  // its revision, updatedAt, and expiresAt); with `includeMessages`, the
+  // conversation embedded in the same snapshot
+  async get(sessionId: string, options: { includeMessages: true }): Promise<SessionWithMessages>;
   async get(sessionId: string): Promise<Session>;
 
-  // Get the conversation as UI-ready messages (empty once the session expired)
+  // Get the conversation as UI-ready messages (SESSION_EXPIRED once the session expired)
   async getMessages(sessionId: string): Promise<UIMessage[]>;
 
-  // Restore an expired session from stored messages
+  // Restore an expired session from stored messages; `restored` says whether
+  // the state was rebuilt or was still live
   async restoreFromMessages(
     sessionId: string,
     messages: UIMessage[],
     input?: Record<string, unknown>,
-  ): Promise<Session>;
+  ): Promise<RestoredSession>;
 
   // Clear the session's state; it becomes expired
   async clear(sessionId: string): Promise<Session>;

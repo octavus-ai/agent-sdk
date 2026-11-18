@@ -2,6 +2,7 @@ import {
   OctavusError,
   generateId,
   type DynamicTool,
+  type FinishEvent,
   type InlineMcpServer,
   type PendingToolCall,
   type StreamEvent,
@@ -75,8 +76,13 @@ export type SocketMessage = TriggerRequest | ContinueRequest | StopMessage;
 export interface SocketMessageHandlers {
   /** Called for each stream event */
   onEvent: (event: StreamEvent) => void;
-  /** Called after streaming completes (not called if aborted) */
-  onFinish?: () => void | Promise<void>;
+  /**
+   * Called after streaming completes (not called if aborted), with the stream's
+   * `finish` event: its `revision` is the session's after the run's last state
+   * write, for stamping a copy of the conversation persisted here. Undefined
+   * when the stream ended without one.
+   */
+  onFinish?: (finish: FinishEvent | undefined) => void | Promise<void>;
 }
 
 const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
@@ -342,8 +348,9 @@ export class AgentSession {
    * conn.on('data', (raw) => {
    *   session.handleSocketMessage(JSON.parse(raw), {
    *     onEvent: (event) => conn.write(JSON.stringify(event)),
-   *     onFinish: async () => {
-   *       // Fetch messages and persist to your database for restoration
+   *     onFinish: async (finish) => {
+   *       // Read the session with its messages and persist them, stamped with
+   *       // their revision, to your database for restoration
    *     },
    *   });
    * });
@@ -366,13 +373,15 @@ export class AgentSession {
     try {
       const events = this.execute(message, { signal: localController.signal });
 
+      let finish: FinishEvent | undefined;
       for await (const event of events) {
         if (localController.signal.aborted) break;
+        if (event.type === 'finish') finish = event;
         handlers.onEvent(event);
       }
 
       if (!localController.signal.aborted && handlers.onFinish) {
-        await handlers.onFinish();
+        await handlers.onFinish(finish);
       }
     } catch (err) {
       if (!localController.signal.aborted) {
