@@ -468,28 +468,46 @@ A trigger on an expired session fails with `409` and the code `SESSION_EXPIRED` 
 
 ## Persisting Chat History
 
-To enable session restoration, store the conversation in your own database after each turn. Read the session with its messages in one snapshot: the platform saves the turn's state before it sends `finish`, so the read after it returns the turn's messages.
+To enable session restoration, store the conversation in your own database after each turn. `execute()` takes an `onFinish` callback that runs once the turn's stream has ended; read the session with its messages there and store them. The platform saves the turn's state before it sends `finish`, so the read returns the turn's messages:
 
 ```typescript
-for await (const event of session.execute(request, { signal })) {
-  yield event;
+export async function POST(request: Request) {
+  const { chatId, sessionId, ...payload } = await request.json();
+  const session = client.sessions.attach(sessionId, { tools });
 
-  if (event.type === 'finish') {
-    const current = await client.sessions.get(sessionId, { includeMessages: true });
-    if (current.status === 'active') {
-      await db.chats.update({
-        where: { id: chatId },
-        data: {
-          sessionId,
-          messages: current.messages, // Store UIMessage[] as JSON
-        },
-      });
-    }
-  }
+  const events = session.execute(payload, {
+    signal: request.signal,
+    onFinish: async () => {
+      const current = await client.sessions.get(sessionId, { includeMessages: true });
+      if (current.status === 'active') {
+        await db.chats.update({
+          where: { id: chatId },
+          data: { messages: current.messages }, // Store UIMessage[] as JSON
+        });
+      }
+    },
+  });
+
+  return new Response(toSSEStream(events), { headers: { 'Content-Type': 'text/event-stream' } });
 }
 ```
 
-A browser can persist the conversation through your API instead: the client SDK's `onFinish` fires with the turn's `finish` event, and `chat.messages` is the conversation to store (see [Client SDK Messages](/docs/client-sdk/messages#session-restore)).
+`onFinish` receives the stream's `finish` event (undefined when the stream ended with an error instead) and is not called when the execution was aborted. It is awaited before the stream closes, so on a serverless runtime the function stays alive for it; an error it throws ends the stream with an `error` event, so catch inside it if a failed persist should not reach the user.
+
+To close the stream the moment the turn ends and persist afterwards, hand the work to your runtime inside the callback and return: `after()` from `next/server` on Next.js, `waitUntil()` from `@vercel/functions` on other Vercel functions. The runtime keeps the function alive for the work after the response has closed:
+
+```typescript
+import { after } from 'next/server';
+
+const events = session.execute(payload, {
+  signal: request.signal,
+  onFinish: () => {
+    after(persistConversation(chatId, sessionId));
+  },
+});
+```
+
+`handleSocketMessage()` takes the same `onFinish` for WebSocket integrations (see [WebSocket Handling](#websocket-handling)). A browser can persist the conversation through your API instead: the client SDK's `onFinish` fires with the turn's `finish` event, and `chat.messages` is the conversation to store (see [Client SDK Messages](/docs/client-sdk/messages#session-restore)).
 
 > **Store the full `UIMessage[]` array.** It preserves every message part (text, tool calls, files, and so on) the restore rebuilds from.
 

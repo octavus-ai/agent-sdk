@@ -204,6 +204,21 @@ const session = client.sessions.attach(sessionId, {
 });
 ```
 
+### Persisting the Conversation
+
+To restore a session after its state expires, store its conversation after each turn. `execute()`'s `onFinish` runs once the turn's stream has ended (not when aborted) and is awaited before the stream closes; read the session with its messages there and store them. To close the stream first and persist afterwards, hand the work to your runtime inside the callback (`after()` from `next/server`, `waitUntil()` from `@vercel/functions`) and return.
+
+```typescript
+const events = session.execute(payload, {
+  signal: request.signal,
+  onFinish: async () => {
+    const current = await client.sessions.get(sessionId, { includeMessages: true });
+    if (current.status === 'active') await db.chats.update(chatId, { messages: current.messages });
+  },
+});
+return new Response(toSSEStream(events), { headers: { 'Content-Type': 'text/event-stream' } });
+```
+
 ### Errors
 
 Every failed request throws an `OctavusError` - the same class the stream's `error` events become - with the HTTP `status`, the platform's stable `code`, the classification, whether a retry can help, and the `requestId` to quote to support. A successful response the SDK cannot read (not JSON, or not the shape it expects) throws the same class.

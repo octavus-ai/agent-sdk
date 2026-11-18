@@ -112,6 +112,7 @@ Triggers execute agent actions. The `user-message` trigger is the most common:
 
 ```typescript
 // app/api/trigger/route.ts
+import { after } from 'next/server';
 import { toSSEStream } from '@octavus/server-sdk';
 import { octavus } from '@/lib/octavus';
 
@@ -153,7 +154,20 @@ export async function POST(request: Request) {
   });
 
   // execute() handles both triggers and client tool continuations
-  const events = session.execute(payload, { signal: request.signal });
+  const events = session.execute(payload, {
+    signal: request.signal,
+    // Once the turn's stream has ended, store the conversation so the session
+    // can be restored after its state expires. `after()` runs it once the
+    // response has closed, so the stream ends as soon as the turn does.
+    onFinish: () => {
+      after(async () => {
+        const current = await octavus.sessions.get(sessionId, { includeMessages: true });
+        if (current.status === 'active') {
+          await db.chats.update({ where: { sessionId }, data: { messages: current.messages } });
+        }
+      });
+    },
+  });
 
   return new Response(toSSEStream(events), {
     headers: {

@@ -227,6 +227,14 @@ class AgentSession {
   setDynamicTools(source: ToolProvider | DynamicTool[]): void;
 }
 
+interface TriggerOptions {
+  signal?: AbortSignal;
+  // Called once the stream has ended, with its `finish` event (undefined when it
+  // ended with an error); not when aborted. Awaited before the stream closes.
+  // Where to persist the conversation (see Sessions, "Persisting Chat History")
+  onFinish?: (finish: FinishEvent | undefined) => void | Promise<void>;
+}
+
 type SessionRequest = TriggerRequest | ContinueRequest;
 
 interface TriggerRequest {
