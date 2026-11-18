@@ -60,6 +60,15 @@ export function isTransientTransportError(error: unknown): boolean {
 export const EXECUTION_NOT_RESUMABLE_CODE = 'EXECUTION_NOT_RESUMABLE';
 
 /**
+ * The platform's error code for a `continue` that names an execution a later
+ * trigger on the same session superseded: the execution was paused (for tool
+ * results, or between legs) when the new turn started, so its turn has ended.
+ * Returned with HTTP 409. Unlike `EXECUTION_NOT_RESUMABLE`, there is nothing
+ * to re-send: the conversation has moved on to the turn that superseded it.
+ */
+export const EXECUTION_SUPERSEDED_CODE = 'EXECUTION_SUPERSEDED';
+
+/**
  * The platform's error code for a `continue` that submits a result for a tool
  * call the execution did not request. Returned with HTTP 400.
  */
