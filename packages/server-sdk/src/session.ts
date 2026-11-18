@@ -194,9 +194,11 @@ export interface TriggerOptions {
   /**
    * Called once the stream has ended, with its `finish` event (undefined when
    * the stream ended with an error instead); not called when the execution was
-   * aborted. Awaited before the stream closes, so on a serverless runtime the
-   * work it does is covered by the response. This is where to persist the
-   * conversation: read the session with its messages
+   * aborted. It runs after the last event is consumed, so iterate the stream
+   * to its end, as `toSSEStream` and `handleSocketMessage` do: a loop that
+   * stops at `finish` never reaches it. Awaited before the stream closes, so
+   * on a serverless runtime the work it does is covered by the response. This
+   * is where to persist the conversation: read the session with its messages
    * (`sessions.get(sessionId, { includeMessages: true })`) and store them. To
    * close the stream without waiting for that work, hand it to the runtime
    * inside the callback (`after()` from `next/server`, `waitUntil()` from

@@ -131,7 +131,7 @@ Current status, active incidents, planned maintenance, and incident history are 
 | POST   | `/api/v1/sessions/:id/executions`                       | Start an execution: run a trigger (SSE)                                             |
 | POST   | `/api/v1/sessions/:id/executions/:executionId/continue` | Continue a paused execution (SSE)                                                   |
 | POST   | `/api/v1/sessions/:id/restore`                          | Restore an expired session from stored messages (`201` rebuilt, `200` already live) |
-| GET    | `/api/v1/sessions/:id/logs`                             | The execution log                                                                   |
+| GET    | `/api/v1/sessions/:id/logs`                             | The execution log (`409` once expired)                                              |
 | POST   | `/api/v1/sessions/:id/uploads`                          | Presigned upload URLs for files, recorded against the session                       |
 | POST   | `/api/v1/sessions/:id/files/view-url`                   | A view URL for a file the session shows                                             |
 

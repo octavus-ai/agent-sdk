@@ -459,30 +459,40 @@ const session = await client.sessions.get(sessionId, { includeMessages: true });
 
 ### Persisting from the browser
 
-The browser can send the conversation to your backend after each turn instead. `onFinish` fires with the turn's `finish` event once the platform has saved the turn, and `chat.messages` is then the conversation to store:
+The browser can send the conversation to your backend after each turn instead. `onFinish` fires with the turn's `finish` event once the platform has saved the turn; the hook's `messages` then hold the finished turn on the next render, which is where to read them from:
 
 ```tsx
 import { useEffect, useState } from 'react';
-import { useOctavusChat, type FinishEvent } from '@octavus/react';
+import { useOctavusChat, type FinishEvent, type Transport, type UIMessage } from '@octavus/react';
 
-const [finished, setFinished] = useState<FinishEvent | null>(null);
-const { messages } = useOctavusChat({
-  transport,
-  initialMessages,
-  onFinish: setFinished,
-});
+interface PersistedChatProps {
+  chatId: string;
+  transport: Transport;
+  initialMessages: UIMessage[];
+}
 
-// Once per finished turn, reading that turn's final messages: `finished` is
-// the only dependency on purpose, so an edit to `messages` between turns does
-// not persist on its own
-useEffect(() => {
-  if (!finished) return;
-  void fetch(`/api/chats/${chatId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+function PersistedChat({ chatId, transport, initialMessages }: PersistedChatProps) {
+  const [turnToPersist, setTurnToPersist] = useState<FinishEvent | null>(null);
+  const { messages } = useOctavusChat({
+    transport,
+    initialMessages,
+    onFinish: setTurnToPersist,
   });
-}, [finished]);
+
+  // Once per finished turn, with that turn's final messages; cleared so a
+  // later change to `messages` does not persist on its own.
+  useEffect(() => {
+    if (!turnToPersist) return;
+    setTurnToPersist(null);
+    void fetch(`/api/chats/${chatId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+    });
+  }, [turnToPersist, messages, chatId]);
+
+  // ...
+}
 ```
 
 Your backend stores them as the copy it restores the session from (see [Restoring Sessions](/docs/server-sdk/sessions#restoring-sessions)).

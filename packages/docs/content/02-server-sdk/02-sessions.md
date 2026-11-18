@@ -492,7 +492,7 @@ export async function POST(request: Request) {
 }
 ```
 
-`onFinish` receives the stream's `finish` event (undefined when the stream ended with an error instead) and is not called when the execution was aborted. It is awaited before the stream closes, so on a serverless runtime the function stays alive for it; an error it throws ends the stream with an `error` event, so catch inside it if a failed persist should not reach the user.
+`onFinish` receives the stream's `finish` event (undefined when the stream ended with an error instead) and is not called when the execution was aborted. It runs after the last event is consumed, so iterate the stream to its end, as `toSSEStream()` and `handleSocketMessage()` do; a loop of your own that stops at `finish` never reaches it. It is awaited before the stream closes, so on a serverless runtime the function stays alive for it; an error it throws ends the stream with an `error` event, so catch inside it if a failed persist should not reach the user.
 
 To close the stream the moment the turn ends and persist afterwards, hand the work to your runtime inside the callback and return: `after()` from `next/server` on Next.js, `waitUntil()` from `@vercel/functions` on other Vercel functions. The runtime keeps the function alive for the work after the response has closed:
 
@@ -507,7 +507,7 @@ const events = session.execute(payload, {
 });
 ```
 
-`handleSocketMessage()` takes the same `onFinish` for WebSocket integrations (see [WebSocket Handling](#websocket-handling)). A browser can persist the conversation through your API instead: the client SDK's `onFinish` fires with the turn's `finish` event, and `chat.messages` is the conversation to store (see [Client SDK Messages](/docs/client-sdk/messages#session-restore)).
+`handleSocketMessage()` takes the same `onFinish` for WebSocket integrations (see [WebSocket Handling](#websocket-handling)). A browser can persist the conversation through your API instead: the client SDK's `onFinish` fires with the turn's `finish` event, and the messages after that turn are the conversation to store (see [Client SDK Messages](/docs/client-sdk/messages#session-restore)).
 
 > **Store the full `UIMessage[]` array.** It preserves every message part (text, tool calls, files, and so on) the restore rebuilds from.
 
