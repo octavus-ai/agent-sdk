@@ -372,6 +372,8 @@ A session runs at most one execution at a time. A trigger or continuation that a
 
 The response carries a `Retry-After` header, and the SDK retries 429s automatically, so a transient overlap resolves on its own. If you see persistent `SESSION_BUSY` errors, your application is sending concurrent requests to one session - serialize them (one turn at a time per session), or use separate sessions for independent conversations.
 
+A turn paused for your tools is not running, so a trigger that arrives while one is paused is not refused: it starts a new turn and ends the paused one. The paused turn's open tool calls read as cancelled, and a continuation that later delivers their results is refused with `409` and code `EXECUTION_SUPERSEDED` (`EXECUTION_SUPERSEDED_CODE`) - the conversation has moved on, and there is nothing to re-send. This is what lets a person send a new message while the agent waits on a slow tool. To finish a turn's tools before the next message, wait for its `execute()` stream to end first.
+
 ## WebSocket Handling
 
 For WebSocket integrations, use `handleSocketMessage()` which manages abort controller lifecycle internally:

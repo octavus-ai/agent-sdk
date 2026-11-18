@@ -471,6 +471,8 @@ The next leg streams from where the previous one stopped, into the same assistan
 
 A continuation for an execution the session no longer holds - it finished, expired, or was lost before its first save - returns `409` with the error code `EXECUTION_NOT_RESUMABLE`. Re-send the original trigger to start the turn over.
 
+A continuation for an execution that a later trigger on the session superseded returns `409` with the error code `EXECUTION_SUPERSEDED`. A new trigger starts a new turn and ends every execution still paused on the session (for your tool results, or between legs), so the paused turn's late results have nothing to resume: the conversation has moved on, and its open tool calls read as cancelled. There is nothing to re-send. To let a turn finish its tools before the next message, wait for its stream to end first (see [One Execution at a Time](/docs/server-sdk/sessions#one-execution-at-a-time)).
+
 ## Get Logs
 
 ```
