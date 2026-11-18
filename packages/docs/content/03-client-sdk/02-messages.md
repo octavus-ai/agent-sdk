@@ -455,12 +455,11 @@ On your backend, read the session with its messages in one snapshot:
 // Server-side
 const session = await client.sessions.get(sessionId, { includeMessages: true });
 // session.messages: UIMessage[] ready for the client's `initialMessages`
-// session.revision: the revision those messages are of
 ```
 
 ### Persisting from the browser
 
-If the browser sends the conversation to your backend after each turn, stamp it with the revision the turn's `finish` event carries. `onFinish` receives the event, and its `revision` is the session's after the turn's state was saved, so the copy your backend stores records the revision it is of without a read:
+The browser can send the conversation to your backend after each turn instead. `onFinish` fires with the turn's `finish` event once the platform has saved the turn, and `chat.messages` is then the conversation to store:
 
 ```tsx
 import { useEffect, useState } from 'react';
@@ -474,19 +473,19 @@ const { messages } = useOctavusChat({
 });
 
 // Once per finished turn, reading that turn's final messages: `finished` is
-// the only dependency on purpose, so a later edit to `messages` does not
-// persist again under a revision it is not of
+// the only dependency on purpose, so an edit to `messages` between turns does
+// not persist on its own
 useEffect(() => {
   if (!finished) return;
   void fetch(`/api/chats/${chatId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, revision: finished.revision ?? null }),
+    body: JSON.stringify({ messages }),
   });
 }, [finished]);
 ```
 
-On the next page load your backend compares the stored revision with the session's (see [Restoring Sessions](/docs/server-sdk/sessions#restoring-sessions)); equal means the platform has nothing new for it.
+Your backend stores them as the copy it restores the session from (see [Restoring Sessions](/docs/server-sdk/sessions#restoring-sessions)).
 
 ## Callbacks
 
@@ -494,7 +493,7 @@ On the next page load your backend compares the stored revision with the session
 useOctavusChat({
   transport,
   onFinish: (event) => {
-    console.log('Stream completed at revision', event.revision);
+    console.log('Stream completed:', event.finishReason);
     // Scroll to bottom, play sound, etc.
   },
   onError: (error) => {

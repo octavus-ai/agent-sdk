@@ -78,9 +78,7 @@ export interface SocketMessageHandlers {
   onEvent: (event: StreamEvent) => void;
   /**
    * Called after streaming completes (not called if aborted), with the stream's
-   * `finish` event: its `revision` is the session's after the run's last state
-   * write, for stamping a copy of the conversation persisted here. Undefined
-   * when the stream ended without one.
+   * `finish` event; undefined when the stream ended without one.
    */
   onFinish?: (finish: FinishEvent | undefined) => void | Promise<void>;
 }
@@ -348,9 +346,9 @@ export class AgentSession {
    * conn.on('data', (raw) => {
    *   session.handleSocketMessage(JSON.parse(raw), {
    *     onEvent: (event) => conn.write(JSON.stringify(event)),
-   *     onFinish: async (finish) => {
-   *       // Read the session with its messages and persist them, stamped with
-   *       // their revision, to your database for restoration
+   *     onFinish: async () => {
+   *       // Read the session with its messages and persist them to your
+   *       // database for restoration
    *     },
    *   });
    * });

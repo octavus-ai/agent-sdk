@@ -64,14 +64,14 @@ const client = new OctavusClient({
 ### Sessions API
 
 ```typescript
-// Create a session: { id, agentId, status, createdAt, updatedAt, expiresAt, revision }
+// Create a session: { id, agentId, status, createdAt, expiresAt }
 const session = await client.sessions.create(agentId, input);
 
-// Get a session (status is 'active' or 'expired', with the revision of its live state)
+// Get a session (status is 'active' or 'expired'; expiresAt says when its live state ages out)
 const current = await client.sessions.get(session.id);
 
 // The session with the conversation as UI-ready messages, in one snapshot
-const { messages, revision } = await client.sessions.get(session.id, { includeMessages: true });
+const { messages } = await client.sessions.get(session.id, { includeMessages: true });
 
 // Restore an expired session from stored messages (`restored` says whether it rebuilt the state)
 const { session: live, restored } = await client.sessions.restore(session.id, {
@@ -235,7 +235,7 @@ const events = session.trigger('user-message', input, {
 
 ### Active Sessions
 
-Sessions remain active for 24 hours of inactivity (`expiresAt` says when). Read the session with `includeMessages: true` for UI display, and store the messages with the session's `revision` to restore the session later: equal revisions are the same stored state, so your copy is current while the session still reports its revision.
+Sessions remain active for 24 hours of inactivity (`expiresAt` says when). Read the session with `includeMessages: true` for UI display, and store the messages to restore the session later.
 
 ### Expired Sessions
 
@@ -246,10 +246,8 @@ const session = await client.sessions.get(sessionId, { includeMessages: true });
 
 if (session.status === 'expired') {
   // Restore from your stored messages
-  const { session: live, restored } = await client.sessions.restore(sessionId, {
-    messages: storedMessages,
-  });
-  // restored: true when the state was rebuilt from them (stamp your copy with `live.revision`)
+  const { restored } = await client.sessions.restore(sessionId, { messages: storedMessages });
+  // restored: true when the state was rebuilt from them, false when it was still live
 }
 ```
 

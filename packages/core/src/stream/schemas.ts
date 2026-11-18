@@ -234,7 +234,6 @@ export const finishEventSchema = z.looseObject({
   type: z.literal('finish'),
   finishReason: finishReasonSchema,
   executionId: z.string().optional(),
-  revision: z.string().optional(),
 });
 
 export const providerErrorInfoSchema = z.looseObject({
@@ -447,7 +446,6 @@ export const persistedEventSchema = z.looseObject({
   executionId: z.string(),
   round: z.number().int().nonnegative(),
   messageId: z.string().optional(),
-  revision: z.string().optional(),
 });
 
 // --------------------------------- Tool --------------------------------------

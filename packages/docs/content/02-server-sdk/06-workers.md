@@ -411,20 +411,20 @@ Workers emit standard stream events plus worker-specific events.
 
 #### Common Events
 
-| Event                   | Description                                                                                    |
-| ----------------------- | ---------------------------------------------------------------------------------------------- |
-| `start`                 | Run started (`sessionId`)                                                                      |
-| `finish`                | Execution completed (carries no `revision`: a worker's session holds no conversation to stamp) |
-| `usage`                 | Cost summary (after `finish`)                                                                  |
-| `text-start`            | Text generation started                                                                        |
-| `text-delta`            | Text chunk received                                                                            |
-| `text-end`              | Text generation ended                                                                          |
-| `block-start`           | Execution block started                                                                        |
-| `block-end`             | Execution block completed                                                                      |
-| `tool-input-available`  | Tool arguments ready                                                                           |
-| `tool-output-available` | Tool result ready                                                                              |
-| `client-tool-request`   | Client tools need execution                                                                    |
-| `error`                 | Error occurred                                                                                 |
+| Event                   | Description                   |
+| ----------------------- | ----------------------------- |
+| `start`                 | Run started (`sessionId`)     |
+| `finish`                | Execution completed           |
+| `usage`                 | Cost summary (after `finish`) |
+| `text-start`            | Text generation started       |
+| `text-delta`            | Text chunk received           |
+| `text-end`              | Text generation ended         |
+| `block-start`           | Execution block started       |
+| `block-end`             | Execution block completed     |
+| `tool-input-available`  | Tool arguments ready          |
+| `tool-output-available` | Tool result ready             |
+| `client-tool-request`   | Client tools need execution   |
+| `error`                 | Error occurred                |
 
 ## Full Examples
 

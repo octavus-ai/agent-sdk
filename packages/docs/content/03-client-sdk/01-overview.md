@@ -242,7 +242,7 @@ interface OctavusChatOptions {
 
   // Optional: Callbacks
   onError?: (error: OctavusError) => void; // Structured error with type, source, retryable
-  onFinish?: (event: FinishEvent) => void; // The stream's finish event, with the session's revision
+  onFinish?: (event: FinishEvent) => void; // The stream's finish event
   onStop?: () => void; // Called when user stops generation
   onStart?: (start: { executionId: string; sessionId?: string }) => void; // Each `start` event
   onSessionCreated?: (sessionId: string) => void; // A stream first reports a session id

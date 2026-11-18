@@ -258,12 +258,7 @@ export interface OctavusChatOptions {
    * ```
    */
   onError?: (error: OctavusError) => void;
-  /**
-   * Callback when streaming finishes successfully, with the stream's `finish`
-   * event. Its `revision` is the session's after the turn's last state write:
-   * send it with the messages when you persist them from the browser, so your
-   * copy carries the revision it is of.
-   */
+  /** Callback when streaming finishes successfully, with the stream's `finish` event */
   onFinish?: (event: FinishEvent) => void;
   /** Callback when streaming is stopped by user */
   onStop?: () => void;

@@ -175,8 +175,8 @@ class SessionsApi {
   async create(agentId: string, input?: Record<string, unknown>): Promise<Session>;
 
   // Get a session (agent, creation time, active or expired, and while active
-  // its revision, updatedAt, and expiresAt); with `includeMessages`, the
-  // conversation embedded in the same snapshot
+  // its expiresAt); with `includeMessages`, the conversation embedded in the
+  // same snapshot
   async get(sessionId: string, options: { includeMessages: true }): Promise<SessionWithMessages>;
   async get(sessionId: string): Promise<Session>;
 

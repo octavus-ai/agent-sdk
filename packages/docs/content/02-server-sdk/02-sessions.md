@@ -107,11 +107,10 @@ const session = await client.sessions.get(sessionId, { includeMessages: true });
 
 if (session.status === 'active') {
   console.log(session.messages.length); // UIMessage[] ready for frontend
-  console.log(session.revision); // the revision those messages are of
 }
 ```
 
-The session and its `messages` come from one read of the state, so the `revision` on the session is the revision the messages are of, and an expired session answers `status: 'expired'` with `messages: []` instead of throwing: one call tells a conversation with no messages yet apart from one whose state has expired. The messages can be passed directly to the client SDK's `initialMessages` option.
+The session and its `messages` come from one read of the state, and an expired session answers `status: 'expired'` with `messages: []` instead of throwing: one call tells a conversation with no messages yet apart from one whose state has expired. The messages can be passed directly to the client SDK's `initialMessages` option.
 
 `getMessages()` returns the `UIMessage[]` alone. The messages are the session's live state, so on an expired session it fails with the code `SESSION_EXPIRED`, like a trigger would; use it where you already know the session is active.
 
@@ -121,7 +120,7 @@ const messages = await client.sessions.getMessages(sessionId);
 
 ## The Session
 
-`get()` returns the session: the agent it belongs to, when it was created, whether its state is still `active` or has `expired`, and while it is active, which write of the state it is (`revision`), when that write happened (`updatedAt`), and when the state ages out if nothing writes it again (`expiresAt`). `create()` and `clear()` return the same shape, and `restore()` returns it as `session` beside what the restore did.
+`get()` returns the session: the agent it belongs to, when it was created, whether its state is still `active` or has `expired`, and while it is active, when the state ages out if nothing writes it again (`expiresAt`). `create()` and `clear()` return the same shape, and `restore()` returns it as `session` beside what the restore did.
 
 ```typescript
 const session = await client.sessions.get(sessionId);
@@ -131,9 +130,7 @@ console.log({
   agentId: session.agentId,
   status: session.status, // 'active' | 'expired'
   createdAt: session.createdAt,
-  updatedAt: session.updatedAt, // when the state was last written; null when expired
   expiresAt: session.expiresAt, // when it ages out if left idle; null when expired
-  revision: session.revision, // opaque token of the last write; null when expired
 });
 ```
 
@@ -143,13 +140,9 @@ interface Session {
   agentId: string;
   status: 'active' | 'expired';
   createdAt: string; // ISO 8601
-  updatedAt: string | null;
   expiresAt: string | null;
-  revision: string | null;
 }
 ```
-
-`revision` is the whole sync protocol between your copy of the conversation and the platform's: equal revisions are the same stored state, so a copy stamped with a revision is current while the session still reports it, and a different revision means the state was written since. It changes on every write, including ones that change no visible message (a checkpoint, a compaction), so compare it for equality only and never parse or order it. The [finish event](#persisting-chat-history) of a turn carries the revision the turn left behind.
 
 The full execution record (every tool call, model request, and error) is read with `getLogs()`.
 
@@ -393,10 +386,9 @@ conn.on('data', async (rawData: string) => {
   if (msg.type === 'trigger' || msg.type === 'continue' || msg.type === 'stop') {
     await session.handleSocketMessage(msg as SocketMessage, {
       onEvent: (event) => conn.write(JSON.stringify(event)),
-      onFinish: async (finish) => {
-        // Read the session with its messages and persist them, stamped with
-        // their revision (see Persisting Chat History); `finish?.revision` is
-        // the revision the turn left behind.
+      onFinish: async () => {
+        // Read the session with its messages and persist them to your
+        // database (see Persisting Chat History)
       },
     });
   }
@@ -443,7 +435,7 @@ flowchart TD
 
     D -.- D1["`**client.sessions.get()**
     The session, with **includeMessages**
-    for the conversation and its revision`"]
+    for the conversation`"]
 
     E -.- E1["`Sessions expire after
     24 hours (configurable)`"]
@@ -468,7 +460,7 @@ if (session.status === 'expired') {
   // Session has expired - restore or create new
   console.log('Session expired:', session.id);
 } else {
-  console.log('Live until', session.expiresAt, 'at revision', session.revision);
+  console.log('Live until', session.expiresAt);
 }
 ```
 
@@ -476,7 +468,7 @@ A trigger on an expired session fails with `409` and the code `SESSION_EXPIRED` 
 
 ## Persisting Chat History
 
-To enable session restoration, store the conversation in your own database after each turn, stamped with the revision it is of. Read the session with its messages in one snapshot, so the two agree:
+To enable session restoration, store the conversation in your own database after each turn. Read the session with its messages in one snapshot: the platform saves the turn's state before it sends `finish`, so the read after it returns the turn's messages.
 
 ```typescript
 for await (const event of session.execute(request, { signal })) {
@@ -490,7 +482,6 @@ for await (const event of session.execute(request, { signal })) {
         data: {
           sessionId,
           messages: current.messages, // Store UIMessage[] as JSON
-          revision: current.revision, // the revision those messages are of
         },
       });
     }
@@ -498,7 +489,7 @@ for await (const event of session.execute(request, { signal })) {
 }
 ```
 
-The `finish` event carries `revision` too: the platform saves the turn's state before it sends `finish`, so `event.revision` is the revision a read returns until the next write (`current.revision` equals it unless another turn already ran). It lets a copy be stamped without a read, which is what a browser persisting `chat.messages` through your API does: the client SDK's `onFinish` receives the event, and your API stores the messages with `event.revision` (see [Client SDK Messages](/docs/client-sdk/messages#session-restore)).
+A browser can persist the conversation through your API instead: the client SDK's `onFinish` fires with the turn's `finish` event, and `chat.messages` is the conversation to store (see [Client SDK Messages](/docs/client-sdk/messages#session-restore)).
 
 > **Store the full `UIMessage[]` array.** It preserves every message part (text, tool calls, files, and so on) the restore rebuilds from.
 
@@ -508,7 +499,7 @@ For an agent with [context management](/docs/protocol/context-management), the m
 
 ## Restoring Sessions
 
-When a user returns to your app, one read tells you where your copy stands:
+When a user returns to your app, one read tells you whether the session is still live:
 
 ```typescript
 // 1. Load stored data from your database
@@ -518,13 +509,7 @@ const chat = await db.chats.findUnique({ where: { id: chatId } });
 const session = await client.sessions.get(chat.sessionId, { includeMessages: true });
 
 if (session.status === 'active') {
-  // Live: the platform's conversation is the truth. Record where the copy stands.
-  if (session.revision !== chat.revision) {
-    await db.chats.update({
-      where: { id: chatId },
-      data: { messages: session.messages, revision: session.revision },
-    });
-  }
+  // Live: the platform's conversation is the truth
   return { sessionId: session.id, messages: session.messages };
 }
 
@@ -535,18 +520,14 @@ if (chat.messages.length > 0) {
     input: { COMPANY_NAME: 'Acme Corp' }, // Optional: same input as create()
   });
 
-  if (restored || live.revision === chat.revision) {
-    // The copy is the conversation: stamp it with the revision it now is
-    await db.chats.update({ where: { id: chatId }, data: { revision: live.revision } });
+  if (restored) {
+    // The copy is the conversation
     return { sessionId: live.id, messages: chat.messages };
   }
 
   // Someone restored or advanced the session in between: read the live conversation
   const current = await client.sessions.get(live.id, { includeMessages: true });
-  await db.chats.update({
-    where: { id: chatId },
-    data: { messages: current.messages, revision: current.revision },
-  });
+  await db.chats.update({ where: { id: chatId }, data: { messages: current.messages } });
   return { sessionId: current.id, messages: current.messages };
 }
 
@@ -561,9 +542,9 @@ return {
 };
 ```
 
-`restore()` returns the session, `active`, and `restored`: `true` when its state was rebuilt from your messages (the session's `revision` is the one the restore wrote, and your messages are that revision), `false` when the state was still live and was left as it is (your messages were not applied). A restore on a live session is never an error, so two restores racing both succeed, and a retry after a lost response is safe. The second argument names what the state is rebuilt from: the stored `messages`, with the session `input` the system prompt is rebuilt with.
+`restore()` returns the session, `active`, and `restored`: `true` when its state was rebuilt from your messages, `false` when the state was still live and was left as it is (your messages were not applied). A restore on a live session is never an error, so two restores racing both succeed, and a retry after a lost response is safe. The second argument names what the state is rebuilt from: the stored `messages`, with the session `input` the system prompt is rebuilt with.
 
-One request in the common case, two when the session expired, three only in a race, and every branch ends with your copy stamped at the revision it holds.
+One request in the common case, two when the session expired, three only in a race.
 
 ## Complete Example
 
@@ -582,16 +563,10 @@ async function getOrCreateSession(chatId: string, agentId: string, input: Record
   const chat = await db.chats.findUnique({ where: { id: chatId } });
 
   if (chat?.sessionId) {
-    // The session with its messages and revision, in one snapshot
+    // The session with its messages, in one snapshot
     const session = await client.sessions.get(chat.sessionId, { includeMessages: true });
 
     if (session.status === 'active') {
-      if (session.revision !== chat.revision) {
-        await db.chats.update({
-          where: { id: chatId },
-          data: { messages: session.messages, revision: session.revision },
-        });
-      }
       return { sessionId: session.id, messages: session.messages };
     }
 
@@ -601,27 +576,23 @@ async function getOrCreateSession(chatId: string, agentId: string, input: Record
         messages: chat.messages,
         input,
       });
-      if (restored || live.revision === chat.revision) {
-        await db.chats.update({ where: { id: chatId }, data: { revision: live.revision } });
+      if (restored) {
         return { sessionId: live.id, messages: chat.messages };
       }
       const current = await client.sessions.get(live.id, { includeMessages: true });
-      await db.chats.update({
-        where: { id: chatId },
-        data: { messages: current.messages, revision: current.revision },
-      });
+      await db.chats.update({ where: { id: chatId }, data: { messages: current.messages } });
       return { sessionId: current.id, messages: current.messages };
     }
   }
 
   // Create new session
-  const { id: sessionId, revision } = await client.sessions.create(agentId, input);
+  const { id: sessionId } = await client.sessions.create(agentId, input);
 
   // Save to database
   await db.chats.upsert({
     where: { id: chatId },
-    create: { id: chatId, sessionId, messages: [], revision },
-    update: { sessionId, messages: [], revision },
+    create: { id: chatId, sessionId, messages: [] },
+    update: { sessionId, messages: [] },
   });
 
   return { sessionId, messages: [] };
@@ -635,7 +606,7 @@ To programmatically clear a session's state (e.g., for testing reset/restore flo
 ```typescript
 const session = await client.sessions.clear(sessionId);
 console.log(session.status); // 'expired'
-console.log(session.revision); // null: there is no live state to describe
+console.log(session.expiresAt); // null: there is no live state to age out
 ```
 
 After clearing, the session is `expired`. You can then restore it with `restore()` or create a new session.

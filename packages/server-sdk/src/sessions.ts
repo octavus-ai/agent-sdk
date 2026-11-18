@@ -18,20 +18,16 @@ import type { ToolResultTruncation } from '@/tool-result-size.js';
 
 export const sessionStatusSchema = z.enum(['active', 'expired']);
 
-/** A string the platform sends as null (or leaves out) once it no longer applies. */
-const nullableString = z
-  .string()
-  .nullish()
-  .transform((value) => value ?? null);
-
 export const sessionSchema = z.looseObject({
   id: z.string(),
   agentId: z.string(),
   status: sessionStatusSchema,
   createdAt: z.string(),
-  updatedAt: nullableString,
-  expiresAt: nullableString,
-  revision: nullableString,
+  // Null once expired; absent from a platform that predates the field.
+  expiresAt: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? null),
 });
 
 const sessionWithMessagesSchema = sessionSchema.extend({
@@ -72,33 +68,22 @@ export type SessionStatus = 'active' | 'expired';
  * `active` or has `expired` (aged out or cleared). An expired session is
  * restored from the messages you stored with `restore()`.
  *
- * While the state is `active`, `revision` names its last write, `updatedAt`
- * says when that write happened, and `expiresAt` when the state ages out if
- * nothing writes it again (every execution moves it). All three are null once
- * the state has expired.
+ * While the state is `active`, `expiresAt` says when it ages out if nothing
+ * writes it again (every execution moves it); null once it has expired.
  */
 export interface Session {
   id: string;
   agentId: string;
   status: SessionStatus;
   createdAt: string;
-  /** When the session's state was last written. Null when expired. */
-  updatedAt: string | null;
   /** When the session's state ages out if nothing writes it again. Null when expired. */
   expiresAt: string | null;
-  /**
-   * An opaque token of the state's last write. Equal revisions are the same
-   * stored state, so a copy of the conversation stamped with a revision is
-   * current while the session still reports it; a different revision means
-   * the state was written since. Compare for equality only. Null when expired.
-   */
-  revision: string | null;
 }
 
 /**
  * The session with its conversation embedded: `messages` as `getMessages()`
- * returns them, read in the same snapshot as the session's `revision`. Empty
- * once the session's state has expired.
+ * returns them, read in the same snapshot as the session's status. Empty once
+ * the session's state has expired.
  */
 export interface SessionWithMessages extends Session {
   messages: UIMessage[];
@@ -121,13 +106,11 @@ export interface SessionRestoreFromMessages {
 
 /** What a `restore()` did. */
 export interface SessionRestoreResult {
-  /** The session, `active`: at the revision the restore wrote, or the live one it left as it was. */
+  /** The session, `active`. */
   session: Session;
   /**
-   * True when the state was rebuilt from what you sent (the session's
-   * `revision` is the one the restore wrote, and the messages you sent are
-   * that revision); false when the state was still live and was left as it
-   * is (what you sent was not applied).
+   * True when the state was rebuilt from what you sent; false when the state
+   * was still live and was left as it is (what you sent was not applied).
    */
   restored: boolean;
 }
@@ -135,7 +118,7 @@ export interface SessionRestoreResult {
 export interface GetSessionOptions {
   /**
    * Embed the conversation on the session (`SessionWithMessages`), read in
-   * one snapshot with the session's `revision`.
+   * one snapshot with the session's status.
    */
   includeMessages?: boolean;
 }
@@ -210,11 +193,10 @@ export class SessionsApi extends BaseApiClient {
 
   /**
    * Get a session: its agent, when it was created, whether its state is still
-   * `active` or has `expired`, and while it is active its `revision`,
-   * `updatedAt`, and `expiresAt`. With `includeMessages`, the conversation is
-   * embedded as `messages`, read in the same snapshot as the `revision`: the
-   * one read for a page load, since an expired session answers `expired` with
-   * empty messages instead of throwing.
+   * `active` or has `expired`, and while it is active its `expiresAt`. With
+   * `includeMessages`, the conversation is embedded as `messages`, read in the
+   * same snapshot as the status: the one read for a page load, since an
+   * expired session answers `expired` with empty messages instead of throwing.
    */
   get(sessionId: string, options: { includeMessages: true }): Promise<SessionWithMessages>;
   get(sessionId: string, options?: GetSessionOptions): Promise<Session>;
@@ -234,8 +216,8 @@ export class SessionsApi extends BaseApiClient {
    * Get the session's conversation as the UI renders it: the visible messages,
    * each part revealing what its display mode allows. Pass them to
    * `initialMessages` on the client, and store them to restore the session
-   * later with `restore()`. The messages are the session's live
-   * state: an expired session fails with the code `SESSION_EXPIRED`
+   * later with `restore()`. The messages are the session's live state: an
+   * expired session fails with the code `SESSION_EXPIRED`
    * (`SESSION_EXPIRED_CODE`), like any operation that needs the live state.
    * To read the session and its messages together whatever its status, use
    * `get(sessionId, { includeMessages: true })`.

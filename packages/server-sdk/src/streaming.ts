@@ -4,7 +4,6 @@ import {
   isTransientTransportError,
   displayReveals,
   OctavusError,
-  type FinishEvent,
   type StreamEvent,
   type ToolHandlers,
   type PendingToolCall,
@@ -297,10 +296,6 @@ export async function* executeStream(
     // Captured from the trigger/continue stream; read after the body is fully
     // consumed to decide whether to execute pending tools and continue.
     let pendingToolCalls: PendingToolCall[] | null = null;
-    // The platform's `finish` for this leg. A pause handed to the client is
-    // reported with a synthesized finish, which carries this one's `revision`:
-    // the paused state it names is what the platform saved.
-    let legFinish: FinishEvent | undefined;
     // The server ended this leg of the execution at its time budget with
     // nothing to run (`finish: continue`); the same execution is resumed with
     // an empty continuation once the body is consumed.
@@ -505,7 +500,6 @@ export async function* executeStream(
               }
 
               if (event.type === 'finish') {
-                legFinish = event;
                 if (event.finishReason === 'tool-calls' && pendingToolCalls) {
                   continue;
                 }
@@ -664,12 +658,7 @@ export async function* executeStream(
       return;
     }
     yield { type: 'client-tool-request', executionId, toolCalls: unhandledCalls };
-    yield {
-      type: 'finish',
-      finishReason: 'client-tool-calls',
-      executionId,
-      revision: legFinish?.revision,
-    };
+    yield { type: 'finish', finishReason: 'client-tool-calls', executionId };
     continueLoop = false;
   }
 }
