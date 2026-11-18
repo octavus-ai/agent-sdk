@@ -70,7 +70,7 @@ export type SessionStatus = 'active' | 'expired';
 /**
  * A session: its agent, when it was created, and whether its state is still
  * `active` or has `expired` (aged out or cleared). An expired session is
- * restored from the messages you stored with `restoreFromMessages()`.
+ * restored from the messages you stored with `restore()`.
  *
  * While the state is `active`, `revision` names its last write, `updatedAt`
  * says when that write happened, and `expiresAt` when the state ages out if
@@ -105,13 +105,30 @@ export interface SessionWithMessages extends Session {
 }
 
 /**
- * The session `restoreFromMessages()` returns, `active`, with whether the call
- * rebuilt its state: `restored` is true when the state was rebuilt from the
- * messages (the session's `revision` is the one the restore wrote, and the
- * messages you sent are that revision), false when the state was still live
- * and was left as it is (the messages you sent were not applied).
+ * What `restore()` rebuilds an expired session's state from: the conversation
+ * you stored. The messages carry what their display modes revealed: a `stream`
+ * tool call comes back with its arguments and result, a `title` call with
+ * empty arguments and a placeholder result, and a `hidden` call not at all,
+ * so set `display: stream` on the tools whose results the model should still
+ * have after a restore.
  */
-export interface RestoredSession extends Session {
+export interface SessionRestoreFromMessages {
+  /** The stored `UIMessage[]`, as `get(sessionId, { includeMessages: true })` or `getMessages()` returned them. */
+  messages: UIMessage[];
+  /** The session input the system prompt is rebuilt with (the same input as `create()`). */
+  input?: Record<string, unknown>;
+}
+
+/** What a `restore()` did. */
+export interface SessionRestoreResult {
+  /** The session, `active`: at the revision the restore wrote, or the live one it left as it was. */
+  session: Session;
+  /**
+   * True when the state was rebuilt from what you sent (the session's
+   * `revision` is the one the restore wrote, and the messages you sent are
+   * that revision); false when the state was still live and was left as it
+   * is (what you sent was not applied).
+   */
   restored: boolean;
 }
 
@@ -217,7 +234,7 @@ export class SessionsApi extends BaseApiClient {
    * Get the session's conversation as the UI renders it: the visible messages,
    * each part revealing what its display mode allows. Pass them to
    * `initialMessages` on the client, and store them to restore the session
-   * later with `restoreFromMessages()`. The messages are the session's live
+   * later with `restore()`. The messages are the session's live
    * state: an expired session fails with the code `SESSION_EXPIRED`
    * (`SESSION_EXPIRED_CODE`), like any operation that needs the live state.
    * To read the session and its messages together whatever its status, use
@@ -232,36 +249,48 @@ export class SessionsApi extends BaseApiClient {
   }
 
   /**
-   * Restore an expired session from the messages you stored (the `UIMessage[]`
-   * that `getMessages()` returned). The messages carry what their display
-   * modes revealed: a `stream` tool call comes back with its arguments and
-   * result, a `title` call with empty arguments and a placeholder result, and
-   * a `hidden` call not at all - so set `display: stream` on the tools whose
-   * results the model should still have after a restore.
+   * Restore an expired session from what you stored, so the conversation
+   * continues after the server-side state has expired. A session whose state
+   * is still live is left as it is: a restore is never an error, so two
+   * restores racing both succeed and a retry after a lost response is safe.
    *
    * @param sessionId - The session ID to restore
-   * @param messages - The stored `UIMessage[]`
-   * @param input - Optional session input for system prompt interpolation (same as create)
-   * @returns The session, `active`, with `restored`: true when its state was
-   * rebuilt from the messages, false when it was still live and left as it is
+   * @param from - The stored conversation (`messages`) and the session `input`
+   * @returns The session, `active`, and `restored`: true when its state was
+   * rebuilt from what you sent, false when it was still live and left as it is
+   */
+  async restore(
+    sessionId: string,
+    from: SessionRestoreFromMessages,
+  ): Promise<SessionRestoreResult> {
+    const { status, data } = await this.httpPostWithStatus(
+      `/api/v1/sessions/${sessionId}/restore`,
+      { messages: from.messages, input: from.input },
+      sessionSchema,
+    );
+    return { session: data, restored: status === 201 };
+  }
+
+  /**
+   * Restore an expired session from the messages you stored.
+   *
+   * @deprecated Use `restore(sessionId, { messages, input })`, which also
+   * reports whether the state was rebuilt.
+   * @returns The session, `active` (a session that was still active is left as it is)
    */
   async restoreFromMessages(
     sessionId: string,
     messages: UIMessage[],
     input?: Record<string, unknown>,
-  ): Promise<RestoredSession> {
-    const { status, data } = await this.httpPostWithStatus(
-      `/api/v1/sessions/${sessionId}/restore`,
-      { messages, input },
-      sessionSchema,
-    );
-    return { ...data, restored: status === 201 };
+  ): Promise<Session> {
+    const { session } = await this.restore(sessionId, { messages, input });
+    return session;
   }
 
   /**
    * Clear the session's state from the server. The session becomes `expired`
-   * and can be restored with `restoreFromMessages()`. Idempotent: succeeds
-   * when the state was already gone.
+   * and can be restored with `restore()`. Idempotent: succeeds when the state
+   * was already gone.
    */
   async clear(sessionId: string): Promise<Session> {
     return await this.httpPost(`/api/v1/sessions/${sessionId}/clear`, {}, sessionSchema);

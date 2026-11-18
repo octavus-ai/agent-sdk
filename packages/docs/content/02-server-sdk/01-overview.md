@@ -183,13 +183,12 @@ class SessionsApi {
   // Get the conversation as UI-ready messages (SESSION_EXPIRED once the session expired)
   async getMessages(sessionId: string): Promise<UIMessage[]>;
 
-  // Restore an expired session from stored messages; `restored` says whether
-  // the state was rebuilt or was still live
-  async restoreFromMessages(
+  // Restore an expired session from stored messages: `{ session, restored }`,
+  // where `restored` says whether the state was rebuilt or was still live
+  async restore(
     sessionId: string,
-    messages: UIMessage[],
-    input?: Record<string, unknown>,
-  ): Promise<RestoredSession>;
+    from: { messages: UIMessage[]; input?: Record<string, unknown> },
+  ): Promise<SessionRestoreResult>;
 
   // Clear the session's state; it becomes expired
   async clear(sessionId: string): Promise<Session>;

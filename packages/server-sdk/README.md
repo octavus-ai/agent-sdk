@@ -74,7 +74,10 @@ const current = await client.sessions.get(session.id);
 const { messages, revision } = await client.sessions.get(session.id, { includeMessages: true });
 
 // Restore an expired session from stored messages (`restored` says whether it rebuilt the state)
-const { restored } = await client.sessions.restoreFromMessages(session.id, storedMessages, input);
+const { session: live, restored } = await client.sessions.restore(session.id, {
+  messages: storedMessages,
+  input,
+});
 
 // Clear session state (the session becomes expired)
 await client.sessions.clear(session.id);
@@ -243,11 +246,10 @@ const session = await client.sessions.get(sessionId, { includeMessages: true });
 
 if (session.status === 'expired') {
   // Restore from your stored messages
-  const { restored, revision } = await client.sessions.restoreFromMessages(
-    sessionId,
-    storedMessages,
-  );
-  // restored: true when the state was rebuilt from them (stamp your copy with `revision`)
+  const { session: live, restored } = await client.sessions.restore(sessionId, {
+    messages: storedMessages,
+  });
+  // restored: true when the state was rebuilt from them (stamp your copy with `live.revision`)
 }
 ```
 
