@@ -9,6 +9,8 @@ The server exposes a focused set of tools. Read tools are available on any conne
 
 Tools are namespaced by product surface: `*_platform_*` tools work with the agents you build yourself, and `*_workforce_*` tools work with your Octavus Agents. They are different things and never overlap.
 
+The [Platform agents](#platform-agents) and [Sessions](#sessions) tools are available to organizations with Platform access. The Octavus Agents, Skills, Models, and Documentation tools are available to every organization.
+
 ## Platform agents
 
 The agents you build with the SDK/CLI, inside a project - distinct from your [Octavus Agents](#octavus-agents) below. `get_platform_agent` and `archive_platform_agent` take the agent's `agentId` from `list_platform_agents`; `deploy_platform_agent` addresses the agent by the `slug` in its settings (like `octavus sync`).
@@ -54,6 +56,7 @@ Your Octavus Agents (the "workforce") - distinct from the platform agents above.
 | `list_workforce_threads`  | read   | List an agent's chat threads (needs its `agentId`).                                                                                          |
 | `read_workforce_thread`   | read   | Read a thread's messages and status (needs `agentId` + `threadId`). Pass `wait: true` to long-poll (bounded ~25s; may return still-running). |
 | `send_to_workforce_agent` | write  | Send a message to an agent by `agentId`, starting or continuing a thread.                                                                    |
+| `cancel_workforce_thread` | write  | Stop a thread's in-flight run (needs `agentId` + `threadId`), like the dashboard's Stop button. A thread that already finished is unchanged. |
 
 ### Sending a task and reading the result
 
