@@ -3,6 +3,12 @@ import { NAMESPACE_SEPARATOR, type McpDiagnostics } from './entries';
 
 export type EntryStatus = 'connected' | 'degraded';
 
+/**
+ * The status tool of an MCP entry: one definition whatever the entry's state,
+ * so the tool list the model sees does not change when the entry connects,
+ * degrades, or recovers. The state travels in the tool's result: whether the
+ * capability is available and its tools, or what is wrong and how to fix it.
+ */
 export function createStatusTool(
   namespace: string,
   status: EntryStatus,
@@ -12,14 +18,9 @@ export function createStatusTool(
 ): { handler: ToolHandler; schema: ToolSchema } {
   const toolName = `${namespace}${NAMESPACE_SEPARATOR}status`;
 
-  const description =
-    status === 'degraded'
-      ? `The ${namespace} capability is currently unavailable. Call this tool to diagnose the issue and get fix instructions.`
-      : `Check the health of the ${namespace} capability and list available tools.`;
-
   const schema: ToolSchema = {
     name: toolName,
-    description,
+    description: `Check the health of the ${namespace} capability: whether it is available and which tools it offers, or, when it is unavailable, what is wrong and how to fix it.`,
     inputSchema: { type: 'object', properties: {} },
   };
 
