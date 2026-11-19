@@ -97,21 +97,21 @@ Every response, success or error, carries the request's ID in the `Request-Id` h
 
 ## HTTP Status Codes
 
-| Code | Description                                                                                               |
-| ---- | --------------------------------------------------------------------------------------------------------- |
-| 200  | Success                                                                                                   |
-| 201  | Created                                                                                                   |
-| 400  | Bad Request - Invalid parameters (`issues` lists them)                                                    |
-| 401  | Unauthorized - Missing or invalid API key                                                                 |
-| 402  | Payment Required - A plan limit was reached                                                               |
-| 403  | Forbidden - Insufficient permissions                                                                      |
-| 404  | Not Found - The resource does not exist, or the path is not an endpoint                                   |
-| 409  | Conflict - The state does not allow the request (an expired session, a busy agent)                        |
-| 422  | Unprocessable - The agent definition is invalid (`issues` says why)                                       |
-| 426  | Upgrade Required - The path prefix is no longer served (see [Versioning](/docs/api-reference/versioning)) |
-| 429  | Too Many Requests - Honor `Retry-After`                                                                   |
-| 500  | Internal Server Error                                                                                     |
-| 503  | Service Unavailable - Honor `Retry-After`                                                                 |
+| Code | Description                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------- |
+| 200  | Success                                                                                                       |
+| 201  | Created                                                                                                       |
+| 400  | Bad Request - Invalid parameters (`issues` lists them)                                                        |
+| 401  | Unauthorized - Missing or invalid API key                                                                     |
+| 402  | Payment Required - A plan limit was reached                                                                   |
+| 403  | Forbidden - Insufficient permissions, or the organization has no Platform access (`PLATFORM_ACCESS_REQUIRED`) |
+| 404  | Not Found - The resource does not exist, or the path is not an endpoint                                       |
+| 409  | Conflict - The state does not allow the request (an expired session, a busy agent)                            |
+| 422  | Unprocessable - The agent definition is invalid (`issues` says why)                                           |
+| 426  | Upgrade Required - The path prefix is no longer served (see [Versioning](/docs/api-reference/versioning))     |
+| 429  | Too Many Requests - Honor `Retry-After`                                                                       |
+| 500  | Internal Server Error                                                                                         |
+| 503  | Service Unavailable - Honor `Retry-After`                                                                     |
 
 ## Service Status
 
