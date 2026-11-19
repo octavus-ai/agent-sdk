@@ -392,7 +392,7 @@ secrets:
 You can test scripts locally by piping JSON to stdin:
 
 ```bash
-echo '{"repo": "octavus-ai/agent-sdk"}' | GITHUB_TOKEN=ghp_xxx python scripts/list-issues.py
+echo '{"repo": "octaviusai/agent-sdk"}' | GITHUB_TOKEN=ghp_xxx python scripts/list-issues.py
 ```
 
 ## Skill Development Tips
