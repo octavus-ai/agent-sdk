@@ -15,6 +15,8 @@ Once connected, your tool can:
 - **Read and author skills** - browse the skills available to your organization, read a skill's full `SKILL.md` and scripts, and create or update your custom skills straight from your editor.
 - **Read the documentation** - search the Octavus docs and fetch any page as markdown, so your tool answers from the real docs instead of guessing.
 
+The platform agent, session, and documentation tools are available to organizations with Platform access; the Octavus Agents, skills, and models tools are available to every organization. See [Tools](/docs/mcp/tools).
+
 ## How it works
 
 The MCP server is a **remote HTTP server** - there is no package to install and no local process to run. You point your client at one URL and sign in with your Octavus account through OAuth:
