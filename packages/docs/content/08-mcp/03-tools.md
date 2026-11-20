@@ -9,7 +9,7 @@ The server exposes a focused set of tools. Read tools are available on any conne
 
 Tools are namespaced by product surface: `*_platform_*` tools work with the agents you build yourself, and `*_workforce_*` tools work with your Octavus Agents. They are different things and never overlap.
 
-The [Platform agents](#platform-agents) and [Sessions](#sessions) tools are available to organizations with Platform access. The Octavus Agents, Skills, Models, and Documentation tools are available to every organization.
+The [Platform agents](#platform-agents), [Sessions](#sessions), and [Documentation](#documentation) tools are available to organizations with Platform access. The Octavus Agents, Skills, and Models tools are available to every organization.
 
 ## Platform agents
 
@@ -80,7 +80,7 @@ Read any [skill](/docs/protocol/skills) available to your organization, and - on
 
 The write loop mirrors editing an agent:
 
-1. `fetch_documentation` with the slug `protocol/skills` to read the `SKILL.md` contract (frontmatter fields, scripts, secrets).
+1. Read the `SKILL.md` contract (frontmatter fields, scripts, secrets) in [Skills](/docs/protocol/skills), or `get_skill` a public Octavus skill as a worked example. On a connection with the [Documentation](#documentation) tools, `fetch_documentation` with the slug `protocol/skills` reads the same page.
 2. Design the `SKILL.md` body and any `scripts/` locally (or `get_skill` an existing one to edit it).
 3. `save_skill` with the `slug`, `description`, `body`, and `files`. Send only the files that changed - they merge by path - or pass `replace: true` to replace the whole set.
 
@@ -98,7 +98,7 @@ Outside your editor, the same catalog is available as a public REST endpoint - s
 
 ## Documentation
 
-Read the Octavus documentation from inside your AI tool, so it can answer from the real docs instead of guessing or browsing the web. Both tools are available on any connection.
+Read the Octavus developer documentation from inside your AI tool, so it can answer from the real docs instead of guessing or browsing the web. Both are read tools, available on any connection of an organization with Platform access.
 
 | Tool                   | Access | Description                                                                                            |
 | ---------------------- | ------ | ------------------------------------------------------------------------------------------------------ |
